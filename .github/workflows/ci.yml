@@ -1,0 +1,120 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  cpp-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          [
+            ubuntu-24.04,
+            ubuntu-24.04-arm,
+            macos-26,
+            windows-2025,
+            windows-11-arm,
+          ]
+        config: [Release]
+        include:
+          - runs-on: ubuntu-24.04
+            config: Debug
+          - runs-on: macos-26
+            config: Debug
+          - runs-on: windows-2025
+            config: Debug
+    uses: ./.github/workflows/cpp-tests.yml
+    with:
+      runs-on: ${{ matrix.runs-on }}
+      config: ${{ matrix.config }}
+  cpp-install-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-24.04, macos-26, windows-2025]
+    uses: ./.github/workflows/cpp-install-tests.yml
+    with:
+      runs-on: ${{ matrix.runs-on }}
+  cpp-sanitizers:
+    uses: ./.github/workflows/cpp-sanitizers.yml
+  cpp-coverage:
+    uses: ./.github/workflows/cpp-coverage.yml
+    permissions:
+      contents: read
+      id-token: write
+  cpp-linter:
+    uses: ./.github/workflows/cpp-linter.yml
+    with:
+      clang-version: 21
+      files-changed-only: false
+    permissions:
+      contents: read
+      pull-requests: write
+  python-linter:
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@063c90c8e7e094bfffb73f8436eb55341c1e820f # v2.3.0
+    with:
+      check-stubs: false
+      enable-ty: true
+      enable-mypy: false
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.14"
+      - run: uvx nox -s lint
+  python-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.14"
+      - run: uvx nox -s tests minimums
+  build-sdist:
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@063c90c8e7e094bfffb73f8436eb55341c1e820f # v2.3.0
+  build-wheel:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-24.04, ubuntu-24.04-arm, macos-26, windows-2025]
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@063c90c8e7e094bfffb73f8436eb55341c1e820f # v2.3.0
+    with:
+      runs-on: ${{ matrix.runs-on }}
+  documentation:
+    uses: ./.github/workflows/documentation.yml
+  required-checks-pass:
+    name: Required checks
+    if: always()
+    needs:
+      [
+        cpp-tests,
+        cpp-install-tests,
+        cpp-sanitizers,
+        cpp-coverage,
+        cpp-linter,
+        python-linter,
+        lint,
+        python-tests,
+        build-sdist,
+        build-wheel,
+        documentation,
+      ]
+    runs-on: ubuntu-slim
+    steps:
+      - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          jobs: ${{ toJSON(needs) }}

@@ -1,0 +1,235 @@
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
+# All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+#
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+[build-system]
+requires = ["scikit-build-core>=1.0.3"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ibm-qdmi"
+dynamic = ["version"]
+requires-python = ">=3.11"
+
+description = "IBM QDMI Device scaffold"
+readme = "README.md"
+authors = [
+  { name = "Marcel Walter", email = "marcel@mq.sc" },
+  { name = "Lukas Burgholzer", email = "lukas@mq.sc" },
+]
+
+license = "Apache-2.0 WITH LLVM-exception"
+license-files = ["LICENSE"]
+
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: English",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Quantum Computing",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/munich-quantum-software/ibm-qdmi-device"
+Issues = "https://github.com/munich-quantum-software/ibm-qdmi-device/issues"
+
+[dependency-groups]
+build = [
+  "scikit-build-core>=1.0.3",
+  "build>=1.2.2",
+]
+test = [
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "pytest-sugar>=1.1.1",
+  "pytest-xdist>=3.8.0",
+]
+typecheck = [
+  {include-group = "test"},
+  {include-group = "docs"},
+  "nox>=2026.8.10",
+]
+docs = [
+  "furo>=2025.12.19",
+  "myst-nb>=1.4.0",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.7.0",
+  "sphinx>=9.0",
+]
+dev = [
+  {include-group = "build"},
+  {include-group = "test"},
+  "nox>=2026.8.10",
+]
+
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = "CMakeLists.txt"
+ninja.make-fallback = true
+build-dir = "build/wheel/{wheel_tag}/{build_type}"
+build.targets = ["ibm-qdmi-device"]
+wheel.py-api = "py311"
+wheel.expand-macos-universal-tags = true
+wheel.packages = ["python/ibm"]
+wheel.install-dir = "ibm/qdmi/data"
+install.components = ["ibm-qdmi-device_Runtime", "ibm-qdmi-device_Development"]
+
+sdist.include = ["python/ibm/qdmi/_version.py"]
+sdist.exclude = [
+  "**/docs",
+  "**/test",
+  ".*",
+]
+
+[tool.scikit-build.cmake.define]
+BUILD_IBM_QDMI_TESTS = "OFF"
+CMAKE_INSTALL_LIBDIR = "lib"
+
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.regex"
+field = "version"
+input = "CMakeLists.txt"
+regex = 'project\(\s*ibm-qdmi-device\s+VERSION\s+(?P<value>\d+\.\d+\.\d+)\s'
+
+[[tool.scikit-build.generate]]
+path = "ibm/qdmi/_version.py"
+template = '''
+version = "${version}"
+'''
+
+
+[tool.pytest]
+minversion = "9.0"
+strict = true
+addopts = [
+  "-ra",
+  "--numprocesses=auto", # Automatically use all available CPU cores for parallel testing
+]
+filterwarnings = [
+  "error",
+]
+log_level = "INFO"
+testpaths = ["test/python"]
+
+
+[tool.coverage]
+run.source = ["ibm.qdmi"]
+run.core = "sysmon"
+run.parallel = true
+run.disable_warnings = [
+  "no-sysmon",
+]
+report.exclude_also = [
+  '\.\.\.',
+  'if TYPE_CHECKING:',
+  'raise AssertionError',
+  'raise NotImplementedError',
+  'def __dir__()',  # Ignore __dir__ method that exists mainly for better IDE support
+  '@overload'  # Overloads are only for static typing
+]
+
+
+[tool.ruff]
+line-length = 120
+namespace-packages = ["ibm"]
+preview = true
+fix = true
+unsafe-fixes = true
+show-fixes = true
+src = ["python"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "C90",     # <...> too complex
+  "COM812",  # Conflicts with formatter
+  "PLR09",   # Too many <...>
+  "PLR2004", # Magic value used in comparison
+  "S101",    # Use of assert detected
+  "S404",    # `subprocess` module is possibly insecure
+  "TID252"   # Prefer absolute imports over relative imports from parent modules
+]
+future-annotations = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["ibm.qdmi"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"docs/**" = ["INP001", "T20"]
+"test/python/**" = ["T20", "INP001"]
+
+
+[tool.ty.terminal]
+# Error if ty emits any warning-level diagnostics.
+error-on-warning = true
+
+
+[tool.typos]
+default.extend-ignore-re = [
+  "Amazon Braket QDMI Device", # Proper name in the reference attribution
+  "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",  # ignore line
+  "(?s)(#|//)\\s*spellchecker:off.*?\\n\\s*(#|//)\\s*spellchecker:on", # ignore block
+]
+
+[tool.repo-review.ignore]
+GH200 = "We use Renovate instead of Dependabot"
+PC160 = "We use a mirror of crate-ci/typos"
+PC170 = "Documentation uses MyST Markdown"
+
+[tool.typos.default.extend-words]
+optin = "optin"
+
+
+[tool.cibuildwheel]
+build = "cp3*"
+skip = ["*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64"]
+archs = "auto64"
+test-groups = ["test"]
+test-sources = ["test/python"]
+test-command = "pytest test/python"
+build-frontend = "uv"
+
+[tool.cibuildwheel.macos]
+environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
+
+[tool.cibuildwheel.windows]
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg ibm"
+
+
+[tool.uv]
+cache-keys = [
+  { file = "pyproject.toml" },
+  { git = { commit = true, tags = true } },
+  { file = "src/**/*" },
+  { file = "CMakeLists.txt" },
+  { file = "cmake/**/*" },
+]
