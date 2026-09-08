@@ -1,16 +1,18 @@
 # IBM QDMI Device
 
-Project scaffold for an IBM implementation of the
+IBM cloud backend queries through the
 [Quantum Device Management Interface (QDMI)](https://github.com/Munich-Quantum-Software-Stack/QDMI).
 
-The native library and Python package build and install. Device functions,
-backend access, and device discovery are not implemented. The package cannot
-execute quantum programs.
+The native library authenticates with IBM Quantum Platform and exposes backend,
+site, and operation metadata through QDMI. Job execution and device discovery
+are not implemented. See [API status](docs/api.md) for supported queries and
+session configuration.
 
 ## Build from source
 
 A C++20 compiler, CMake 3.24 or newer, and Git are required. CMake downloads the
-pinned QDMI headers and, when tests are enabled, GoogleTest.
+pinned QDMI headers, CPR/curl, JSON dependencies, and GoogleTest when tests are
+enabled. Linux builds also require OpenSSL development headers.
 
 ```console
 cmake -S . -B build/native -DCMAKE_BUILD_TYPE=Release
@@ -30,9 +32,10 @@ contents, and [development](docs/development.md) for validation commands.
 
 ## Project layout
 
-- `cmake/` and `src/`: native build and installation configuration.
+- `src/` and `include/`: native implementation and public IBM constants.
+- `cmake/`: native build and installation configuration.
 - `python/ibm/qdmi/`: Python package and version metadata.
-- `test/`: native and Python packaging checks.
+- `test/`: native unit tests and Python tests using a loopback IBM service.
 - `docs/`: Sphinx and Doxygen documentation sources.
 - `.github/`: CI, packaging, and repository automation.
 
@@ -41,7 +44,7 @@ See [contributing](docs/contributing.md), [support](docs/support.md), and
 
 ## License
 
-Licensed under [Apache-2.0 WITH LLVM-exception](LICENSE). The scaffold follows
+Licensed under [Apache-2.0 WITH LLVM-exception](LICENSE). The project follows
 the conventions of [QDMI on IQM](https://github.com/iqm-finland/QDMI-on-IQM) and
 the
 [Amazon Braket QDMI Device](https://github.com/munich-quantum-software/amazon-braket-qdmi-device).

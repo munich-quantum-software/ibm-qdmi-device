@@ -2,8 +2,9 @@
 
 Install from a source checkout. No published release is required or assumed. Use
 a C++20 compiler, CMake 3.24 or newer, Git, and Python 3.11 or newer for Python
-packaging. Dependency downloads need network access; tests need no backend
-access or credentials.
+packaging. Linux builds require OpenSSL development headers. Dependency
+downloads need network access; tests use synthetic data and loopback HTTP,
+without IBM access or credentials.
 
 ## Native package
 
@@ -21,9 +22,10 @@ Consumers use `find_package(ibm-qdmi-device 0.1 REQUIRED CONFIG)` and link
 `ibm-qdmi-device::ibm-qdmi-device`. Set `CMAKE_PREFIX_PATH` to the installation
 prefix. Headers use the `ibm_qdmi/` include directory.
 
-The headers declare the QDMI interface. Those device functions are not yet
-implemented, so calling them will fail to link. No discovery manifest is
-installed.
+Lifecycle, session, and metadata-query functions are implemented. Job functions
+remain declarations only and fail to link if called. No discovery manifest is
+installed. See [API status](api.md) for the supported interface and a query
+example.
 
 ## Python package
 

@@ -24,7 +24,8 @@ ctest --test-dir build/native -C Release --output-on-failure
 
 Use `Debug` in both configuration and build commands for a debug build. The
 native check compiles QDMI headers as C and C++ and links the shared library. It
-does not exercise device behavior.
+also exercises session configuration, IAM refresh, metadata parsing, and error
+mapping using synthetic responses.
 
 Test installation, relocation, and an installed-package consumer:
 
@@ -48,7 +49,12 @@ uvx nox -s tests minimums
 
 Nox tests Python 3.11 through 3.14. The minimums sessions resolve minimum direct
 dependencies and restore `uv.lock` afterward. Tests inspect installed package
-metadata, headers, CMake exports, and shared-library loading.
+metadata, headers, CMake exports, and shared-library loading. Backend
+integration tests run the installed C ABI against an ephemeral loopback HTTP
+server. They verify authentication headers, error recovery, session isolation,
+and property queries without contacting IBM. The synthetic fixture in
+`test/fixtures/` models IBM API version `2026-04-15`; no recorded account data
+is used.
 
 Build an sdist and a wheel from that sdist:
 

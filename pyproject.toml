@@ -24,7 +24,7 @@ name = "ibm-qdmi"
 dynamic = ["version"]
 requires-python = ">=3.11"
 
-description = "IBM QDMI Device scaffold"
+description = "IBM QDMI Device backend queries"
 readme = "README.md"
 authors = [
   { name = "Marcel Walter", email = "marcel@mq.sc" },
@@ -214,7 +214,7 @@ build = "cp3*"
 skip = ["*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64"]
 archs = "auto64"
 test-groups = ["test"]
-test-sources = ["test/python"]
+test-sources = ["test/python", "test/fixtures"]
 test-command = "pytest test/python"
 build-frontend = "uv"
 
@@ -230,6 +230,7 @@ cache-keys = [
   { file = "pyproject.toml" },
   { git = { commit = true, tags = true } },
   { file = "src/**/*" },
+  { file = "include/**/*" },
   { file = "CMakeLists.txt" },
   { file = "cmake/**/*" },
 ]

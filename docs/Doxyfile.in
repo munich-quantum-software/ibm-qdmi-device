@@ -16,10 +16,11 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 PROJECT_NAME           = "IBM QDMI Device"
-PROJECT_BRIEF          = "Unimplemented IBM device declarations and upstream QDMI context"
+PROJECT_BRIEF          = "IBM backend queries and QDMI interface declarations"
 OUTPUT_DIRECTORY       = _build/doxygen
 INPUT                  = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi" \
-                         "@IBM_QDMI_UPSTREAM_HEADERS@"
+                         "@IBM_QDMI_UPSTREAM_HEADERS@" \
+                         "@PROJECT_SOURCE_DIR@/include/ibm-qdmi-device"
 FILE_PATTERNS          = *.h *.hpp
 RECURSIVE              = NO
 EXTRACT_ALL            = YES
