@@ -124,7 +124,7 @@ version = "${version}"
 '''
 
 
-[tool.pytest.ini_options]
+[tool.pytest]
 minversion = "9.0"
 strict = true
 addopts = [
