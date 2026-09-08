@@ -67,11 +67,15 @@ calibration snapshot. Status and queue queries fetch current backend status.
 Site-dependent duration and fidelity require a supported ordered site tuple.
 Configuration tuples take precedence over calibration tuples; contradictions
 fail initialization. No connectivity is inferred from gate names. Calibration
-values describe the reported gate calibration, not a parameter-dependent model.
-Missing optional values, unknown units, negative durations, overflow, and
-invalid fidelities return `QDMI_ERROR_NOTSUPPORTED`, never fabricated zero
-values. A missing calibration endpoint (HTTP 404) permits initialization without
-those optional values. Malformed structural metadata fails initialization.
+flags that mark a qubit or gate as non-operational exclude its operation tuples
+and calibrations. Physical site indices, the qubit count, and the configuration
+coupling map remain available. Absent operational flags do not exclude tuples.
+Calibration values describe the reported gate calibration, not a
+parameter-dependent model. Missing optional values, unknown units, negative
+durations, overflow, and invalid fidelities return `QDMI_ERROR_NOTSUPPORTED`,
+never fabricated zero values. A missing calibration endpoint (HTTP 404) permits
+initialization without those optional values. Malformed structural metadata
+fails initialization.
 
 Queries honor the QDMI size-query contract. Insufficient output buffers and
 invalid arguments return `QDMI_ERROR_INVALIDARGUMENT`. Uninitialized-session

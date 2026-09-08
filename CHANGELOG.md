@@ -3,8 +3,8 @@
 ## [Unreleased]
 
 - Add IBM cloud API-key authentication and native backend, site, and operation
-  queries with offline integration tests. Job execution remains unimplemented.
-  ([#2]) ([**@marcelwa**])
+  queries with offline integration tests. Exclude explicitly faulty operation
+  tuples. Job execution remains unimplemented. ([#2]) ([**@marcelwa**])
 
 - Initialize the IBM QDMI Device build, packaging, documentation, and automation
   scaffold. Device functionality is not implemented. ([#1]) ([**@marcelwa**])

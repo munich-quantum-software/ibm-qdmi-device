@@ -32,6 +32,7 @@ using Sites = std::vector<std::size_t>;
 struct Calibration {
   std::optional<std::uint64_t> duration;
   std::optional<double> fidelity;
+  bool operational = true;
 };
 struct Site {
   std::size_t index = 0;

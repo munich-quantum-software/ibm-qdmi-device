@@ -33,9 +33,20 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace ibm {
 namespace {
+bool operational(const nlohmann::json& parameter) {
+  const auto& value = parameter.at("value");
+  if (value.is_boolean()) {
+    return value.get<bool>();
+  }
+  if (value.is_number() && (value == 0 || value == 1)) {
+    return value == 1;
+  }
+  throw Failure{QDMI_ERROR_FATAL};
+}
 std::size_t index(const nlohmann::json& value) {
   if (!value.is_number_integer() || value.get<double>() < 0 ||
       value.get<double>() >=
@@ -164,6 +175,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
     result.operations.push_back(std::move(operation));
   }
+  std::set<std::size_t> faultySites;
   if (properties.contains("qubits") && !properties["qubits"].is_null()) {
     const auto& qubits = properties["qubits"];
     if (!qubits.is_array() || qubits.size() > count) {
@@ -179,6 +191,8 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           result.sites[i].t1 = duration(parameter);
         } else if (name == "T2") {
           result.sites[i].t2 = duration(parameter);
+        } else if (name == "operational" && !operational(parameter)) {
+          faultySites.insert(i);
         }
       }
     }
@@ -215,7 +229,9 @@ Metadata parseMetadata(const nlohmann::json& configuration,
       }
       for (const auto& parameter : gate.at("parameters")) {
         const auto parameterName = parameter.at("name").get<std::string>();
-        if (parameterName == "gate_length") {
+        if (parameterName == "operational") {
+          calibration.operational = operational(parameter);
+        } else if (parameterName == "gate_length") {
           calibration.duration = duration(parameter);
         } else if (parameterName == "gate_error" &&
                    parameter.contains("value") &&
@@ -233,6 +249,22 @@ Metadata parseMetadata(const nlohmann::json& configuration,
       }
       operation->calibrations.emplace_back(sites, calibration);
     }
+  }
+  for (auto& operation : result.operations) {
+    const auto faulty = [&](const Sites& sites) {
+      return std::ranges::any_of(
+                 sites,
+                 [&](const auto site) { return faultySites.contains(site); }) ||
+             std::ranges::any_of(
+                 operation.calibrations, [&](const auto& entry) {
+                   return entry.first == sites && !entry.second.operational;
+                 });
+    };
+    std::erase_if(operation.sites, faulty);
+    std::erase_if(operation.calibrations, [&](const auto& entry) {
+      return std::ranges::find(operation.sites, entry.first) ==
+             operation.sites.end();
+    });
   }
   return result;
 }

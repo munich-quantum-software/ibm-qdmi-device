@@ -322,6 +322,38 @@ def test_missing_calibration(native: Native, service: Service) -> None:
         assert native.site(session, native.handles(session, 5)[0], 1, 0, None, None) == -9
 
 
+@pytest.mark.parametrize("kind", ["qubit", "gate"])
+@pytest.mark.parametrize("flag", [0, False, 1, True])
+def test_faulty_operation_sites(native: Native, service: Service, kind: str, *, flag: int | bool) -> None:
+    """Faulty qubits and gate calibrations remove applicable operation tuples."""
+    parameter = {"name": "operational", "value": flag, "unit": ""}
+    if kind == "qubit":
+        service.data["properties"]["qubits"][0].append(parameter)
+    else:
+        service.data["properties"]["gates"][0]["parameters"].append(parameter)
+    with native.session(service) as session:
+        assert native.init(session) == 0
+        sites = native.handles(session, 5)
+        assert len(sites) == 2
+        operations = native.handles(session, 6)
+        selected = (ctypes.c_void_p * 2)(*sites)
+        status = 0 if flag else -9
+        assert native.operation(session, operations[2], 0, None, 0, None, 9, 0, None, None) == status
+        for property_id in (3, 4):
+            assert native.operation(session, operations[2], 2, selected, 0, None, property_id, 0, None, None) == status
+        supported = (ctypes.c_void_p * 2)()
+        required = ctypes.c_size_t()
+        assert (
+            native.operation(
+                session, operations[0], 0, None, 0, None, 9, ctypes.sizeof(supported), supported, ctypes.byref(required)
+            )
+            == 0
+        )
+        expected = sites[1:] if kind == "qubit" and not flag else sites
+        assert list(supported)[: len(expected)] == expected
+        assert required.value == len(expected) * ctypes.sizeof(ctypes.c_void_p)
+
+
 def test_invalid_arguments(native: Native, service: Service) -> None:
     """Reject null handles and invalid string sizes without network access."""
     assert native.alloc(None) == -7
