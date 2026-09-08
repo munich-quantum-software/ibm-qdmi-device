@@ -67,6 +67,11 @@ Install the resulting wheel into a fresh environment with
 dependency group, and run `pytest test/python` using that interpreter. CI also
 builds and tests platform wheels with cibuildwheel.
 
+The Linux wheel containers install OpenSSL development files before building.
+macOS wheels use Apple's native TLS backend and disable optional curl libraries
+from Homebrew so that their deployment requirements do not raise the wheel's
+minimum supported macOS version.
+
 ## Lint
 
 ```console

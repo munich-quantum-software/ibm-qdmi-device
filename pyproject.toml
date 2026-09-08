@@ -218,8 +218,20 @@ test-sources = ["test/python", "test/fixtures"]
 test-command = "pytest test/python"
 build-frontend = "uv"
 
+[tool.cibuildwheel.linux]
+before-all = "yum install -y openssl-devel"
+
 [tool.cibuildwheel.macos]
 environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
+
+# Keep optional Homebrew libraries out of wheels targeting older macOS releases.
+# CPR uses Apple's native TLS backend; HTTP/1.1 is sufficient for the REST API.
+[tool.cibuildwheel.macos.config-settings]
+"cmake.define.CURL_BROTLI" = "OFF"
+"cmake.define.CURL_ZSTD" = "OFF"
+"cmake.define.USE_NGHTTP2" = "OFF"
+"cmake.define.USE_LIBIDN2" = "OFF"
+"cmake.define.CURL_USE_LIBSSH2" = "OFF"
 
 [tool.cibuildwheel.windows]
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg ibm"
