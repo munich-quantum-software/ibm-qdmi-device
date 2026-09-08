@@ -30,4 +30,6 @@ docs/_build/
 .vs/
 .DS_Store
 Thumbs.db
+ehthumbs.db
+*~
 *.swp

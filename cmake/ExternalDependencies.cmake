@@ -19,6 +19,7 @@ include(FetchContent)
 include(GNUInstallDirs)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
+  set(ENABLE_COVERAGE ${IBM_QDMI_ENABLE_COVERAGE})
   set(QDMI_MINIMUM_VERSION
       1.3.3
       CACHE STRING "Minimum QDMI version")
