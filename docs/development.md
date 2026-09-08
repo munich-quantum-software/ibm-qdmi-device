@@ -38,6 +38,9 @@ native coverage with `-DIBM_QDMI_ENABLE_COVERAGE=ON`.
 
 ## Python checks
 
+The Python package derives its version from the `project()` declaration in
+`CMakeLists.txt`. Update that version for both native and Python releases.
+
 ```console
 uvx nox -s tests-3.14 -- test/python/test_package.py
 uvx nox -s tests minimums

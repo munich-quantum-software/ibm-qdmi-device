@@ -21,12 +21,15 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "ibm-qdmi"
-version = "0.1.0"
+dynamic = ["version"]
 requires-python = ">=3.11"
 
 description = "IBM QDMI Device scaffold"
 readme = "README.md"
-authors = [{ name = "Munich Quantum Software Company GmbH" }]
+authors = [
+  { name = "Marcel Walter", email = "marcel@mq.sc" },
+  { name = "Lukas Burgholzer", email = "lukas@mq.sc" },
+]
 
 license = "Apache-2.0 WITH LLVM-exception"
 license-files = ["LICENSE"]
@@ -108,6 +111,12 @@ sdist.exclude = [
 BUILD_IBM_QDMI_TESTS = "OFF"
 CMAKE_INSTALL_LIBDIR = "lib"
 
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.regex"
+field = "version"
+input = "CMakeLists.txt"
+regex = 'project\(\s*ibm-qdmi-device\s+VERSION\s+(?P<value>\d+\.\d+\.\d+)\s'
+
 [[tool.scikit-build.generate]]
 path = "ibm/qdmi/_version.py"
 template = '''
@@ -186,6 +195,7 @@ error-on-warning = true
 
 [tool.typos]
 default.extend-ignore-re = [
+  "Amazon Braket QDMI Device", # Proper name in the reference attribution
   "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",  # ignore line
   "(?s)(#|//)\\s*spellchecker:off.*?\\n\\s*(#|//)\\s*spellchecker:on", # ignore block
 ]
@@ -196,7 +206,6 @@ PC160 = "We use a mirror of crate-ci/typos"
 PC170 = "Documentation uses MyST Markdown"
 
 [tool.typos.default.extend-words]
-braket = "braket"
 optin = "optin"
 
 
