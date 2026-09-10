@@ -41,6 +41,34 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     GIT_TAG ${QDMI_REV}
     FIND_PACKAGE_ARGS ${QDMI_MINIMUM_VERSION})
   FetchContent_MakeAvailable(qdmi)
+
+  FetchContent_Declare(
+    nlohmann_json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+                      FIND_PACKAGE_ARGS 3.12.0)
+  set(JSON_SystemInclude
+      ON
+      CACHE INTERNAL "Treat JSON headers as system headers")
+  set(CPR_BUILD_TESTS
+      OFF
+      CACHE BOOL "Disable CPR tests" FORCE)
+  set(CPR_CURL_USE_LIBPSL
+      OFF
+      CACHE BOOL "Disable libpsl" FORCE)
+  set(CPR_USE_SYSTEM_CURL
+      OFF
+      CACHE BOOL "Use system curl for CPR")
+  set(BUILD_STATIC_CURL
+      ON
+      CACHE BOOL "Build static curl" FORCE)
+  set(BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "Build static dependencies" FORCE)
+  FetchContent_Declare(
+    cpr
+    GIT_REPOSITORY https://github.com/libcpr/cpr.git
+    GIT_TAG 1.14.2
+    FIND_PACKAGE_ARGS 1.14.2)
+  FetchContent_MakeAvailable(nlohmann_json cpr)
 endif()
 
 if(BUILD_IBM_QDMI_TESTS)

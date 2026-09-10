@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Build and package scaffold for the IBM QDMI Device."""
+"""Package metadata and native artifacts for the IBM QDMI Device."""
 
 from __future__ import annotations
 

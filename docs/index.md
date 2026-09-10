@@ -1,8 +1,8 @@
 # IBM QDMI Device
 
-This project provides the build and packaging scaffold for an IBM QDMI device.
-The native library contains no device implementation. It cannot connect to a
-backend or run quantum programs.
+This project exposes IBM Quantum Platform backend metadata through QDMI. The
+native library supports API-key authentication and device, site, and operation
+queries. Quantum job execution and device discovery are not yet implemented.
 
 <!-- MyST directives use fenced blocks rather than code languages. -->
 <!-- rumdl-disable MD040 -->

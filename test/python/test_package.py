@@ -36,6 +36,7 @@ def test_installed_artifacts() -> None:
     package = resources.files(qdmi)
     assert package.joinpath("py.typed").is_file()
     data = package.joinpath("data")
+    assert data.joinpath("include", "ibm-qdmi-device", "constants.h").is_file()
     for header in ("device.h", "constants.h", "types.h", "export.h"):
         assert data.joinpath("include", "ibm_qdmi", header).is_file()
     for name in ("config", "config-version", "targets"):

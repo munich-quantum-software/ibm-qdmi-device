@@ -17,8 +17,18 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include <ibm-qdmi-device/constants.h>
 #include <ibm_qdmi/device.h>
 
-// Compile the installed declarations as C without calling device functions.
-IBM_QDMI_Site cHeaderSite(void);
-IBM_QDMI_Site cHeaderSite(void) { return NULL; }
+int cSessionLifecycle(void);
+int cSessionLifecycle(void) {
+  IBM_QDMI_Device_Session session = NULL;
+  int result = IBM_QDMI_device_session_alloc(&session);
+  if (result != QDMI_SUCCESS) {
+    return result;
+  }
+  result = IBM_QDMI_device_session_set_parameter(
+      session, IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND, 0, NULL);
+  IBM_QDMI_device_session_free(session);
+  return result;
+}

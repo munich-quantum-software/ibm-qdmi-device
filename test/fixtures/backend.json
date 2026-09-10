@@ -1,0 +1,74 @@
+{
+  "configuration": {
+    "backend_name": "ibm_test",
+    "backend_version": "1.0.0",
+    "n_qubits": 2,
+    "basis_gates": ["x", "rz", "cx"],
+    "coupling_map": [[0, 1]],
+    "gates": [
+      {
+        "name": "x",
+        "parameters": [],
+        "qasm_def": "gate x q { U(pi,0,pi) q; }",
+        "coupling_map": [[0], [1]]
+      },
+      {
+        "name": "rz",
+        "parameters": ["theta"],
+        "qasm_def": "gate rz(theta) q { U(0,0,theta) q; }",
+        "coupling_map": [[0], [1]]
+      },
+      {
+        "name": "cx",
+        "parameters": [],
+        "qasm_def": "gate cx c,t { CX c,t; }",
+        "coupling_map": [[0, 1]]
+      }
+    ]
+  },
+  "properties": {
+    "qubits": [
+      [
+        {
+          "name": "T1",
+          "value": 100.5,
+          "unit": "us"
+        },
+        {
+          "name": "T2",
+          "value": 0.2,
+          "unit": "ms"
+        }
+      ],
+      []
+    ],
+    "gates": [
+      {
+        "gate": "cx",
+        "qubits": [0, 1],
+        "parameters": [
+          {
+            "name": "gate_length",
+            "value": 35.5555,
+            "unit": "ns"
+          },
+          {
+            "name": "gate_error",
+            "value": 0.02,
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "status": {
+    "state": true,
+    "length_queue": 2,
+    "backend_version": "1.0.0"
+  },
+  "auth": {
+    "access_token": "synthetic-bearer",
+    "expires_in": 3600,
+    "token_type": "Bearer"
+  }
+}

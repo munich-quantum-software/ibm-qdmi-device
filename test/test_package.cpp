@@ -19,12 +19,37 @@
 
 #include <gtest/gtest.h>
 #include <ibm_qdmi/device.h>
-#include <ibm_qdmi/export.h>
-
-extern "C" IBM_QDMI_EXPORT void ibmQdmiBuildAnchor();
-extern "C" IBM_QDMI_Site cHeaderSite();
+extern "C" int cSessionLifecycle();
 
 TEST(Package, CAndCppHeadersLinkWithLibrary) {
-  ibmQdmiBuildAnchor();
-  EXPECT_EQ(cHeaderSite(), nullptr);
+  ASSERT_EQ(IBM_QDMI_device_initialize(), QDMI_SUCCESS);
+  EXPECT_EQ(cSessionLifecycle(), QDMI_SUCCESS);
+  EXPECT_EQ(IBM_QDMI_device_finalize(), QDMI_SUCCESS);
+}
+
+TEST(Session, ValidatesConfigurationAndLifetime) {
+  ASSERT_EQ(IBM_QDMI_device_initialize(), QDMI_SUCCESS);
+  EXPECT_EQ(IBM_QDMI_device_session_alloc(nullptr), QDMI_ERROR_INVALIDARGUMENT);
+  IBM_QDMI_Device_Session session = nullptr;
+  ASSERT_EQ(IBM_QDMI_device_session_alloc(&session), QDMI_SUCCESS);
+  EXPECT_EQ(IBM_QDMI_device_session_init(session), QDMI_ERROR_PERMISSIONDENIED);
+  EXPECT_EQ(IBM_QDMI_device_session_set_parameter(
+                session, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, 0, "key"),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(IBM_QDMI_device_session_set_parameter(
+                session, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, 3, "key"),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(IBM_QDMI_device_session_set_parameter(
+                session, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, 4, "key"),
+            QDMI_SUCCESS);
+  EXPECT_EQ(IBM_QDMI_device_session_init(session), QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, QDMI_DEVICE_PROPERTY_NAME, 0, nullptr, nullptr),
+            QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(IBM_QDMI_device_finalize(), QDMI_ERROR_FATAL);
+  IBM_QDMI_device_session_free(session);
+  EXPECT_EQ(IBM_QDMI_device_session_init(session), QDMI_ERROR_INVALIDARGUMENT);
+  IBM_QDMI_device_session_free(session);
+  IBM_QDMI_device_session_free(nullptr);
+  EXPECT_EQ(IBM_QDMI_device_finalize(), QDMI_SUCCESS);
 }

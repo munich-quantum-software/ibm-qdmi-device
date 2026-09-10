@@ -17,8 +17,13 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <ibm_qdmi/export.h>
+#pragma once
 
-// Keep an import library available on Windows until device symbols exist.
-extern "C" IBM_QDMI_EXPORT void ibmQdmiBuildAnchor();
-void ibmQdmiBuildAnchor() {}
+#include <ibm_qdmi/constants.h>
+
+/// Required null-terminated backend name; set before session initialization.
+#define IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND                              \
+  QDMI_DEVICE_SESSION_PARAMETER_CUSTOM1
+/// Required null-terminated IBM Cloud instance CRN; set before initialization.
+#define IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN                         \
+  QDMI_DEVICE_SESSION_PARAMETER_CUSTOM2

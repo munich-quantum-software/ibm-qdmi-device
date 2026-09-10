@@ -27,3 +27,15 @@ if(WIN32)
             $<TARGET_FILE_DIR:ibm-qdmi-package-tests>)
 endif()
 gtest_discover_tests(ibm-qdmi-package-tests DISCOVERY_MODE PRE_TEST)
+
+if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
+  add_executable(ibm-qdmi-backend-tests test_backend.cpp)
+  target_link_libraries(ibm-qdmi-backend-tests PRIVATE ibm-qdmi-core GTest::gtest_main)
+  target_compile_definitions(
+    ibm-qdmi-backend-tests
+    PRIVATE IBM_QDMI_FIXTURE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/backend.json")
+  if(IBM_QDMI_ENABLE_COVERAGE)
+    target_link_libraries(ibm-qdmi-backend-tests PRIVATE qdmi::qdmi_coverage_flags)
+  endif()
+  gtest_discover_tests(ibm-qdmi-backend-tests DISCOVERY_MODE PRE_TEST)
+endif()

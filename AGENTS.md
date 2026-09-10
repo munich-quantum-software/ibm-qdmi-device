@@ -6,8 +6,9 @@ commands. Keep this file focused on repository-specific guardrails.
 
 ## Repository Layout
 
-- `src/` contains the native build scaffold. Generated QDMI headers stay in the
-  build tree. There is no device implementation yet.
+- `src/` contains the native device, HTTP transport, IAM authentication, and
+  metadata parsing. `include/` contains public IBM constants. Generated QDMI
+  headers stay in the build tree.
 - `python/ibm/qdmi/` contains the Python package and version metadata.
 - `test/` contains native packaging checks and pytest tests.
 - `cmake/`, `CMakeLists.txt`, and `pyproject.toml` define builds. Keep generated
@@ -43,9 +44,9 @@ documentation at the declaration. Explain only details that names and signatures
 do not convey. Use C++ casts, not C-style casts.
 
 Preserve the QDMI C ABI and the `IBM_` symbol prefix. No C++ exception may cross
-the C boundary. Future device code must honor size queries, handle validation,
-status codes, and null checks. Do not implement device functions or register a
-discoverable device as part of scaffold work.
+the C boundary. Honor size queries, handle validation, status codes, and null
+checks. The current milestone supports backend queries only. Job execution and
+discovery require their own implementation milestones.
 
 ## Build and Validation
 

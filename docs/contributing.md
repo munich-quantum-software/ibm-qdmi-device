@@ -10,8 +10,8 @@ Use Google-style Python docstrings, Ruff, and ty. Preserve copyright and license
 notices on copied files.
 
 Keep credentials and private backend details out of source, logs, and issue
-reports. Backend access requires separate authorization; the scaffold needs
-none.
+reports. Live backend access requires separate authorization; automated tests
+use synthetic responses and loopback HTTP.
 
 Write focused, signed commits with a gitmoji and an imperative subject. Record
 AI assistance in an `Assisted-by` trailer. Human reviewers retain acceptance and
