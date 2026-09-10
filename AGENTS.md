@@ -30,6 +30,9 @@ commands. Keep this file focused on repository-specific guardrails.
 - Keep cleanup separate from behavior changes unless correctness requires both.
   Retain only narrow, justified suppressions.
 - Keep documentation at its existing source of truth and link to it.
+- Keep project documentation and configuration self-contained. Do not name or
+  link other device implementations. Preserve required copyright and license
+  notices in copied material.
 - Group related changes in a concise changelog entry. Once a PR exists, include
   its reference and every contributing author as `([#123]) ([**@username**])`
   and define their links at the bottom of `CHANGELOG.md`. Do not invent PRs.
