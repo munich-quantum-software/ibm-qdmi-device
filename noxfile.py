@@ -29,6 +29,7 @@ import contextlib
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import nox
@@ -183,6 +184,50 @@ def docs(session: nox.Session) -> None:
         f"docs/_build/{args.builder}",
         *posargs,
         env=env,
+    )
+
+
+@nox.session(name="live-metadata", python="3.14", reuse_venv=True, default=False)
+def live_metadata(session: nox.Session) -> None:
+    """Build the wheel, then explicitly validate IBM metadata without jobs."""
+    selection = session.posargs or ["both"]
+    if len(selection) != 1 or selection[0] not in {"both", "ibm_berlin", "ibm_aachen"}:
+        session.error("live metadata: invalid backend selection")
+    if not all(os.environ.get(name) for name in ("IBM_QUANTUM_API_KEY", "IBM_QUANTUM_INSTANCE_CRN")):
+        session.error("live metadata: missing credentials")
+    build_env = {
+        "IBM_QUANTUM_API_KEY": "",
+        "IBM_QUANTUM_INSTANCE_CRN": "",
+        "SKBUILD_BUILD_DIR": "build/live/wheel/{wheel_tag}/{build_type}",
+    }
+    with tempfile.TemporaryDirectory(dir=session.create_tmp()) as dist:
+        session.run("uv", "build", "--wheel", "--out-dir", dist, env=build_env)
+        wheel = next(Path(dist).glob("*.whl"))
+        session.run(
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            session.virtualenv.location,
+            "--group",
+            "test",
+            "--reinstall-package",
+            "ibm-qdmi",
+            str(wheel),
+            env=build_env,
+        )
+    session.run(
+        "python",
+        "-m",
+        "pytest",
+        "test/python/test_live_metadata.py",
+        "--run-live",
+        "--ibm-backend",
+        selection[0],
+        "-n",
+        "0",
+        "--tb=line",
+        "--show-capture=no",
     )
 
 

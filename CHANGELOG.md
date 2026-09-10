@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Add opt-in, metadata-only live validation for IBM Berlin and Aachen through
+  the installed library, with a manual main-only workflow and offline safety
+  regressions. Quantum execution remains unimplemented. ([**@marcelwa**])
+
 - Add IBM cloud API-key authentication and native backend, site, and operation
   queries with offline integration tests. Exclude explicitly faulty operation
   tuples. Job execution remains unimplemented. ([#2]) ([**@marcelwa**])

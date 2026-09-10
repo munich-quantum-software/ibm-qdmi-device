@@ -21,23 +21,23 @@ from __future__ import annotations
 
 import ctypes
 import json
-import sys
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from importlib import resources
 from pathlib import Path
 from threading import Thread
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs
 
+import metadata_checks
 import pytest
-
-from ibm import qdmi
+from metadata_checks import validate_backend
+from native_support import MetadataError, Native, load_native
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from metadata_checks import Query
 
 CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"
 
@@ -54,6 +54,17 @@ class Service:
     errors: dict[str, int] = field(default_factory=dict)
     requests: list[tuple[str, dict[str, str], bytes]] = field(default_factory=list)
     url: str = ""
+
+    @property
+    def parameters(self) -> dict[int, str]:
+        """Synthetic session parameters targeting only this server."""
+        return {
+            0: self.url,
+            1: "synthetic-key",
+            3: self.url + "/auth",
+            999999995: "ibm_test",
+            999999996: CRN,
+        }
 
 
 @pytest.fixture
@@ -100,115 +111,80 @@ def service() -> Iterator[Service]:
             thread.join()
 
 
-class Native:
-    """Typed argument layout for the implemented QDMI entry points."""
-
-    def __init__(self, path: str) -> None:
-        """Load a packaged library and describe its C ABI."""
-        self.library = ctypes.CDLL(path)
-        pointer = ctypes.c_void_p
-        size = ctypes.c_size_t
-        size_pointer = ctypes.POINTER(size)
-        self.initialize = self.library.IBM_QDMI_device_initialize
-        self.finalize = self.library.IBM_QDMI_device_finalize
-        self.alloc = self.library.IBM_QDMI_device_session_alloc
-        self.free = self.library.IBM_QDMI_device_session_free
-        self.set = self.library.IBM_QDMI_device_session_set_parameter
-        self.init = self.library.IBM_QDMI_device_session_init
-        self.device = self.library.IBM_QDMI_device_session_query_device_property
-        self.site = self.library.IBM_QDMI_device_session_query_site_property
-        self.operation = self.library.IBM_QDMI_device_session_query_operation_property
-        for function, arguments in (
-            (self.initialize, []),
-            (self.finalize, []),
-            (self.alloc, [ctypes.POINTER(pointer)]),
-            (self.free, [pointer]),
-            (self.set, [pointer, ctypes.c_int, size, pointer]),
-            (self.init, [pointer]),
-            (self.device, [pointer, ctypes.c_int, size, pointer, size_pointer]),
-            (self.site, [pointer, pointer, ctypes.c_int, size, pointer, size_pointer]),
-            (
-                self.operation,
-                [
-                    pointer,
-                    pointer,
-                    size,
-                    ctypes.POINTER(pointer),
-                    size,
-                    ctypes.POINTER(ctypes.c_double),
-                    ctypes.c_int,
-                    size,
-                    pointer,
-                    size_pointer,
-                ],
-            ),
-        ):
-            function.argtypes = arguments
-            function.restype = ctypes.c_int
-        self.free.restype = None
-
-    @contextmanager
-    def session(self, service: Service) -> Iterator[ctypes.c_void_p]:
-        """Allocate and configure a session; always free it afterward.
-
-        Yields:
-            An uninitialized native session handle.
-        """
-        handle = ctypes.c_void_p()
-        assert self.alloc(ctypes.byref(handle)) == 0
-        try:
-            for parameter, text in (
-                (0, service.url),
-                (1, "synthetic-key"),
-                (3, service.url + "/auth"),
-                (999999995, "ibm_test"),
-                (999999996, CRN),
-            ):
-                encoded = text.encode()
-                assert self.set(handle, parameter, len(encoded) + 1, encoded) == 0
-            yield handle
-        finally:
-            self.free(handle)
-
-    def handles(self, handle: ctypes.c_void_p, property_id: int) -> list[int]:
-        """Read a site, operation, or coupling handle array using size queries.
-
-        Returns:
-            Opaque handles owned by the session.
-        """
-        size = ctypes.c_size_t()
-        assert self.device(handle, property_id, 0, None, ctypes.byref(size)) == 0
-        values = (ctypes.c_void_p * (size.value // ctypes.sizeof(ctypes.c_void_p)))()
-        assert self.device(handle, property_id, size.value, values, None) == 0
-        return list(values)
-
-
 @pytest.fixture
 def native() -> Iterator[Native]:
-    """Initialize the installed native library for each test.
+    """Own the installed library lifecycle for an offline test.
 
     Yields:
         The initialized native interface.
     """
-    data = resources.files(qdmi).joinpath("data")
-    if sys.platform == "win32":
-        library = next(
-            path
-            for path in data.joinpath("bin").iterdir()
-            if path.name in {"ibm-qdmi-device.dll", "libibm-qdmi-device.dll"}
-        )
-    else:
-        library = data.joinpath("lib", "libibm-qdmi-device." + ("dylib" if sys.platform == "darwin" else "so"))
-    with resources.as_file(library) as path:
-        api = Native(str(path))
-        assert api.initialize() == 0
+    with load_native() as api:
         yield api
-        assert api.finalize() == 0
+
+
+@pytest.mark.parametrize("optional", [True, False])
+def test_live_checker_offline(native: Native, service: Service, *, optional: bool) -> None:
+    """Validate real C queries with optional metadata present or unsupported."""
+    if not optional:
+        service.errors["properties"] = 404
+        service.data["status"].pop("state")
+        service.data["configuration"]["gates"] = []
+    validate_backend(native, "ibm_test", 2, service.parameters)
+    assert sum(path == "/auth" for path, _, _ in service.requests) == 1
+    assert all(
+        path.rsplit("/", 1)[-1] in {"auth", "configuration", "properties", "status"} for path, _, _ in service.requests
+    )
+
+
+@pytest.mark.parametrize(
+    ("failure", "category"),
+    [("count", "qubit count"), ("authentication", "session initialization: QDMI status -8")],
+)
+def test_live_checker_failure_cleanup(
+    native: Native, service: Service, monkeypatch: pytest.MonkeyPatch, failure: str, category: str
+) -> None:
+    """Failures report fixed categories and free the allocated native session."""
+    freed = []
+    original = native.free
+
+    def free(handle: ctypes.c_void_p) -> None:
+        original(handle)
+        freed.append(handle)
+
+    monkeypatch.setattr(native, "free", free)
+    if failure == "authentication":
+        service.errors["auth"] = 403
+    with pytest.raises(MetadataError, match=f"^{category}$"):
+        validate_backend(native, "ibm_test", 3 if failure == "count" else 2, service.parameters)
+    assert len(freed) == 1
+    assert native.init(freed[0]) == -7
+
+
+@pytest.mark.parametrize("category", ["coupling handles", "operation sites", "site handles"])
+def test_live_checker_rejects_foreign_handles(
+    native: Native, service: Service, monkeypatch: pytest.MonkeyPatch, category: str
+) -> None:
+    """Detect foreign coupling sites, incomplete operation tuples, and duplicate sites."""
+    original = metadata_checks.handles
+
+    def corrupt(query: Query, name: str, *, optional: bool = False) -> list[int] | None:
+        values = original(query, name, optional=optional)
+        if name == category and values:
+            if name == "site handles":
+                return [values[0]] * len(values)
+            if name == "coupling handles":
+                return [1, 1]
+            return [*values, 1]
+        return values
+
+    monkeypatch.setattr(metadata_checks, "handles", corrupt)
+    with pytest.raises(MetadataError):
+        validate_backend(native, "ibm_test", 2, service.parameters)
 
 
 def test_query_contract(native: Native, service: Service) -> None:
     """Expose typed metadata and directed operation applicability through C."""
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.device(session, 0, 0, None, None) == -10
         assert native.init(session) == 0
         assert native.init(session) == -10
@@ -263,7 +239,7 @@ def test_query_contract(native: Native, service: Service) -> None:
 
 def test_session_isolation_and_snapshot(native: Native, service: Service) -> None:
     """Sessions reject foreign handles and retain their initialization snapshot."""
-    with native.session(service) as first, native.session(service) as second:
+    with native.session(service.parameters) as first, native.session(service.parameters) as second:
         assert native.init(first) == 0
         assert native.init(second) == 0
         sites = native.handles(first, 5)
@@ -275,7 +251,7 @@ def test_session_isolation_and_snapshot(native: Native, service: Service) -> Non
             results = list(pool.map(lambda _: native.site(first, sites[0], 1, 0, None, None), range(12)))
         assert results == [0] * 12
         assert sum(path == "/auth" for path, _, _ in service.requests) == 2
-        with native.session(service) as third:
+        with native.session(service.parameters) as third:
             assert native.init(third) == 0
             assert native.site(third, native.handles(third, 5)[0], 1, 0, None, None) == -9
     assert native.init(first) == -7
@@ -298,7 +274,7 @@ def test_session_isolation_and_snapshot(native: Native, service: Service) -> Non
 def test_http_failure_and_recovery(native: Native, service: Service, endpoint: str, status: int, expected: int) -> None:
     """Failed initialization stays configurable and never follows redirects."""
     service.errors[endpoint] = status
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.init(session) == expected
         assert native.set(session, 1, 0, None) == 0
         assert all(path != "/redirect-target" for path, _, _ in service.requests)
@@ -310,14 +286,14 @@ def test_http_failure_and_recovery(native: Native, service: Service, endpoint: s
 def test_malformed_metadata(native: Native, service: Service, body: object) -> None:
     """Parsing failures become status codes, not escaping C++ exceptions."""
     service.data["configuration"] = body
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.init(session) == -1
 
 
 def test_missing_calibration(native: Native, service: Service) -> None:
     """Absent calibration does not make the backend inaccessible."""
     service.errors["properties"] = 404
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.init(session) == 0
         assert native.site(session, native.handles(session, 5)[0], 1, 0, None, None) == -9
 
@@ -331,7 +307,7 @@ def test_faulty_operation_sites(native: Native, service: Service, kind: str, *, 
         service.data["properties"]["qubits"][0].append(parameter)
     else:
         service.data["properties"]["gates"][0]["parameters"].append(parameter)
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.init(session) == 0
         sites = native.handles(session, 5)
         assert len(sites) == 2
@@ -359,7 +335,7 @@ def test_invalid_arguments(native: Native, service: Service) -> None:
     assert native.alloc(None) == -7
     assert native.init(None) == -7
     assert native.device(None, 0, 0, None, None) == -7
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.set(session, 1, 0, b"x") == -7
         assert native.set(session, 1, 1, b"x") == -7
         assert native.set(session, 1, 4, b"a\0b\0") == -7
@@ -382,6 +358,6 @@ def test_invalid_arguments(native: Native, service: Service) -> None:
 def test_malformed_auth(native: Native, service: Service, body: object) -> None:
     """Invalid IAM responses fail without sending backend requests."""
     service.data["auth"] = body
-    with native.session(service) as session:
+    with native.session(service.parameters) as session:
         assert native.init(session) == -1
     assert [path for path, _, _ in service.requests] == ["/auth"]
