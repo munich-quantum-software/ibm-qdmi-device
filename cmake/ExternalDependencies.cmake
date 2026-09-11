@@ -69,6 +69,16 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     GIT_TAG 1.14.2
     FIND_PACKAGE_ARGS 1.14.2)
   FetchContent_MakeAvailable(nlohmann_json cpr)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+     AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
+     AND TARGET cpr)
+    get_target_property(IBM_QDMI_CPR_IMPORTED cpr IMPORTED)
+    if(NOT IBM_QDMI_CPR_IMPORTED)
+      # CPR 1.14.2 treats clang-cl as Unix Clang, combining /Wall with -Werror. Keep its diagnostics
+      # visible without failing the dependency build.
+      target_compile_options(cpr PRIVATE -Wno-error)
+    endif()
+  endif()
 endif()
 
 if(BUILD_IBM_QDMI_TESTS)
@@ -85,4 +95,19 @@ if(BUILD_IBM_QDMI_TESTS)
     googletest URL https://github.com/google/googletest/archive/refs/tags/v${GTEST_VERSION}.tar.gz
                    FIND_PACKAGE_ARGS ${GTEST_VERSION} NAMES GTest)
   FetchContent_MakeAvailable(googletest)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+     AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 22)
+    # GoogleTest 1.17.0 uses /WX; Clang 22 diagnoses its char8_t printer. Apply this only to built
+    # dependency targets, including GoogleMock's copies of gtest-all.cc, without changing warnings
+    # for consumers.
+    foreach(IBM_QDMI_GTEST_TARGET IN ITEMS gtest gtest_main gmock gmock_main)
+      if(TARGET ${IBM_QDMI_GTEST_TARGET})
+        get_target_property(IBM_QDMI_GTEST_IMPORTED ${IBM_QDMI_GTEST_TARGET} IMPORTED)
+        if(NOT IBM_QDMI_GTEST_IMPORTED)
+          target_compile_options(${IBM_QDMI_GTEST_TARGET} PRIVATE -Wno-error=character-conversion)
+        endif()
+      endif()
+    endforeach()
+  endif()
 endif()

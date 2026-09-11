@@ -1,20 +1,35 @@
-name: Coverage
+name: 🇨 • Coverage
 on:
   workflow_call:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}-cpp-coverage
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   coverage:
+    name: 📈 Coverage
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+      FORCE_COLOR: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Setup ccache
+        uses: Chocobo1/setup-ccache-action@a4d08616f5b614053bce228ddf881592f69d61d4 # v1.5.9
+        with:
+          prepend_symlinks_to_path: false
+          override_cache_key: cpp-coverage-ubuntu-24.04
+      - name: Setup mold
+        if: runner.os == 'Linux'
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: "3.14"
@@ -23,7 +38,7 @@ jobs:
       - name: Build
         run: cmake --build build/coverage --config Debug
       - name: Test native package
-        run: ctest --test-dir build/coverage -C Debug --output-on-failure
+        run: ctest --test-dir build/coverage -C Debug --output-on-failure --timeout 600
       - name: Test Python package
         run: uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

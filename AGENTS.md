@@ -97,8 +97,10 @@ before fixing them. Quantum execution requires a separate milestone and budget.
 - Push, open or merge PRs, and post public text only within explicit human
   authorization. Request new authority before expanding that scope.
 - Start every agent-authored or agent-edited public text body with
-  `🤖 *AI text below* 🤖`; titles are exempt. State how AI assisted the work and
-  leave acceptance and responsibility with the human reviewer.
+  `🤖 *AI text below* 🤖`; titles and commit messages are exempt. Commit
+  messages record AI assistance through the `Assisted-by` trailer only. For
+  other public text, state how AI assisted the work and leave acceptance and
+  responsibility with the human reviewer.
 - Use the applicable PR template, labels, and requested assignee. Do not invent
   checklist items or attest to human review on the user's behalf.
 - Do not work on `good first issue` tasks or post repetitive reviews.

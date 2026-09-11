@@ -11,31 +11,88 @@ concurrency:
 permissions:
   contents: read
 jobs:
-  cpp-tests:
+  change-detection:
+    name: 🔍 Change
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-change-detection.yml@063c90c8e7e094bfffb73f8436eb55341c1e820f # v2.3.0
+    with:
+      additional-cpp-files: |
+        .github/workflows/cpp-*.yml
+        .clang-format
+        CMakeLists.txt
+        cmake/**
+        pyproject.toml
+        uv.lock
+        noxfile.py
+        test/python/**
+      additional-python-files: |
+        .github/workflows/cpp-coverage.yml
+        test/fixtures/**
+      additional-cd-files: |
+        .github/workflows/ci.yml
+        LICENSE
+        README.md
+
+  cpp-tests-ubuntu:
+    name: 🇨 Test 🐧
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
-        runs-on:
-          [
-            ubuntu-24.04,
-            ubuntu-24.04-arm,
-            macos-26,
-            windows-2025,
-            windows-11-arm,
-          ]
+        runs-on: [ubuntu-24.04, ubuntu-24.04-arm]
         config: [Release]
         include:
           - runs-on: ubuntu-24.04
             config: Debug
-          - runs-on: macos-26
-            config: Debug
-          - runs-on: windows-2025
-            config: Debug
-    uses: ./.github/workflows/cpp-tests.yml
+    uses: ./.github/workflows/cpp-tests-ubuntu.yml
     with:
       runs-on: ${{ matrix.runs-on }}
       config: ${{ matrix.config }}
+
+  cpp-tests-macos:
+    name: 🇨 Test 🍎
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [macos-26]
+        config: [Release]
+        include:
+          - runs-on: macos-26
+            config: Debug
+    uses: ./.github/workflows/cpp-tests-macos.yml
+    with:
+      runs-on: ${{ matrix.runs-on }}
+      config: ${{ matrix.config }}
+
+  cpp-tests-windows:
+    name: 🇨 Test 🏁
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [windows-2025, windows-11-arm]
+        config: [Release]
+        compiler: [MSVC]
+        include:
+          - runs-on: windows-2025
+            config: Debug
+            compiler: MSVC
+          - runs-on: windows-2025
+            config: Release
+            compiler: ClangCL
+    uses: ./.github/workflows/cpp-tests-windows.yml
+    with:
+      compiler: ${{ matrix.compiler }}
+      runs-on: ${{ matrix.runs-on }}
+      config: ${{ matrix.config }}
+
   cpp-install-tests:
+    name: 📦 Install
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -44,13 +101,22 @@ jobs:
     with:
       runs-on: ${{ matrix.runs-on }}
   cpp-sanitizers:
+    name: 🇨 Sanitizers
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
     uses: ./.github/workflows/cpp-sanitizers.yml
   cpp-coverage:
+    name: 🇨 Coverage
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
     uses: ./.github/workflows/cpp-coverage.yml
     permissions:
       contents: read
       id-token: write
   cpp-linter:
+    name: 🇨 Lint
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-cpp-linter)
     uses: ./.github/workflows/cpp-linter.yml
     with:
       clang-version: 21
@@ -59,12 +125,16 @@ jobs:
       contents: read
       pull-requests: write
   python-linter:
+    name: 🐍 Lint
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-python-linter)
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@063c90c8e7e094bfffb73f8436eb55341c1e820f # v2.3.0
     with:
       check-stubs: false
       enable-ty: true
       enable-mypy: false
   lint:
+    name: 🪝 Lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,6 +145,9 @@ jobs:
           python-version: "3.14"
       - run: uvx nox -s lint
   python-tests:
+    name: 🐍 Test
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,8 +158,14 @@ jobs:
           python-version: "3.14"
       - run: uvx nox -s tests minimums
   build-sdist:
+    name: 🚀 CD
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@063c90c8e7e094bfffb73f8436eb55341c1e820f # v2.3.0
   build-wheel:
+    name: 🚀 CD
+    needs: change-detection
+    if: fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     strategy:
       fail-fast: false
       matrix:
@@ -95,13 +174,17 @@ jobs:
     with:
       runs-on: ${{ matrix.runs-on }}
   documentation:
+    name: 📚 Documentation
     uses: ./.github/workflows/documentation.yml
   required-checks-pass:
-    name: Required checks
+    name: 🚦 Check
     if: always()
     needs:
       [
-        cpp-tests,
+        change-detection,
+        cpp-tests-ubuntu,
+        cpp-tests-macos,
+        cpp-tests-windows,
         cpp-install-tests,
         cpp-sanitizers,
         cpp-coverage,
@@ -115,6 +198,24 @@ jobs:
       ]
     runs-on: ubuntu-slim
     steps:
-      - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
+          allowed-skips: >-
+            ${{
+              needs.change-detection.outputs.run-cpp-tests == 'false'
+              && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-install-tests,cpp-sanitizers,cpp-coverage,' || ''
+            }}
+            ${{
+              needs.change-detection.outputs.run-cpp-linter == 'false'
+              && 'cpp-linter,' || ''
+            }}
+            ${{
+              needs.change-detection.outputs.run-python-linter == 'false'
+              && 'python-linter,' || ''
+            }}
+            ${{
+              needs.change-detection.outputs.run-python-tests == 'false' && needs.change-detection.outputs.run-cd == 'false'
+              && 'build-sdist,build-wheel,python-tests,' || ''
+            }}
           jobs: ${{ toJSON(needs) }}
