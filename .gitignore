@@ -5,6 +5,14 @@
 *.egg-info/
 _skbuild/
 compile_commands.json
+.ccache/
+cmake-build-*/
+*.so
+*.dylib
+*.dll
+*.gcda
+*.gcno
+*.profraw
 
 # Python and development environments
 __pycache__/

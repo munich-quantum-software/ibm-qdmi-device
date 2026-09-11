@@ -1,0 +1,51 @@
+name: 🇨 • Tests • windows
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        type: string
+        default: windows-2025
+      compiler:
+        description: Windows compiler toolset (MSVC or ClangCL)
+        type: string
+        default: MSVC
+      config:
+        type: string
+        default: Release
+defaults:
+  run:
+    shell: pwsh
+permissions:
+  contents: read
+jobs:
+  cpp-tests-windows:
+    name: 🏁 ${{ inputs.runs-on }} ${{ inputs.compiler }} ${{ inputs.config }}
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      COMPILER: ${{ inputs.compiler }}
+      CONFIG: ${{ inputs.config }}
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+      FORCE_COLOR: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Chocobo1/setup-ccache-action@a4d08616f5b614053bce228ddf881592f69d61d4 # v1.5.9
+        with:
+          prepend_symlinks_to_path: false
+          override_cache_key: cpp-${{ inputs.runs-on }}-${{ inputs.compiler }}-${{ inputs.config }}
+          windows_compile_environment: msvc
+      - name: Configure
+        run: |
+          $cmakeArguments = @("-S", ".", "-B", "build/native", "-DCMAKE_BUILD_TYPE=$env:CONFIG")
+          if ($env:COMPILER -eq "ClangCL") {
+            $cmakeArguments += @("-T", "ClangCL")
+          } elseif ($env:COMPILER -ne "MSVC") {
+            throw "Unsupported compiler: $env:COMPILER"
+          }
+          cmake @cmakeArguments
+      - name: Build
+        run: cmake --build build/native --config $env:CONFIG
+      - name: Test
+        run: ctest --test-dir build/native -C $env:CONFIG --output-on-failure --timeout 600

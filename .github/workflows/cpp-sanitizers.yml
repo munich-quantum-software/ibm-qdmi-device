@@ -1,19 +1,30 @@
-name: Native sanitizers
+name: 🇨 • Sanitizers
 on:
   workflow_call:
 permissions:
   contents: read
 jobs:
   sanitizers:
+    name: 🧪 ASan + UBSan
     runs-on: ubuntu-24.04
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 4
+      CTEST_PARALLEL_LEVEL: 4
+      FORCE_COLOR: 3
       ASAN_OPTIONS: detect_leaks=1:detect_stack_use_after_return=1:strict_string_checks=1
       UBSAN_OPTIONS: print_stacktrace=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Setup ccache
+        uses: Chocobo1/setup-ccache-action@a4d08616f5b614053bce228ddf881592f69d61d4 # v1.5.9
+        with:
+          prepend_symlinks_to_path: false
+          override_cache_key: cpp-sanitizers-ubuntu-24.04
+      - name: Setup mold
+        if: runner.os == 'Linux'
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - name: Configure
         run: cmake -S . -B build/sanitizers -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_SANITIZERS="address;undefined"
       - name: Build
