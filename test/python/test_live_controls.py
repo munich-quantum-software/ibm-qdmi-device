@@ -89,16 +89,20 @@ def test_default_skips_before_credentials(tmp_path: Path, monkeypatch: pytest.Mo
 
 
 @pytest.mark.parametrize("selection", ["both", "ibm_berlin", "ibm_aachen"])
-def test_live_selection_and_redaction(tmp_path: Path, selection: str) -> None:
+@pytest.mark.parametrize("color", ["yes", "no"])
+def test_live_selection_and_redaction(tmp_path: Path, selection: str, color: str) -> None:
     """Selected backends fail safely without exposing exception values or locals."""
     result = run_live_tests(
-        tmp_path, ["--run-live", "--ibm-backend", selection, "--showlocals", "--full-trace", "-n", "2"]
+        tmp_path,
+        ["--run-live", "--ibm-backend", selection, "--color", color, "--showlocals", "--full-trace", "-n", "2"],
     )
     assert result.returncode == 1
     assert "unexpected failure" in result.stdout
     assert "synthetic-private-value" not in result.stdout + result.stderr
     assert "workers" not in result.stdout
-    assert ("2 failed" if selection == "both" else "1 failed, 1 skipped") in result.stdout
+    assert ("2 failed" if selection == "both" else "1 failed") in result.stdout
+    if selection != "both":
+        assert "1 skipped" in result.stdout
 
 
 def test_missing_live_credentials(tmp_path: Path) -> None:
