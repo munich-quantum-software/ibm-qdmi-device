@@ -25,7 +25,7 @@ releases may include breaking changes.
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
   workflow names, project badges, native build ignores, and changelog
-  formatting.
+  formatting. ([#5]) ([**@marcelwa**])
 
 [Keep a Changelog]: https://keepachangelog.com/en/1.1.0/
 [Common Changelog]: https://common-changelog.org/
@@ -33,4 +33,5 @@ releases may include breaking changes.
 [Unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
+[#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [**@marcelwa**]: https://github.com/marcelwa
