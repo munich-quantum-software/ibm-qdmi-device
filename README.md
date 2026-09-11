@@ -49,7 +49,4 @@ See [contributing](docs/contributing.md), [support](docs/support.md), and
 
 ## License
 
-Licensed under [Apache-2.0 WITH LLVM-exception](LICENSE). The project follows
-the conventions of [QDMI on IQM](https://github.com/iqm-finland/QDMI-on-IQM) and
-the
-[Amazon Braket QDMI Device](https://github.com/munich-quantum-software/amazon-braket-qdmi-device).
+Licensed under [Apache-2.0 WITH LLVM-exception](LICENSE).
