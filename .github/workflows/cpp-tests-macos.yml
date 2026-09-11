@@ -1,22 +1,24 @@
-name: Native tests
+name: 🇨 • Tests • macos
 on:
   workflow_call:
     inputs:
       runs-on:
         type: string
-        default: ubuntu-24.04
+        default: macos-26
       config:
         type: string
         default: Release
 permissions:
   contents: read
 jobs:
-  test:
+  cpp-tests-macos:
+    name: 🍎 ${{ inputs.runs-on }} ${{ inputs.config }}
     runs-on: ${{ inputs.runs-on }}
     env:
       CONFIG: ${{ inputs.config }}
       CMAKE_BUILD_PARALLEL_LEVEL: 4
       CTEST_PARALLEL_LEVEL: 4
+      FORCE_COLOR: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,7 +27,6 @@ jobs:
         with:
           prepend_symlinks_to_path: false
           override_cache_key: cpp-${{ inputs.runs-on }}-${{ inputs.config }}
-          windows_compile_environment: msvc
       - name: Configure
         shell: bash
         run: cmake -S . -B build/native -DCMAKE_BUILD_TYPE="$CONFIG"

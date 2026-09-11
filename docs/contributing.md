@@ -18,3 +18,8 @@ AI assistance in an `Assisted-by` trailer. Human reviewers retain acceptance and
 responsibility for changes. Follow the pull request template and document
 user-visible changes in the [changelog](CHANGELOG.md). Add actual PR and author
 references when available.
+
+Group changelog entries under `Added`, `Changed`, `Fixed`, or `Removed` in
+`Unreleased`, newest first. Start each entry with a gitmoji and include its PR
+and every contributing author, with link definitions at the bottom. Fold related
+unreleased changes into one entry.

@@ -103,9 +103,23 @@ HTML, and builds Sphinx with warnings treated as errors. HTML output is in
 
 ## Automation setup
 
-CI validates builds and produces artifacts without backend credentials. Read the
-Docs configuration is included, but hosting must be provisioned separately.
-Release workflows publish only after a GitHub release is published and the
-`pypi` environment and PyPI trusted publisher have been configured. Manual CD
-runs only build artifacts. Enable Codecov uploads by setting the repository
-variable `CODECOV_ENABLED` to `true` after configuring the service.
+CI validates builds and produces artifacts without backend credentials. The
+`🚦 Check` job aggregates change detection, native tests on Linux, macOS, and
+Windows (MSVC and ClangCL), installation tests, sanitizers, coverage, C++ and
+Python lint, the complete hook set, Python tests, sdist and wheel builds, and
+documentation. Only jobs deselected by successful change detection may skip;
+failures, cancellations, and unexpected skips block the aggregate. Lint and
+documentation run on every change. Pushes to `main`, merge groups, and manual
+runs test both native and Python code.
+
+Configure branch protection or a ruleset for `main` to require `🚦 Check` from
+GitHub Actions. The workflow alone does not enforce merge protection. Provision
+labels used by Renovate and release drafting, including
+`continuous integration`, `packaging`, `code quality`, `github-actions`,
+`pre-commit`, and `patch`.
+
+Read the Docs configuration is included, but hosting must be provisioned
+separately. Release workflows publish only after a GitHub release is published
+and the `pypi` environment and PyPI trusted publisher have been configured.
+Manual CD runs only build artifacts. Enable Codecov uploads by setting the
+repository variable `CODECOV_ENABLED` to `true` after configuring the service.
