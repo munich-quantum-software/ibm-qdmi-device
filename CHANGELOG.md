@@ -14,7 +14,8 @@ releases may include breaking changes.
 
 - ✨ Install a relocatable device catalogue, exported QDMI target properties,
   package path constants, and an information CLI with installed-driver checks.
-  ([#11]) ([**@marcelwa**])
+  Preserve bundled wheel dependencies during relocation checks. ([#11])
+  ([**@marcelwa**])
 
 - ✨ Implement native OpenQASM 3 jobs, bounded execution, cancellation,
   retrieval, ordered shots, and histograms with synthetic lifecycle tests and
