@@ -31,7 +31,18 @@ from ibm.qdmi.qiskit import IBMBackend
 
 
 @pytest.mark.parametrize(
-    "failure", [None, "Queued", "Failed", "submission", "results", "retrieval", "authentication", "cancellation"]
+    "failure",
+    [
+        None,
+        "Queued",
+        "Failed",
+        "submission",
+        "results",
+        "retrieval",
+        "authentication",
+        "cancellation",
+        "status-regression",
+    ],
 )
 def test_hardware_contract_offline(failure: str | None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Use actual native jobs to verify the budget, retrieval, and cleanup."""
@@ -72,6 +83,7 @@ def test_hardware_contract_offline(failure: str | None, monkeypatch: pytest.Monk
             "retrieval": "retrieval mismatch",
             "authentication": "configuration",
             "cancellation": "timeout; cancellation failed",
+            "status-regression": "remote state",
         }
         assert outcome == expected[failure]
         state = runtime.snapshot()

@@ -51,6 +51,8 @@ class Runtime:
     invalid_results: bool = False
     mismatch_retrieval: bool = False
     result_reads: int = 0
+    job_reads: int = 0
+    inconsistent_state: bool = False
 
     def respond(self, path: str, body: bytes) -> tuple[int, Any]:
         """Handle one synthetic request with independently stored job state.
@@ -90,6 +92,9 @@ class Runtime:
                 samples = next(iter(data["results"][0]["data"].values()))["samples"]
                 samples[0] = "0x0"
             return 200, data
+        self.job_reads += 1
+        if self.inconsistent_state and self.job_reads == 2:
+            return 200, {**self.jobs[identifier], "state": {"status": "Queued"}}
         return 200, self.jobs[identifier]
 
     @staticmethod
@@ -184,6 +189,7 @@ class RuntimeServer:
             self.runtime.state = "Queued"
         self.runtime.invalid_results = category == "results"
         self.runtime.mismatch_retrieval = category == "retrieval"
+        self.runtime.inconsistent_state = category == "status-regression"
         if category == "authentication":
             self.runtime.service.errors["auth"] = 401
 

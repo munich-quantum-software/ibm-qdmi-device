@@ -89,7 +89,9 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
             failure = "timeout"
         elif not control.wait(remaining):
             failure = "remote state" if control.check() in {Job.Status.FAILED, Job.Status.CANCELED} else "timeout"
-        elif control.check() != Job.Status.DONE:
+        # Confirm completion on the original handle too. Its cached terminal
+        # state prevents the shared result adapter from starting an unlimited wait.
+        elif control.check() != Job.Status.DONE or job.status() != JobStatus.DONE:
             failure = "remote state"
         else:
             category = "results"

@@ -170,12 +170,14 @@ combined `100`/`111`, and at least 10% for each outcome. A fresh session
 retrieves the same job and compares its results without another submission.
 Sampler and estimator checks run offline and do not add hardware jobs.
 
-Each backend may wait up to 15 minutes. Failures and timeouts trigger a
-cancellation attempt before handles are released; cancellation can race with
-completion. Freeing a handle alone does not cancel a remote job. The job timeout
-is 40 minutes. Runs are serialized without automatic cancellation or retries.
-Rerunning the workflow is another paid run; do so only within an authorized
-budget. Do not make development-time hardware submissions.
+Each backend may wait up to 15 minutes. The original public job must also report
+completion before result collection, so it cannot start an unlimited second
+wait. Failures and timeouts trigger a cancellation attempt before handles are
+released; cancellation can race with completion. Freeing a handle alone does not
+cancel a remote job. The job timeout is 40 minutes. Runs are serialized without
+automatic cancellation or retries. Rerunning the workflow is another paid run;
+do so only within an authorized budget. Do not make development-time hardware
+submissions.
 
 The `quantum` marker requires `--run-quantum`; `--run-live` enables metadata
 only. Default pytest, Nox, wheel, and documentation builds cannot activate

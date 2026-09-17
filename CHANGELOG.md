@@ -14,8 +14,9 @@ releases may include breaking changes.
 
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
-  diagnostics. Keep hardware access explicitly opt-in and unverified until the
-  first merged-main run. ([#13]) ([**@marcelwa**])
+  diagnostics. Confirm terminal state before collecting public job results. Keep
+  hardware access explicitly opt-in and unverified until the first merged-main
+  run. ([#13]) ([**@marcelwa**])
 
 - ✨ Add the public Qiskit backend, metadata-derived targets, physical-layout
   serialization, ordered results, and shared sampler and estimator primitives.
