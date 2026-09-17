@@ -24,7 +24,7 @@ name = "ibm-qdmi"
 dynamic = ["version"]
 requires-python = ">=3.11"
 
-description = "IBM QDMI Device backend queries"
+description = "IBM quantum execution through QDMI and Qiskit"
 readme = "README.md"
 authors = [
   { name = "Marcel Walter", email = "marcel@mq.sc" },
@@ -35,7 +35,7 @@ license = "Apache-2.0 WITH LLVM-exception"
 license-files = ["LICENSE"]
 
 classifiers = [
-  "Development Status :: 1 - Planning",
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Information Technology",
   "Intended Audience :: Science/Research",
   "Natural Language :: English",
@@ -61,13 +61,16 @@ Issues = "https://github.com/munich-quantum-software/ibm-qdmi-device/issues"
 [project.scripts]
 ibm-qdmi = "ibm.qdmi.__main__:main"
 
+[project.optional-dependencies]
+qiskit = ["mqt-core[qiskit]~=3.10.0"]
+
 [dependency-groups]
 build = [
   "scikit-build-core>=1.0.3",
   "build>=1.2.2",
 ]
 test = [
-  "mqt-core~=3.10.0",
+  "mqt-core[qiskit]~=3.10.0",
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pytest-sugar>=1.1.1",

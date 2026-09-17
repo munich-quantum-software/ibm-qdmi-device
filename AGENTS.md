@@ -11,7 +11,8 @@ commands. Keep this file focused on repository-specific guardrails.
   headers stay in the build tree.
 - `python/ibm/qdmi/` contains the Python package, installed paths, and
   information CLI. The catalogue template lives in `cmake/` and installs beside
-  the library.
+  the library. The optional Qiskit backend reuses MQT Core's backend, job, and
+  primitives.
 - `test/` contains native packaging checks and pytest tests.
 - `cmake/`, `CMakeLists.txt`, and `pyproject.toml` define builds. Keep generated
   output in `build/` and `docs/_build/`, never in commits.
@@ -53,6 +54,7 @@ the C boundary. Honor size queries, handle validation, status codes, and null
 checks. Jobs retain their session resources until freed. Never retry a job
 submission automatically or treat local handle cleanup as remote cancellation.
 Preserve physical qubit indices and classical-bit ordering through execution.
+Keep framework imports and package information commands free of live access.
 
 ## Build and Validation
 
