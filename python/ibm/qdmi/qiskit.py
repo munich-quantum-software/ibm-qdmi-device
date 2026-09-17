@@ -32,17 +32,18 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit import qasm3
-from qiskit.circuit import Barrier, ClassicalRegister, ControlFlowOp, QuantumCircuit, QuantumRegister
+from qiskit.circuit import Barrier, ControlFlowOp, QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import register_device
+from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableSet, Sequence
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
+    from mqt.core.plugins.qiskit.provider import QDMIProvider
     from qiskit.transpiler import Target
 
 __all__ = ["IBMBackend"]
@@ -52,9 +53,10 @@ class IBMBackend(QDMIBackend):
     """Execute through an IBM QDMI session using MQT Core's shared adapter.
 
     Args:
-        device_id: Catalogue ID; defaults to ``ibm.default``.
         device: An already-open QDMI device, exclusive with connection overrides.
-        backend_name: Backend override. Required for the generic catalogue entry.
+        provider: Provider associated with this backend.
+        device_id: Catalogue ID, or identity metadata for an already-open device.
+        backend_name: Backend override; otherwise use environment or catalogue defaults.
         api_key: IBM Cloud API key; defaults to ``IBM_QUANTUM_API_KEY``.
         instance_crn: Instance CRN; defaults to ``IBM_QUANTUM_INSTANCE_CRN``.
         base_url: Trusted API endpoint override, principally for loopback tests.
@@ -66,6 +68,7 @@ class IBMBackend(QDMIBackend):
         device_id: str | None = None,
         *,
         device: Device | None = None,
+        provider: QDMIProvider | None = None,
         backend_name: str | None = None,
         api_key: str | None = None,
         instance_crn: str | None = None,
@@ -75,24 +78,20 @@ class IBMBackend(QDMIBackend):
         """Open a fresh session or adapt the supplied device.
 
         Raises:
-            ValueError: Connection overrides conflict, or the generic backend has no selection.
+            ValueError: An open device conflicts with connection overrides.
         """
-        overrides = (device_id, backend_name, api_key, instance_crn, base_url, auth_url)
+        overrides = (backend_name, api_key, instance_crn, base_url, auth_url)
         if device is not None:
             if any(value is not None for value in overrides):
                 msg = "An already-open device is exclusive with connection overrides."
                 raise ValueError(msg)
-            super().__init__(device=device)
+            super().__init__(device=device, provider=provider, device_id=device_id)
             return
 
         resolved_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
         selected_backend = backend_name
-        if resolved_id == IBM_QDMI_DEVICE_ID:
-            if selected_backend is None:
-                selected_backend = os.environ.get("IBM_QUANTUM_BACKEND")
-            if not selected_backend:
-                msg = "The generic device requires backend_name or IBM_QUANTUM_BACKEND."
-                raise ValueError(msg)
+        if resolved_id == IBM_QDMI_DEVICE_ID and selected_backend is None:
+            selected_backend = os.environ.get("IBM_QUANTUM_BACKEND")
         register_device(resolved_id)
         device = open_device(
             resolved_id,
@@ -102,7 +101,7 @@ class IBMBackend(QDMIBackend):
             base_url=base_url,
             auth_url=auth_url,
         )
-        super().__init__(device=device, device_id=resolved_id)
+        super().__init__(device=device, provider=provider, device_id=resolved_id)
 
     def _add_operation_to_target(self, target: Target, op: Device.Operation, seen_gate_names: MutableSet[str]) -> None:
         """Keep unsupported or incomplete operation signatures out of the target."""
@@ -171,21 +170,7 @@ class IBMBackend(QDMIBackend):
             IBM-compatible OpenQASM 3 and its QDMI format.
         """
         assert ProgramFormat.QASM3 in supported_program_formats
-        # IBM imports the program through Qiskit, which escapes some register
-        # names. Stable internal names keep REST results aligned with the source.
-        # The shared adapter retains the original circuit's result headers.
-        translated = QuantumCircuit(
-            QuantumRegister(self.num_qubits, "q"),
-            *(ClassicalRegister(len(register), f"c{index}") for index, register in enumerate(circuit.cregs)),
-        )
-        for instruction in circuit.data:
-            translated.append(
-                instruction.operation,
-                [circuit.find_bit(bit).index for bit in instruction.qubits],
-                [circuit.find_bit(bit).index for bit in instruction.clbits],
-            )
-        # Global phase does not affect classified samples and needs no instruction.
-        return qasm3.dumps(translated), ProgramFormat.QASM3
+        return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
 
     def run(
         self,

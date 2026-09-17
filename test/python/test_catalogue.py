@@ -28,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import sysconfig
+from importlib.metadata import distribution
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,14 +43,23 @@ if TYPE_CHECKING:
 @pytest.mark.parametrize("device_id", ["ibm.default", "ibm.berlin", "ibm.aachen"])
 def test_relocated_driver(device_id: str, service: Service, tmp_path: Path) -> None:
     """The real MQT Core driver opens each entry after library relocation."""
-    # Copy the entire native directory, including any repaired wheel dependencies.
+    # Wheel repair can put dependencies beside the Python package. Preserve the
+    # distribution's relative layout so the loader's relative paths still work.
     destination = tmp_path / "runtime"
-    shutil.copytree(qdmi.IBM_QDMI_LIBRARY_PATH.parent, destination)
-    catalogue = destination / qdmi.IBM_QDMI_CATALOG_PATH.name
+    package = distribution("ibm-qdmi")
+    root = Path(str(package.locate_file(""))).resolve()
+    assert package.files is not None
+    for file in package.files:
+        if file.is_absolute() or ".." in file.parts:
+            continue  # Installed CLI launchers are outside the runtime payload.
+        target = destination / file
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(package.locate_file(file)), target)
+    catalogue = destination / qdmi.IBM_QDMI_CATALOG_PATH.relative_to(root)
     entries = json.loads(catalogue.read_text(encoding="utf-8"))["qdmi"]["devices"]
     entry = next(item for item in entries if item["id"] == device_id)
     assert entry["prefix"] == "IBM"
-    assert (destination / entry["library"]).is_file()
+    assert (catalogue.parent / entry["library"]).is_file()
     backend = entry.get("session", {}).get("custom1", "ibm_test")
     service.data["configuration"]["backend_name"] = backend
     script = """
@@ -70,12 +80,13 @@ print('installed driver passed')
     env["MQT_CORE_QDMI_CONFIG_FILE"] = str(catalogue)
     result = subprocess.run(
         [sys.executable, "-c", script, device_id, service.url, backend],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         env=env,
         timeout=30,
     )
+    assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "installed driver passed"
     assert service.requests
     assert all("127.0.0.1" in headers["Host"] for _, headers, _ in service.requests)
