@@ -226,6 +226,7 @@ QDMI_Job_Status Job::check(Deadline deadline) {
 }
 void Job::cancel() {
   require(!id.empty(), QDMI_ERROR_BADSTATE);
+  require(status != QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
   if (status == QDMI_JOB_STATUS_CANCELED) {
     return;
   }
@@ -237,6 +238,7 @@ void Job::cancel() {
   }
   if (!response.failed && !response.timedOut && response.status == 409) {
     check();
+    require(status != QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
     require(status == QDMI_JOB_STATUS_CANCELED, QDMI_ERROR_BADSTATE);
     return;
   }
@@ -246,7 +248,7 @@ void Job::cancel() {
 const Results& Job::results() {
   const auto current = check();
   require(current != QDMI_JOB_STATUS_FAILED, QDMI_ERROR_FATAL);
-  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_BADSTATE);
+  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
   if (!cached) {
     const auto response = auth->request("/v1/jobs/" + id + "/results");
     require(response.failed || response.timedOut || response.status != 204,

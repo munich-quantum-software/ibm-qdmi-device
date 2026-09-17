@@ -19,20 +19,20 @@ releases may include breaking changes.
 
 - ✨ Install a relocatable device catalogue, exported QDMI target properties,
   package path constants, and an information CLI with installed-driver checks.
-  ([#11]) ([**@marcelwa**])
+  Preserve bundled wheel dependencies during relocation checks. ([#11])
+  ([**@marcelwa**])
 
 - ✨ Implement native OpenQASM 3 jobs, bounded execution, cancellation,
-  retrieval, ordered shots, and histograms with synthetic lifecycle tests.
-  ([#10]) ([**@marcelwa**])
+  retrieval, ordered shots, and histograms with synthetic lifecycle tests and
+  QDMI error codes for invalid buffers and job states. ([#10]) ([**@marcelwa**])
 
 - 🧪 Add opt-in, metadata-only live validation for IBM Berlin and Aachen through
   the installed library, with a manual main-only workflow and offline safety
-  regressions. Quantum execution remains unimplemented. ([#3]) ([**@marcelwa**])
+  regressions. ([#3]) ([**@marcelwa**])
 
 - ✨ Add IBM cloud API-key authentication and native backend, site, and
   operation queries with offline integration tests. Exclude explicitly faulty
-  operation tuples. Job execution remains unimplemented. ([#2])
-  ([**@marcelwa**])
+  operation tuples. ([#2]) ([**@marcelwa**])
 
 - 🎉 Initialize the IBM QDMI Device build, packaging, documentation, and
   automation scaffold. ([#1]) ([**@marcelwa**])

@@ -402,6 +402,7 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
     const std::scoped_lock lock(owned->mutex);
     auto& job = owned->job;
     require(validEnum(parameter, QDMI_DEVICE_JOB_PARAMETER_MAX));
+    require(value == nullptr || size != 0);
     require(job.configurable(), QDMI_ERROR_BADSTATE);
     switch (parameter) {
     case QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT:
@@ -448,12 +449,13 @@ int IBM_QDMI_device_job_query_property(IBM_QDMI_Device_Job handle,
     require(validEnum(property, QDMI_DEVICE_JOB_PROPERTY_MAX));
     switch (property) {
     case QDMI_DEVICE_JOB_PROPERTY_ID:
-      require(!job.id.empty(), QDMI_ERROR_NOTSUPPORTED);
+      require(!job.id.empty(), QDMI_ERROR_BADSTATE);
       return copyString(job.id, size, value, sizeRet);
     case QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT:
+      require(job.format.has_value(), QDMI_ERROR_BADSTATE);
       return copyOptional(job.format, size, value, sizeRet);
     case QDMI_DEVICE_JOB_PROPERTY_PROGRAM:
-      require(!job.program.empty(), QDMI_ERROR_NOTSUPPORTED);
+      require(!job.program.empty(), QDMI_ERROR_BADSTATE);
       return copyString(job.program, size, value, sizeRet);
     case QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM:
       return copyValue(job.shots, size, value, sizeRet);
