@@ -43,6 +43,8 @@ def run_live_tests(
     for name in (
         "conftest.py",
         "test_live_metadata.py",
+        "test_quantum.py",
+        "quantum_checks.py",
         "metadata_checks.py",
         "native_support.py",
         "offline_service.py",
@@ -56,21 +58,24 @@ def run_live_tests(
 import pytest
 
 class Credentials:
+    def __init__(self, enabled):
+        self.enabled = enabled
+
     def get(self, name, default):
-        if not ENABLED:
+        if not self.enabled:
             raise AssertionError("credential read without opt-in")
         return "synthetic-private-value" if PRESENT else ""
 
-def blocked_library():
+def blocked_library(*args, **kwargs):
     raise RuntimeError("synthetic-private-value")
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
-    global ENABLED
-    ENABLED = config.getoption("run_live")
     for item in items:
-        item.module.os = SimpleNamespace(environ=Credentials())
+        option = "run_quantum" if item.get_closest_marker("quantum") else "run_live"
+        item.module.os = SimpleNamespace(environ=Credentials(config.getoption(option)))
         item.module.load_native = blocked_library
+        item.module.IBMBackend = blocked_library
 """
         f"\nPRESENT = {credentials!r}\n",
         encoding="utf-8",
@@ -91,36 +96,38 @@ def test_default_skips_before_credentials(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", "synthetic-private-value")
     result = run_live_tests(tmp_path, [])
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "2 skipped" in result.stdout
+    assert "4 skipped" in result.stdout
 
 
 @pytest.mark.parametrize("selection", ["both", "ibm_berlin", "ibm_aachen"])
 @pytest.mark.parametrize("color", ["yes", "no"])
-def test_live_selection_and_redaction(tmp_path: Path, selection: str, color: str) -> None:
+@pytest.mark.parametrize("option", ["--run-live", "--run-quantum"])
+def test_live_selection_and_redaction(tmp_path: Path, selection: str, color: str, option: str) -> None:
     """Selected backends fail safely without exposing exception values or locals."""
     result = run_live_tests(
         tmp_path,
-        ["--run-live", "--ibm-backend", selection, "--color", color, "--showlocals", "--full-trace", "-n", "2"],
+        [option, "--ibm-backend", selection, "--color", color, "--showlocals", "--full-trace", "-n", "2"],
     )
     assert result.returncode == 1
-    assert "unexpected failure" in result.stdout
+    assert ("configuration" if option == "--run-quantum" else "unexpected failure") in result.stdout
     assert "synthetic-private-value" not in result.stdout + result.stderr
     assert "workers" not in result.stdout
     assert ("2 failed" if selection == "both" else "1 failed") in result.stdout
-    if selection != "both":
-        assert "1 skipped" in result.stdout
+    assert ("2 skipped" if selection == "both" else "3 skipped") in result.stdout
 
 
-def test_missing_live_credentials(tmp_path: Path) -> None:
+@pytest.mark.parametrize("option", ["--run-live", "--run-quantum"])
+def test_missing_live_credentials(tmp_path: Path, option: str) -> None:
     """Explicit live requests fail clearly when credentials are absent."""
-    result = run_live_tests(tmp_path, ["--run-live"], credentials=False)
+    result = run_live_tests(tmp_path, [option], credentials=False)
     assert result.returncode == 1
     assert "missing credentials" in result.stdout
 
 
-def test_invalid_live_selection(tmp_path: Path) -> None:
+@pytest.mark.parametrize("option", ["--run-live", "--run-quantum"])
+def test_invalid_live_selection(tmp_path: Path, option: str) -> None:
     """Reject unknown backends without echoing arbitrary input."""
-    result = run_live_tests(tmp_path, ["--run-live", "--ibm-backend", "synthetic-private-value"])
+    result = run_live_tests(tmp_path, [option, "--ibm-backend", "synthetic-private-value"])
     assert result.returncode == 4
     assert "invalid backend selection" in result.stderr
     assert "synthetic-private-value" not in result.stdout + result.stderr

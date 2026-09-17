@@ -47,6 +47,10 @@ class Runtime:
     cancellations: list[str] = field(default_factory=list)
     fail_submission: int = 0
     state: str = "Completed"
+    cancel_failure: bool = False
+    invalid_results: bool = False
+    mismatch_retrieval: bool = False
+    result_reads: int = 0
 
     def respond(self, path: str, body: bytes) -> tuple[int, Any]:
         """Handle one synthetic request with independently stored job state.
@@ -72,10 +76,20 @@ class Runtime:
         identifier = path.split("/jobs/")[1].split("/", maxsplit=1)[0]
         if path.endswith("/cancel"):
             self.cancellations.append(identifier)
+            if self.cancel_failure:
+                return 503, {}
             self.jobs[identifier]["state"]["status"] = "Cancelled"
             return 204, {}
         if path.endswith("/results"):
-            return 200, self.results[identifier]
+            self.result_reads += 1
+            if self.invalid_results:
+                return 200, {}
+            data = self.results[identifier]
+            if self.mismatch_retrieval and self.result_reads > 1:
+                data = json.loads(json.dumps(data))
+                samples = next(iter(data["results"][0]["data"].values()))["samples"]
+                samples[0] = "0x0"
+            return 200, data
         return 200, self.jobs[identifier]
 
     @staticmethod
@@ -163,6 +177,16 @@ class RuntimeServer:
         """Override one synthetic metadata field before opening a session."""
         self.runtime.service.data["configuration"][key] = value
 
+    def set_failure(self, category: str) -> None:
+        """Select a synthetic result or authentication failure."""
+        self.runtime.cancel_failure = category == "cancellation"
+        if self.runtime.cancel_failure:
+            self.runtime.state = "Queued"
+        self.runtime.invalid_results = category == "results"
+        self.runtime.mismatch_retrieval = category == "retrieval"
+        if category == "authentication":
+            self.runtime.service.errors["auth"] = 401
+
     def close(self) -> None:
         """Stop the HTTP server before its owning process exits."""
         self.context.__exit__(None, None, None)
@@ -177,6 +201,10 @@ class RuntimeProxy(Protocol):
 
     def set_state(self, state: str, fail_submission: int) -> None:
         """Change synthetic job behavior."""
+        ...
+
+    def set_failure(self, category: str) -> None:
+        """Select a synthetic failure."""
         ...
 
     def close(self) -> None:
