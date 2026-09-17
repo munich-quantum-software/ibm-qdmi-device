@@ -14,8 +14,9 @@ releases may include breaking changes.
 
 - ✨ Add the public Qiskit backend, metadata-derived targets, physical-layout
   serialization, ordered results, and shared sampler and estimator primitives.
-  Expose advertised measurement/reset metadata and readout calibration. ([#12])
-  ([**@marcelwa**])
+  Expose advertised measurement/reset metadata and readout calibration. Honor
+  registered defaults and the shared backend factory, with separate circuit
+  serialization. ([#12]) ([**@marcelwa**])
 
 - ✨ Install a relocatable device catalogue, exported QDMI target properties,
   package path constants, and an information CLI with installed-driver checks.

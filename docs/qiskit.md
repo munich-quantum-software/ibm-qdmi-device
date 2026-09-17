@@ -27,17 +27,21 @@ backend = IBMBackend("ibm.berlin")
 # Generic selection: IBMBackend(backend_name="ibm_berlin")
 ```
 
-The generic `ibm.default` entry requires `backend_name` or
-`IBM_QUANTUM_BACKEND`. Concrete catalogue entries select their named backend.
-Explicit `api_key`, `instance_crn`, and `backend_name` arguments override
-defaults. Normally omit `base_url` and `auth_url`; the native library derives
-the region from the CRN. Trusted endpoint overrides support applications such as
-loopback testing. See [session configuration](api.md#session-configuration).
+The generic `ibm.default` entry uses `backend_name`, `IBM_QUANTUM_BACKEND`, or
+the administrator's registered backend default, in that order. A missing
+selection fails during native session initialization before contacting IBM.
+Concrete catalogue entries select their named backend. Explicit `api_key`,
+`instance_crn`, and `backend_name` arguments override defaults. Normally omit
+`base_url` and `auth_url`; the native library derives the region from the CRN.
+Trusted endpoint overrides support applications such as loopback testing. See
+[session configuration](api.md#session-configuration).
 
 Use `IBMBackend(device=device)` to adapt an already-open IBM QDMI device. An
-open device is exclusive with a catalogue ID or connection overrides.
-Registration preserves administrator definitions in MQT Core's driver. Each
-normal construction creates a fresh session.
+open device is exclusive with connection overrides. `device_id` and `provider`
+may supply identity metadata, including through the inherited
+`IBMBackend.from_device_id()` factory for registered devices. Registration
+preserves administrator definitions in MQT Core's driver. Each normal
+construction creates a fresh session.
 
 ## Transpile and execute
 
@@ -106,9 +110,11 @@ second_memory = results.get_memory(1)
 
 Bind circuits yourself or supply one parameter mapping or ordered value sequence
 per circuit. The adapter validates and serializes the entire batch before its
-first submission. A later submission failure triggers cancellation attempts for
-earlier jobs. Submission is never automatically retried. A lost response can
-mean IBM accepted a job; inspect the platform before replacing it.
+first submission. Serialization lives in `ibm.qdmi.serializers`; backend, job,
+and primitive orchestration use MQT Core. A later submission failure triggers
+cancellation attempts for earlier jobs. Submission is never automatically
+retried. A lost response can mean IBM accepted a job; inspect the platform
+before replacing it.
 
 ## Sampler and estimator
 

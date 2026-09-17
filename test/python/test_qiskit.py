@@ -21,6 +21,9 @@ from __future__ import annotations
 
 import gc
 import math
+import os
+import subprocess
+import sys
 from collections import Counter
 from typing import TYPE_CHECKING
 
@@ -230,11 +233,68 @@ def test_concrete_catalogue_selection(
     assert any(f"/backends/{backend_name}/configuration" in path for path, _, _ in runtime.snapshot()["requests"])
 
 
-def test_generic_selection_required(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The generic catalogue entry requires a selection before opening a session."""
+def test_generic_selection_required(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing backend selection fails before authentication or metadata access."""
     monkeypatch.delenv("IBM_QUANTUM_BACKEND", raising=False)
-    with pytest.raises(ValueError, match="requires backend_name"):
-        IBMBackend()
+    url = runtime.snapshot()["url"]
+    with pytest.raises(RuntimeError):
+        IBMBackend(api_key="synthetic-key", instance_crn=CRN, base_url=url, auth_url=url + "/auth")
+    assert not runtime.snapshot()["requests"]
+
+
+def test_inherited_factory(runtime: RuntimeProxy) -> None:
+    """The shared factory can pass provider and registry metadata to the subclass."""
+    registered = open_backend(runtime)
+    url = runtime.snapshot()["url"]
+    backend = IBMBackend.from_device_id(
+        "ibm.default",
+        token="synthetic-key",  # ruff: ignore[hardcoded-password-func-arg] -- synthetic loopback credential
+        custom1="ibm_test",
+        custom2=CRN,
+        base_url=url,
+        auth_url=url + "/auth",
+    )
+    assert isinstance(backend, IBMBackend)
+    assert backend.device_id == "ibm.default"
+    assert backend.device is not registered.device
+    circuit = QuantumCircuit(1, 1)
+    circuit.x(0)
+    circuit.measure(0, 0)
+    assert backend.run(circuit, shots=3).result().get_counts() == {"1": 3}
+
+
+def test_administrator_default(runtime: RuntimeProxy) -> None:
+    """An isolated registry keeps configured defaults and explicit precedence."""
+    script = """
+import os
+import sys
+from mqt.core.qdmi import driver
+from ibm import qdmi
+from ibm.qdmi.qiskit import IBMBackend
+driver.register_device(driver.DeviceDefinition(
+    'ibm.default', qdmi.IBM_QDMI_LIBRARY_PATH, 'IBM', custom1='ibm_test',
+    token='synthetic-key', custom2=sys.argv[2],
+    base_url=sys.argv[1], auth_url=sys.argv[1] + '/auth',
+))
+assert IBMBackend().device.name() == 'ibm_test'
+os.environ['IBM_QUANTUM_BACKEND'] = 'wrong-backend'
+assert IBMBackend(backend_name='ibm_test').device.name() == 'ibm_test'
+del os.environ['IBM_QUANTUM_BACKEND']
+assert IBMBackend().device.name() == 'ibm_test'
+"""
+    env = {
+        key: value for key, value in os.environ.items() if not key.startswith(("IBM_QUANTUM_", "MQT_CORE_QDMI_CONFIG_"))
+    }
+    result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed script and loopback inputs
+        [sys.executable, "-c", script, runtime.snapshot()["url"], CRN],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not runtime.snapshot()["submissions"]
 
 
 def test_incomplete_gate_signature_is_not_exposed(runtime: RuntimeProxy) -> None:
