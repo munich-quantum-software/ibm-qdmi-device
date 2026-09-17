@@ -12,6 +12,11 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Install a relocatable device catalogue, exported QDMI target properties,
+  package path constants, and an information CLI with installed-driver checks.
+  Preserve bundled wheel dependencies during relocation checks. ([#11])
+  ([**@marcelwa**])
+
 - ✨ Implement native OpenQASM 3 jobs, bounded execution, cancellation,
   retrieval, ordered shots, and histograms with synthetic lifecycle tests and
   QDMI error codes for invalid buffers and job states. ([#10]) ([**@marcelwa**])
@@ -39,6 +44,7 @@ releases may include breaking changes.
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [Unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device
 [#10]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/10
+[#11]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/11
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3

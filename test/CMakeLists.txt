@@ -16,6 +16,22 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 add_executable(ibm-qdmi-package-tests headers.c test_package.cpp)
+
+foreach(property QDMI_DEVICE_ID QDMI_DEVICE_PREFIX QDMI_MANIFEST_NAME)
+  get_target_property(value ibm-qdmi-device::ibm-qdmi-device ${property})
+  if(NOT value)
+    message(FATAL_ERROR "Missing exported device property ${property}")
+  endif()
+endforeach()
+get_target_property(device_id ibm-qdmi-device::ibm-qdmi-device QDMI_DEVICE_ID)
+get_target_property(device_prefix ibm-qdmi-device::ibm-qdmi-device QDMI_DEVICE_PREFIX)
+if(NOT device_id STREQUAL "ibm.default" OR NOT device_prefix STREQUAL "IBM")
+  message(FATAL_ERROR "Unexpected QDMI device identity")
+endif()
+add_test(
+  NAME Package.Catalogue
+  COMMAND ${CMAKE_COMMAND} "-DIBM_QDMI_LIBRARY=$<TARGET_FILE:ibm-qdmi-device::ibm-qdmi-device>" -P
+          "${CMAKE_CURRENT_SOURCE_DIR}/catalogue.cmake")
 target_compile_features(ibm-qdmi-package-tests PRIVATE cxx_std_20)
 target_link_libraries(ibm-qdmi-package-tests PRIVATE ibm-qdmi-device::ibm-qdmi-device
                                                      GTest::gtest_main)
