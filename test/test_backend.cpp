@@ -218,3 +218,35 @@ TEST(Metadata, RejectsInconsistentTopologyAndStatus) {
                 QDMI_ERROR_FATAL);
   EXPECT_FALSE(ibm::parseStatus({{"length_queue", 0}}).available);
 }
+
+TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
+  auto data = fixture();
+  data["configuration"]["supported_instructions"] = {"measure", "reset",
+                                                     "delay"};
+  data["properties"]["qubits"][0].push_back(
+      {{"name", "readout_length"}, {"value", 1.5}, {"unit", "us"}});
+  data["properties"]["qubits"][0].push_back(
+      {{"name", "readout_error"}, {"value", 0.03}});
+  data["properties"]["qubits"][1].push_back(
+      {{"name", "operational"}, {"value", false}});
+  auto metadata = ibm::parseMetadata(data["configuration"], data["properties"]);
+  ASSERT_EQ(metadata.operations.size(), 5);
+  const auto& measurement = metadata.operations[3];
+  EXPECT_EQ(measurement.name, "measure");
+  EXPECT_EQ(measurement.arity, 1);
+  EXPECT_EQ(measurement.parameters, 0);
+  EXPECT_EQ(measurement.sites, (std::vector<ibm::Sites>{{0}}));
+  ASSERT_EQ(measurement.calibrations.size(), 1);
+  EXPECT_EQ(measurement.calibrations[0].second.duration, 1500000);
+  EXPECT_DOUBLE_EQ(*measurement.calibrations[0].second.fidelity, 0.97);
+  EXPECT_EQ(metadata.operations[4].name, "reset");
+  EXPECT_EQ(metadata.operations[4].sites, measurement.sites);
+  metadata =
+      ibm::parseMetadata(data["configuration"], nlohmann::json::object());
+  EXPECT_EQ(metadata.operations[3].sites.size(), 2);
+  EXPECT_TRUE(metadata.operations[3].calibrations.empty());
+  data["configuration"].erase("supported_instructions");
+  EXPECT_EQ(ibm::parseMetadata(data["configuration"], data["properties"])
+                .operations.size(),
+            3);
+}

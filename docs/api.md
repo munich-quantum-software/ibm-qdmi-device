@@ -52,24 +52,25 @@ session snapshot. Site and operation handles remain stable until that session is
 freed and cannot be used with another session. Create a new session for a fresh
 calibration snapshot. Status and queue queries fetch current backend status.
 
-| Queries                      | Behavior                                                                                                                                                                   |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Device name/version          | IBM backend name/version.                                                                                                                                                  |
-| Library version              | Implemented QDMI version, `1.3.3`.                                                                                                                                         |
-| Qubit count, sites, coupling | Physical indices and directed pairs from backend configuration.                                                                                                            |
-| Operations                   | Native basis names; arity and site tuples from explicit configuration or calibration metadata; parameter counts from gate definitions. Missing information is unsupported. |
-| T1, T2, gate duration        | Integer picoseconds, rounded to the nearest picosecond; duration unit `ps`, scale factor `1`.                                                                              |
-| Gate fidelity                | `1 - gate_error`, where IBM reports a finite error in `[0, 1]`.                                                                                                            |
-| Device status                | `OFFLINE` when unavailable; otherwise `BUSY` for a nonempty queue and `IDLE` for an empty queue. Missing availability is unsupported.                                      |
-| Queue length                 | Nonnegative number of queued jobs.                                                                                                                                         |
+| Queries                      | Behavior                                                                                                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Device name/version          | IBM backend name/version.                                                                                                                                       |
+| Library version              | Implemented QDMI version, `1.3.3`.                                                                                                                              |
+| Qubit count, sites, coupling | Physical indices and directed pairs from backend configuration.                                                                                                 |
+| Operations                   | Native basis gates and advertised measurement/reset; signatures and site tuples from configuration or calibration metadata. Missing information is unsupported. |
+| T1, T2, gate duration        | Integer picoseconds, rounded to the nearest picosecond; duration unit `ps`, scale factor `1`.                                                                   |
+| Gate fidelity                | `1 - gate_error`, where IBM reports a finite error in `[0, 1]`.                                                                                                 |
+| Device status                | `OFFLINE` when unavailable; otherwise `BUSY` for a nonempty queue and `IDLE` for an empty queue. Missing availability is unsupported.                           |
+| Queue length                 | Nonnegative number of queued jobs.                                                                                                                              |
 
-Site-dependent duration and fidelity require a supported ordered site tuple.
-Configuration tuples take precedence over calibration tuples; contradictions
-fail initialization. No connectivity is inferred from gate names. Calibration
-flags that mark a qubit or gate as non-operational exclude its operation tuples
-and calibrations. Physical site indices, the qubit count, and the configuration
-coupling map remain available. Absent operational flags do not exclude tuples.
-Calibration values describe the reported gate calibration, not a
+Measurement calibration uses `readout_length` and `1 - readout_error` from qubit
+properties. Site-dependent duration and fidelity require a supported ordered
+site tuple. Configuration tuples take precedence over calibration tuples;
+contradictions fail initialization. No connectivity is inferred from gate names.
+Calibration flags that mark a qubit or gate as non-operational exclude its
+operation tuples and calibrations. Physical site indices, the qubit count, and
+the configuration coupling map remain available. Absent operational flags do not
+exclude tuples. Calibration values describe the reported gate calibration, not a
 parameter-dependent model. Missing optional values, unknown units, negative
 durations, overflow, and invalid fidelities return `QDMI_ERROR_NOTSUPPORTED`,
 never fabricated zero values. A missing calibration endpoint (HTTP 404) permits
@@ -144,11 +145,13 @@ execution time, not queue or wall-clock time. A null parameter value probes
 support without changing configuration.
 
 Programs must be static, bound OpenQASM 3 with explicit classical declarations
-and indexed measurements. The `q` register must span the backend's physical
+and indexed measurements. A quantum register must span the backend's physical
 qubits; physical `$n` references are also accepted. Use backend-native
 operations and route circuits before submitting them. Classical control flow,
-parameter inputs, custom declarations, register broadcasting, and scheduled
-delays are unsupported. The service validates native gate semantics.
+parameter inputs, register broadcasting, and scheduled delays are unsupported.
+Static unitary gate declarations support native instructions absent from
+`stdgates.inc`, such as ECR and RZZ. Their local arguments cannot introduce
+classical storage or control flow. The service validates native gate semantics.
 
 Each submission creates one Sampler V2 job with one circuit and classified
 measurements. Twirling and dynamical decoupling are disabled. Submission is
@@ -189,4 +192,5 @@ exports `IBM_QDMI_DEVICE_ID` and `IBM_QDMI_PREFIX`, together with the
 `pathlib.Path` constants `IBM_QDMI_LIBRARY_PATH`, `IBM_QDMI_CATALOG_PATH`,
 `IBM_QDMI_INCLUDE_DIR`, and `IBM_QDMI_CMAKE_DIR`. Importing it does not load a
 device. See [installation](installation.md#device-discovery) for catalogue and
-information CLI usage. Quantum framework integration remains separate.
+information CLI usage. The optional [Qiskit integration](qiskit.md) exposes
+`ibm.qdmi.qiskit.IBMBackend` through MQT Core's shared adapter.

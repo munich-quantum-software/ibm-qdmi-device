@@ -175,6 +175,29 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
     result.operations.push_back(std::move(operation));
   }
+  // Measurement and reset are instructions, not IBM basis gates. Their
+  // single-qubit signatures are part of the OpenQASM execution contract.
+  if (configuration.contains("supported_instructions")) {
+    const auto& instructions = configuration.at("supported_instructions");
+    if (!instructions.is_array()) {
+      throw Failure{QDMI_ERROR_FATAL};
+    }
+    for (const auto& item : instructions) {
+      const auto name = item.get<std::string>();
+      if ((name != "measure" && name != "reset") || names.contains(name)) {
+        continue;
+      }
+      names.insert(name);
+      Operation operation;
+      operation.name = name;
+      operation.arity = 1;
+      operation.parameters = 0;
+      for (std::size_t i = 0; i < count; ++i) {
+        operation.sites.push_back({i});
+      }
+      result.operations.push_back(std::move(operation));
+    }
+  }
   std::set<std::size_t> faultySites;
   if (properties.contains("qubits") && !properties["qubits"].is_null()) {
     const auto& qubits = properties["qubits"];
@@ -185,6 +208,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
       if (!qubits[i].is_array()) {
         throw Failure{QDMI_ERROR_FATAL};
       }
+      Calibration readout;
       for (const auto& parameter : qubits[i]) {
         const auto name = parameter.at("name").get<std::string>();
         if (name == "T1") {
@@ -193,7 +217,20 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           result.sites[i].t2 = duration(parameter);
         } else if (name == "operational" && !operational(parameter)) {
           faultySites.insert(i);
+        } else if (name == "readout_length") {
+          readout.duration = duration(parameter);
+        } else if (name == "readout_error" && parameter.contains("value") &&
+                   parameter["value"].is_number()) {
+          const auto error = parameter["value"].get<double>();
+          if (std::isfinite(error) && error >= 0 && error <= 1) {
+            readout.fidelity = 1 - error;
+          }
         }
+      }
+      const auto measurement =
+          std::ranges::find(result.operations, "measure", &Operation::name);
+      if (measurement != result.operations.end()) {
+        measurement->calibrations.emplace_back(Sites{i}, readout);
       }
     }
   }

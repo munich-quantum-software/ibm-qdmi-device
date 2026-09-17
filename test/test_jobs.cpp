@@ -101,6 +101,11 @@ void configure(ibm::Job& job) {
 } // namespace
 
 TEST(Program, PreservesDeclarationOrderAndPhysicalIndices) {
+  const auto named = ibm::outputRegisters(
+      "OPENQASM 3; bit[1] q; qubit[5] physical; q[0] = measure physical[4];",
+      5);
+  ASSERT_EQ(named.size(), 1);
+  EXPECT_EQ(named[0].name, "q");
   const auto layout = ibm::outputRegisters(PROGRAM, 2);
   ASSERT_EQ(layout.size(), 2);
   EXPECT_EQ(layout[0].name, "z");
@@ -122,7 +127,9 @@ TEST(Program, RejectsAmbiguousOrUnsupportedPrograms) {
   for (const auto* source :
        {"OPENQASM 2;", "OPENQASM 3; bit[0] c;", "OPENQASM 3; bit[2] c; bit c;",
         "OPENQASM 3; bit c; c = measure $2;", "OPENQASM 3; /* unterminated",
-        "OPENQASM 3; bit c; c = measure $0"}) {
+        "OPENQASM 3; bit c; c = measure $0",
+        "OPENQASM 3; qubit[2] physical; bit physical;",
+        "OPENQASM 3; bit physical; qubit[2] physical;"}) {
     fails([&] { (void)ibm::outputRegisters(source, 2); },
           QDMI_ERROR_INVALIDARGUMENT);
   }
@@ -133,6 +140,33 @@ TEST(Program, RejectsAmbiguousOrUnsupportedPrograms) {
         "OPENQASM 3; bit c; c = true; c = measure $0;"}) {
     fails([&] { (void)ibm::outputRegisters(source, 2); },
           QDMI_ERROR_NOTSUPPORTED);
+  }
+}
+TEST(Program, PreservesResultsAcrossStaticGateDefinitions) {
+  const auto registers = ibm::outputRegisters(
+      "OPENQASM 3; include \"stdgates.inc\"; "
+      "gate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; } "
+      "qubit[5] q; bit[2] c; rzz(pi/4) q[3],q[4]; c[1] = measure q[4];",
+      5);
+  ASSERT_EQ(registers.size(), 1);
+  EXPECT_EQ(registers[0].name, "c");
+  EXPECT_EQ(registers[0].width, 2);
+  for (const auto* program :
+       {"OPENQASM 3; gate g a { bit c; c = measure a; } bit c; c = measure $0;",
+        "OPENQASM 3; gate g a { rz(unbound) a; } bit c; c = measure $0;",
+        "OPENQASM 3; gate g a { x outside; } bit c; c = measure $0;",
+        "OPENQASM 3; gate g a { reset a; } bit c; c = measure $0;",
+        "OPENQASM 3; gate g a { if (true) { x a; } } bit c; c = measure $0;"}) {
+    fails([&] { (void)ibm::outputRegisters(program, 5); },
+          QDMI_ERROR_NOTSUPPORTED);
+  }
+  for (const auto* program :
+       {"OPENQASM 3; gate g a { x a;",
+        "OPENQASM 3; gate g(p,p) a { rz(p) a; } bit c; c = measure $0;",
+        "OPENQASM 3; gate g a { x a; } gate g a { x a; } bit c; c = measure "
+        "$0;"}) {
+    fails([&] { (void)ibm::outputRegisters(program, 5); },
+          QDMI_ERROR_INVALIDARGUMENT);
   }
 }
 TEST(Results, PreservesShotsAndClassicalBitOrder) {

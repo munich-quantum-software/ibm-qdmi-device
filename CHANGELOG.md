@@ -12,6 +12,11 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add the public Qiskit backend, metadata-derived targets, physical-layout
+  serialization, ordered results, and shared sampler and estimator primitives.
+  Expose advertised measurement/reset metadata and readout calibration. ([#12])
+  ([**@marcelwa**])
+
 - ✨ Install a relocatable device catalogue, exported QDMI target properties,
   package path constants, and an information CLI with installed-driver checks.
   ([#11]) ([**@marcelwa**])
@@ -45,6 +50,7 @@ releases may include breaking changes.
 [Unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device
 [#10]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/10
 [#11]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/11
+[#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3

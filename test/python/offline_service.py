@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -30,7 +31,7 @@ import pytest
 from native_support import Native, load_native
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"
 
@@ -47,6 +48,7 @@ class Service:
     errors: dict[str, int] = field(default_factory=dict)
     requests: list[tuple[str, dict[str, str], bytes]] = field(default_factory=list)
     url: str = ""
+    respond: Callable[[str, bytes], tuple[int, Any]] | None = None
 
     @property
     def parameters(self) -> dict[int, str]:
@@ -60,8 +62,8 @@ class Service:
         }
 
 
-@pytest.fixture
-def service() -> Iterator[Service]:
+@contextmanager
+def serve() -> Iterator[Service]:
     """Serve IBM-shaped responses without external network access.
 
     Yields:
@@ -78,11 +80,13 @@ def service() -> Iterator[Service]:
             state.requests.append((self.path, dict(self.headers), body))
             key = self.path.rsplit("/", 1)[-1]
             status = state.errors.get(key, 200 if key in state.data else 404)
+            data = state.data.get(key, {})
+            if state.respond is not None and "/jobs" in self.path:
+                status, data = state.respond(self.path, body)
             self.send_response(status)
             if status == 302:
                 self.send_header("Location", state.url + "/redirect-target")
             self.end_headers()
-            data = state.data.get(key, {})
             self.wfile.write(data.encode() if isinstance(data, str) else json.dumps(data).encode())
 
         def do_GET(self) -> None:
@@ -102,6 +106,17 @@ def service() -> Iterator[Service]:
         finally:
             server.shutdown()
             thread.join()
+
+
+@pytest.fixture
+def service() -> Iterator[Service]:
+    """Own a loopback HTTP service for a native ctypes test.
+
+    Yields:
+        Mutable synthetic service state.
+    """
+    with serve() as state:
+        yield state
 
 
 @pytest.fixture

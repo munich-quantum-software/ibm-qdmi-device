@@ -27,6 +27,8 @@ import os
 import shutil
 import subprocess
 import sys
+import sysconfig
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -34,8 +36,6 @@ import pytest
 from ibm import qdmi
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from offline_service import Service
 
 
@@ -93,7 +93,9 @@ print('installed driver passed')
 )
 def test_information_cli(option: str, expected: str) -> None:
     """Both CLI entry points expose installed paths without loading the driver."""
-    for command in ([sys.executable, "-m", "ibm.qdmi"], [shutil.which("ibm-qdmi") or "ibm-qdmi"]):
+    executable = Path(sysconfig.get_path("scripts")) / ("ibm-qdmi.exe" if sys.platform == "win32" else "ibm-qdmi")
+    assert executable.is_file()
+    for command in ([sys.executable, "-m", "ibm.qdmi"], [str(executable)]):
         result = subprocess.run([*command, f"--{option}"], check=True, capture_output=True, text=True, timeout=10)
         assert result.stdout.strip() == expected
 
@@ -115,5 +117,25 @@ assert qdmi.IBM_QDMI_INCLUDE_DIR.is_dir()
 assert qdmi.IBM_QDMI_CMAKE_DIR.is_dir()
 assert qdmi.IBM_QDMI_DEVICE_ID == 'ibm.default'
 assert qdmi.IBM_QDMI_PREFIX == 'IBM'
+"""
+    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, timeout=10)
+
+
+def test_qiskit_import_opens_no_session() -> None:
+    """Importing the optional adapter neither reads IBM credentials nor opens a device."""
+    script = """
+import os
+from mqt.core.qdmi import driver
+class GuardedEnvironment(dict):
+    def get(self, key, default=None):
+        if key.startswith('IBM_QUANTUM_'):
+            raise AssertionError('credential read during import')
+        return super().get(key, default)
+def blocked(*args, **kwargs):
+    raise AssertionError('device opened during import')
+driver.open_device = blocked
+os.environ = GuardedEnvironment(os.environ)
+from ibm.qdmi.qiskit import IBMBackend
+assert IBMBackend is not None
 """
     subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, timeout=10)
