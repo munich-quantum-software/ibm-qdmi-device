@@ -26,7 +26,8 @@ ctest --test-dir build/native -C Release --output-on-failure
 Use `Debug` in both configuration and build commands for a debug build. The
 native check compiles QDMI headers as C and C++ and links the shared library. It
 also exercises session configuration, IAM refresh, metadata parsing, and error
-mapping using synthetic responses.
+mapping using synthetic responses. Job tests cover submission, cancellation,
+retrieval, deadlines, and result decoding without contacting IBM.
 
 Test installation, relocation, and an installed-package consumer:
 
@@ -78,8 +79,8 @@ minimum supported macOS version.
 Live validation is separate from ordinary CI and the required-check aggregate.
 It checks the installed wheel's C ABI against `ibm_berlin` (120 qubits) and
 `ibm_aachen` (156 qubits). It submits no quantum jobs. A successful offline run
-does not establish live compatibility; live validation remains unperformed until
-a manual run succeeds after this workflow is merged.
+does not establish live compatibility. Metadata validation succeeded on merged
+`main` on 17 September 2026; quantum execution remains unverified on hardware.
 
 After human merge, open **Actions → Live IBM metadata → Run workflow**. Select
 the `main` branch and `both` (the default), `ibm_berlin`, or `ibm_aachen`. The

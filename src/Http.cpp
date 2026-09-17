@@ -19,6 +19,7 @@
 
 #include "Http.hpp"
 
+#include <cpr/body.h>
 #include <cpr/cprtypes.h>
 #include <cpr/error.h>
 #include <cpr/payload.h>
@@ -61,16 +62,19 @@ Response send(const Request& request) {
   }
   cpr::Session client;
   client.SetUrl(cpr::Url{request.url});
-  client.SetTimeout(cpr::Timeout{30000});
-  client.SetConnectTimeout(cpr::ConnectTimeout{30000});
+  client.SetTimeout(cpr::Timeout{request.timeout});
+  client.SetConnectTimeout(cpr::ConnectTimeout{request.timeout});
   client.SetRedirect(cpr::Redirect{false});
   client.SetVerifySsl(cpr::VerifySsl{true});
   cpr::Header headers;
   headers.insert(request.headers.begin(), request.headers.end());
   client.SetHeader(headers);
   cpr::Response response;
-  if (request.form.empty()) {
+  if (request.form.empty() && !request.post) {
     response = client.Get();
+  } else if (request.form.empty()) {
+    client.SetBody(cpr::Body{request.body});
+    response = client.Post();
   } else {
     cpr::Payload payload{};
     for (const auto& [name, value] : request.form) {

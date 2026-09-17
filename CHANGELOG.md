@@ -12,6 +12,10 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Implement native OpenQASM 3 jobs, bounded execution, cancellation,
+  retrieval, ordered shots, and histograms with synthetic lifecycle tests.
+  ([#10]) ([**@marcelwa**])
+
 - 🧪 Add opt-in, metadata-only live validation for IBM Berlin and Aachen through
   the installed library, with a manual main-only workflow and offline safety
   regressions. Quantum execution remains unimplemented. ([#3]) ([**@marcelwa**])
@@ -35,6 +39,7 @@ releases may include breaking changes.
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [Unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device
+[#10]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/10
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3

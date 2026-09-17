@@ -27,3 +27,7 @@
 /// Required null-terminated IBM Cloud instance CRN; set before initialization.
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN                         \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM2
+
+/// Maximum QPU execution time in seconds (uint64_t, 1..10800); default: 60.
+#define IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME                       \
+  QDMI_DEVICE_JOB_PARAMETER_CUSTOM1

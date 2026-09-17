@@ -48,8 +48,9 @@ do not convey. Use C++ casts, not C-style casts.
 
 Preserve the QDMI C ABI and the `IBM_` symbol prefix. No C++ exception may cross
 the C boundary. Honor size queries, handle validation, status codes, and null
-checks. The current milestone supports backend queries only. Job execution and
-discovery require their own implementation milestones.
+checks. Jobs retain their session resources until freed. Never retry a job
+submission automatically or treat local handle cleanup as remote cancellation.
+Preserve physical qubit indices and classical-bit ordering through execution.
 
 ## Build and Validation
 
@@ -83,7 +84,11 @@ Keep live tests marked `live` and skipped before credential access unless
 `--run-live` is explicit. Preserve sequential execution and fixed diagnostic
 categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
-before fixing them. Quantum execution requires a separate milestone and budget.
+before fixing them. Quantum checks require the separate `quantum` marker and
+`--run-quantum` opt-in. Run them only after the offline CI gates on merged
+`main`. The authorized CI budget is one job each on Berlin and Aachen, 128 shots
+per job, and at most 60 seconds of QPU execution per job. Do not make paid local
+submissions or automatically retry hardware tests.
 
 ## Git and GitHub
 

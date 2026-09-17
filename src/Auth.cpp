@@ -83,13 +83,24 @@ Auth::Auth(Configuration configurationValue, Transport transportValue,
     : configuration(std::move(configurationValue)),
       transport(std::move(transportValue)), clock(std::move(clockValue)) {}
 
-void Auth::refresh() {
+std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
+  const auto now = clock();
+  if (now >= deadline) {
+    throw Failure{QDMI_ERROR_TIMEOUT};
+  }
+  return std::min(std::chrono::milliseconds{30000},
+                  std::chrono::ceil<std::chrono::milliseconds>(deadline - now));
+}
+
+void Auth::refresh(Deadline deadline) {
   const auto started = clock();
   const auto response = transport(
       {.url = configuration.authUrl,
        .headers = {},
        .form = {{"grant_type", "urn:ibm:params:oauth:grant-type:apikey"},
-                {"apikey", configuration.apiKey}}});
+                {"apikey", configuration.apiKey}},
+       .body = {},
+       .timeout = remaining(deadline)});
   // IAM reports invalid API keys as 400 as well as 401/403.
   if (!response.failed && !response.timedOut && response.status == 400) {
     throw Failure{QDMI_ERROR_PERMISSIONDENIED};
@@ -112,25 +123,42 @@ void Auth::refresh() {
   bearer = token;
 }
 
-std::string Auth::get(const std::string& resource) {
-  const std::scoped_lock lock(mutex);
+Response Auth::request(const std::string& resource, bool post,
+                       const std::string& body, Deadline deadline) {
+  std::unique_lock lock(mutex, std::defer_lock);
+  if (!lock.try_lock_until(deadline)) {
+    throw Failure{QDMI_ERROR_TIMEOUT};
+  }
   if (bearer.empty() || clock() >= expires) {
-    refresh();
+    refresh(deadline);
   }
   const auto request = [&] {
     return transport({.url = configuration.baseUrl + resource,
                       .headers = {{"Accept", "application/json"},
                                   {"Authorization", "Bearer " + bearer},
                                   {"Service-CRN", configuration.crn},
-                                  {"IBM-API-Version", "2026-04-15"}},
-                      .form = {}});
+                                  {"IBM-API-Version", "2026-04-15"},
+                                  {"Content-Type", "application/json"}},
+                      .form = {},
+                      .post = post,
+                      .body = body,
+                      .timeout = remaining(deadline)});
   };
   auto response = request();
-  if (!response.failed && !response.timedOut && response.status == 401) {
+  if (!post && !response.failed && !response.timedOut &&
+      response.status == 401) {
     bearer.clear();
-    refresh();
+    refresh(deadline);
     response = request();
   }
+  if (post && response.status == 401) {
+    bearer.clear();
+  }
+  return response;
+}
+
+std::string Auth::get(const std::string& resource, Deadline deadline) {
+  const auto response = request(resource, false, {}, deadline);
   checkResponse(response);
   return response.body;
 }
