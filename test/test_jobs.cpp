@@ -183,7 +183,7 @@ TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
       false);
   fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
   EXPECT_EQ(job.check(), QDMI_JOB_STATUS_QUEUED);
-  fails([&] { (void)job.results(); }, QDMI_ERROR_BADSTATE);
+  fails([&] { (void)job.results(); }, QDMI_ERROR_INVALIDARGUMENT);
   service.status = "Running";
   EXPECT_EQ(job.check(), QDMI_JOB_STATUS_RUNNING);
   service.status = "Completed";
@@ -228,13 +228,16 @@ TEST(Job, CancelsAndHandlesCompletionRace) {
     if (race) {
       service.cancellationStatus = 409;
       service.status = "Completed";
-      fails([&] { job.cancel(); }, QDMI_ERROR_BADSTATE);
+      fails([&] { job.cancel(); }, QDMI_ERROR_INVALIDARGUMENT);
       EXPECT_EQ(job.check(), QDMI_JOB_STATUS_DONE);
+      const auto requests = service.requests.size();
+      fails([&] { job.cancel(); }, QDMI_ERROR_INVALIDARGUMENT);
+      EXPECT_EQ(service.requests.size(), requests);
     } else {
       job.cancel();
       EXPECT_EQ(job.check(), QDMI_JOB_STATUS_CANCELED);
       job.cancel();
-      fails([&] { (void)job.results(); }, QDMI_ERROR_BADSTATE);
+      fails([&] { (void)job.results(); }, QDMI_ERROR_INVALIDARGUMENT);
     }
   }
 }

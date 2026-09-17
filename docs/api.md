@@ -156,25 +156,26 @@ never automatically retried, including after an authentication failure or a lost
 response. A failed submission freezes that handle. An ambiguous response may
 mean IBM accepted the job; inspect the platform before creating a replacement.
 
-Job ID, program, format, and shots are queryable. An unset property and queue
-position return `QDMI_ERROR_NOTSUPPORTED`. A job retains its session resources;
-freeing a session or job handle does not cancel a remote job. Free every job and
-session before device finalization.
+Job ID, program, format, and shots are queryable. An unset supported property
+returns `QDMI_ERROR_BADSTATE`; queue position returns `QDMI_ERROR_NOTSUPPORTED`.
+A job retains its session resources; freeing a session or job handle does not
+cancel a remote job. Free every job and session before device finalization.
 
 `job_check` polls once. `job_wait` accepts a timeout in seconds, with zero
 meaning no overall deadline. The deadline includes authentication and HTTP
 requests. Timeout leaves the remote job active; cancellation is a separate
 request. A finished or canceled job ends waiting successfully; a failed job
 returns `QDMI_ERROR_FATAL`. Cancellation racing with completion returns
-`QDMI_ERROR_BADSTATE` and preserves the completed state.
+`QDMI_ERROR_INVALIDARGUMENT` and preserves the completed state.
 
 Result queries return comma-separated binary shots, comma-separated histogram
 keys, and a matching `size_t` count array. Strings include their terminating
 null byte. Bits follow classical declaration order, with the highest bit index
-on the left. Leading zeros and shot order are preserved. Incomplete results
-return `QDMI_ERROR_BADSTATE`; malformed results fail rather than fabricating
-counts. Completed results are cached. Statevectors and probabilities are
-unsupported.
+on the left. Leading zeros and shot order are preserved. Results of unfinished
+or canceled jobs return `QDMI_ERROR_INVALIDARGUMENT`. Results not yet available
+after completion return `QDMI_ERROR_BADSTATE`; malformed results fail rather
+than fabricating counts. Completed results are cached. Statevectors and
+probabilities are unsupported.
 
 Retrieval by job ID creates a read-only local handle without resubmitting. It
 requires the same backend, retained input parameters, and the supported

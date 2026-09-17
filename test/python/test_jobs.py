@@ -78,6 +78,10 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
         assert native.init(session) == 0
         with native.job(session) as job:
             assert native.submit(job) == -10
+            for prop in (0, 1, 2):
+                assert native.job_property(job, prop, 0, None, None) == -10
+            assert native.job_property(job, 999999995, 0, None, None) == -9
+            assert native.results(job, 0, 0, None, None) == -7
             configure(native, job)
             assert native.submit(job) == 0
             assert native.submit(job) == -10
@@ -86,6 +90,7 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
             assert native.job_check(job, ctypes.byref(status)) == 0
             assert status.value == 4
             assert native.wait(job, 1) == 0
+            assert native.cancel(job) == -7
             required = ctypes.c_size_t()
             assert native.results(job, 0, 0, None, ctypes.byref(required)) == 0
             assert required.value == len("101,000,101") + 1
@@ -142,6 +147,9 @@ def test_configuration_validation(native: Native, job_service: Service) -> None:
     with native.session(job_service.parameters) as session:
         assert native.init(session) == 0
         with native.job(session) as job:
+            nonnull = ctypes.c_size_t(1)
+            for parameter in (0, 1, 2, 999999995, 999999996):
+                assert native.job_set(job, parameter, 0, ctypes.byref(nonnull)) == -7
             assert native.job_set(job, 999999995, 0, None) == 0
             assert native.job_set(job, 999999996, 0, None) == -9
             assert native.job_set(job, -1, 0, None) == -7
@@ -186,13 +194,14 @@ def test_wait_timeout_and_cancellation(native: Native, job_service: Service) -> 
             configure(native, job)
             assert native.wait(job, 1) == -10
             assert native.submit(job) == 0
+            assert native.results(job, 0, 0, None, None) == -7
             started = time.monotonic()
             assert native.wait(job, 1) == -11
             assert time.monotonic() - started < 2
             assert all(not path.endswith("/cancel") for path, _, _ in job_service.requests)
             assert native.cancel(job) == 0
             assert native.wait(job, 1) == 0
-            assert native.results(job, 0, 0, None, None) == -10
+            assert native.results(job, 0, 0, None, None) == -7
 
 
 @pytest.mark.parametrize("change", ["backend", "program", "private", "pubs", "encoding"])
