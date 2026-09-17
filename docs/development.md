@@ -12,8 +12,8 @@ uv sync --locked --only-group dev
 Use separate directories under `build/` for native, wheel, documentation, and
 installed-package builds. Do not run two Nox package builds concurrently in the
 same checkout. Ordinary tests are offline with respect to quantum backends;
-dependency installation may download packages. Live metadata checks require the
-explicit opt-in described below.
+dependency installation may download packages. Live metadata and quantum checks
+require separate opt-ins described below.
 
 ## Native checks
 
@@ -137,8 +137,60 @@ status codes. Traceback locals, exception chains, and captured output are
 suppressed. Do not enable HTTP debugging, attach account data, or upload raw
 responses, topology dumps, or calibration snapshots. This workflow creates no
 result artifacts. Review its redacted result after dispatch. Any compatibility
-fix needs a synthetic regression test and a follow-up PR; quantum execution
-requires a separately agreed budget.
+fix needs a synthetic regression test and a follow-up PR.
+
+## Gated quantum execution
+
+After human merge of the hardware workflow, pushes to `main` run all offline
+checks before hardware validation. Manual **Actions → CI → Run workflow**
+dispatches from `main` use the same gates:
+
+```console
+gh workflow run ci.yml --ref main
+```
+
+PRs, merge queues, and dispatches from other branches run offline only. On
+`main`, change detection cannot skip a prerequisite. The final `🚦 Check`
+requires both the offline aggregate and successful hardware validation. A
+failed, cancelled, or unexpectedly skipped prerequisite prevents hardware
+execution. The independent metadata workflow remains available without quantum
+jobs.
+
+The pipeline builds a Linux wheel from its sdist, tests that installed wheel
+without secrets, and passes the exact wheel to the hardware job. Dependencies
+come from `uv.lock`. Only the final test step receives the existing
+`ibm-quantum` environment secrets. The native library derives the API region
+from the instance CRN; the workflow supplies no endpoint override.
+
+Berlin and Aachen run sequentially through the public `IBMBackend`. Each backend
+receives exactly one job with 128 shots and the native 60-second QPU execution
+cap. The circuit contains a Bell pair and an independent X-prepared qubit. The
+check requires 128 three-bit shots, matching counts and memory, at least 75%
+combined `100`/`111`, and at least 10% for each outcome. A fresh session
+retrieves the same job and compares its results without another submission.
+Sampler and estimator checks run offline and do not add hardware jobs.
+
+Each backend may wait up to 15 minutes. The original public job must also report
+completion before result collection, so it cannot start an unlimited second
+wait. Failures and timeouts trigger a cancellation attempt before handles are
+released; cancellation can race with completion. Freeing a handle alone does not
+cancel a remote job. The job timeout is 40 minutes. Runs are serialized without
+automatic cancellation or retries. Rerunning the workflow is another paid run;
+do so only within an authorized budget. Do not make development-time hardware
+submissions.
+
+The `quantum` marker requires `--run-quantum`; `--run-live` enables metadata
+only. Default pytest, Nox, wheel, and documentation builds cannot activate
+hardware access, even when credentials exist. Live diagnostics contain backend
+names, outcomes, and fixed failure categories. Job IDs exist only in process
+memory for retrieval and cleanup. Hardware checks create no result artifacts and
+retain no raw responses, topology, calibration snapshots, credentials, or CRNs.
+A runner termination can prevent cleanup; the per-job execution cap still
+applies.
+
+Quantum execution remains **unverified on hardware** until the first eligible
+run succeeds. Reproduce any live compatibility failure with a synthetic
+regression before making a follow-up fix.
 
 ## Lint
 
@@ -171,14 +223,15 @@ HTML, and builds Sphinx with warnings treated as errors. HTML output is in
 
 ## Automation setup
 
-CI validates builds and produces artifacts without backend credentials. The
-`🚦 Check` job aggregates change detection, native tests on Linux, macOS, and
-Windows (MSVC and ClangCL), installation tests, sanitizers, coverage, C++ and
-Python lint, the complete hook set, Python tests, sdist and wheel builds, and
-documentation. Only jobs deselected by successful change detection may skip;
-failures, cancellations, and unexpected skips block the aggregate. Lint and
-documentation run on every change. Pushes to `main`, merge groups, and manual
-runs test both native and Python code.
+CI builds and tests without backend credentials, then permits the bounded
+hardware checks described above on merged `main`. Its offline aggregate includes
+change detection, native tests on Linux, macOS, and Windows (MSVC and ClangCL),
+installation tests, sanitizers, coverage, C++ and Python lint, the complete hook
+set, Python/Qiskit tests, sdist and wheel builds, documentation, and the
+installed Linux candidate. PR checks may skip jobs deselected by change
+detection; failures, cancellations, and unexpected skips block the aggregate.
+Lint and documentation run on every change. Pushes to `main` run every
+prerequisite.
 
 Configure branch protection or a ruleset for `main` to require `🚦 Check` from
 GitHub Actions. The workflow alone does not enforce merge protection. Provision

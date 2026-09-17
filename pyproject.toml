@@ -72,6 +72,7 @@ build = [
 test = [
   "mqt-core[qiskit]~=3.10.0",
   "pytest>=9.1.1",
+  "pyyaml>=6.0.2",
   "pytest-cov>=7.1.0",
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8.0",
@@ -142,7 +143,7 @@ filterwarnings = [
   "error",
 ]
 log_level = "INFO"
-testpaths = ["test/python"]
+testpaths = ["test/python", "test/ci"]
 
 
 [tool.coverage]
@@ -193,7 +194,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "python/ibm/qdmi/__main__.py" = ["T20"]
 "docs/**" = ["INP001", "T20"]
-"test/python/**" = ["T20", "INP001"]
+"test/**" = ["T20", "INP001"]
 
 
 [tool.ty.terminal]

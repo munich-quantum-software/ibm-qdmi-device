@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Explicit opt-in and redacted diagnostics for live metadata checks."""
+"""Explicit opt-in and redacted diagnostics for live checks."""
 
 from __future__ import annotations
 
@@ -28,6 +28,7 @@ pytest_plugins = ["offline_service"]
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register the live test controls without reading credentials."""
     parser.addoption("--run-live", action="store_true", help="Authorize metadata-only IBM requests")
+    parser.addoption("--run-quantum", action="store_true", help="Authorize bounded IBM quantum execution")
     parser.addoption("--ibm-backend", default="both", help="both, ibm_berlin, or ibm_aachen")
 
 
@@ -39,9 +40,10 @@ def pytest_configure(config: pytest.Config) -> None:
         UsageError: A live run selected an unsupported backend.
     """
     config.addinivalue_line("markers", "live: explicitly authorized IBM metadata requests (disabled by default)")
-    if config.getoption("run_live"):
+    config.addinivalue_line("markers", "quantum: explicitly authorized IBM quantum jobs (disabled by default)")
+    if config.getoption("run_live") or config.getoption("run_quantum"):
         if config.getoption("ibm_backend") not in {"both", *BACKENDS}:
-            msg = "live metadata: invalid backend selection"
+            msg = "live checks: invalid backend selection"
             raise pytest.UsageError(msg)
         config.option.numprocesses = 0
         config.option.dist = "no"
@@ -56,12 +58,13 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Skip live tests unless the invocation explicitly enables them."""
     for item in items:
-        if item.get_closest_marker("live") is None:
-            continue
-        if not config.getoption("run_live"):
-            item.add_marker(pytest.mark.skip(reason="live metadata is opt-in"))
-        elif isinstance(item, pytest.Function) and config.getoption("ibm_backend") not in {
-            "both",
-            item.callspec.params["backend"],
-        }:
-            item.add_marker(pytest.mark.skip(reason="backend not selected"))
+        for marker, option in (("live", "run_live"), ("quantum", "run_quantum")):
+            if item.get_closest_marker(marker) is None:
+                continue
+            if not config.getoption(option):
+                item.add_marker(pytest.mark.skip(reason=f"{marker} access is opt-in"))
+            elif isinstance(item, pytest.Function) and config.getoption("ibm_backend") not in {
+                "both",
+                item.callspec.params["backend"],
+            }:
+                item.add_marker(pytest.mark.skip(reason="backend not selected"))

@@ -12,6 +12,12 @@ releases may include breaking changes.
 
 ### Added
 
+- 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
+  checks, using the tested wheel, fresh-session retrieval, and redacted
+  diagnostics. Confirm terminal state before collecting public job results. Keep
+  hardware access explicitly opt-in and unverified until the first merged-main
+  run. ([#13]) ([**@marcelwa**])
+
 - ✨ Add the public Qiskit backend, metadata-derived targets, physical-layout
   serialization, ordered results, and shared sampler and estimator primitives.
   Expose advertised measurement/reset metadata and readout calibration. Honor
@@ -52,6 +58,7 @@ releases may include breaking changes.
 [#10]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/10
 [#11]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/11
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
+[#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
