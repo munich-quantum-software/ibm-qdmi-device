@@ -40,7 +40,7 @@ contents, and [development](docs/development.md) for validation commands.
 
 - `src/` and `include/`: native implementation and public IBM constants.
 - `cmake/`: native build and installation configuration.
-- `python/ibm/qdmi/`: Python package and version metadata.
+- `python/ibm/qdmi/`: Python package, installed paths, and information CLI.
 - `test/`: native unit tests and Python tests using a loopback IBM service.
 - `docs/`: Sphinx and Doxygen documentation sources.
 - `.github/`: CI, packaging, and repository automation.
