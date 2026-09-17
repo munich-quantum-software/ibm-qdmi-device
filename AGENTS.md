@@ -30,6 +30,9 @@ commands. Keep this file focused on repository-specific guardrails.
 - Keep cleanup separate from behavior changes unless correctness requires both.
   Retain only narrow, justified suppressions.
 - Keep documentation at its existing source of truth and link to it.
+- Keep project documentation and configuration self-contained. Do not name or
+  link other device implementations. Preserve required copyright and license
+  notices in copied material.
 - Group related changes in a concise changelog entry. Once a PR exists, include
   its reference and every contributing author as `([#123]) ([**@username**])`
   and define their links at the bottom of `CHANGELOG.md`. Do not invent PRs.
@@ -50,10 +53,10 @@ discovery require their own implementation milestones.
 
 ## Build and Validation
 
-All current tests run without backend access. Separate native, wheel,
-documentation, and installed-consumer build directories under `build/`. Do not
-run package builds concurrently in the same build directory. For dependency-only
-setup, use `uv sync --locked --only-group dev`.
+Run offline tests by default. Separate native, wheel, documentation, and
+installed-consumer build directories under `build/`. Do not run package builds
+concurrently in the same build directory. For dependency-only setup, use
+`uv sync --locked --only-group dev`.
 
 - Run `uvx nox -s lint` after each completed batch of changes. Inspect formatter
   changes, keep only relevant changes, and rerun the check.
@@ -70,8 +73,17 @@ setup, use `uv sync --locked --only-group dev`.
 
 Never print, store, or commit credentials, tokens, account identifiers, or
 private backend details. Live IBM access requires explicit authorization for the
-service, backend, and spending scope. Keep future live tests separate from
-offline checks and disabled by default, including metadata-only requests.
+service, backend, and spending scope. The opt-in metadata checks submit no jobs.
+Run the manual workflow only from merged `main`, using the `ibm-quantum`
+environment restricted to that branch. Never dispatch from a PR or merge to
+enable a live run without human approval. Keep credentials confined to the live
+test step, after wheel installation. Follow `docs/development.md` for commands.
+
+Keep live tests marked `live` and skipped before credential access unless
+`--run-live` is explicit. Preserve sequential execution and fixed diagnostic
+categories. Never retain raw responses, topology, or calibration snapshots in
+logs or artifacts. Reproduce compatibility failures with synthetic fixtures
+before fixing them. Quantum execution requires a separate milestone and budget.
 
 ## Git and GitHub
 

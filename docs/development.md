@@ -11,8 +11,9 @@ uv sync --locked --only-group dev
 
 Use separate directories under `build/` for native, wheel, documentation, and
 installed-package builds. Do not run two Nox package builds concurrently in the
-same checkout. All tests are offline with respect to quantum backends;
-dependency installation may download packages.
+same checkout. Ordinary tests are offline with respect to quantum backends;
+dependency installation may download packages. Live metadata checks require the
+explicit opt-in described below.
 
 ## Native checks
 
@@ -71,6 +72,61 @@ The Linux wheel containers install OpenSSL development files before building.
 macOS wheels use Apple's native TLS backend and disable optional curl libraries
 from Homebrew so that their deployment requirements do not raise the wheel's
 minimum supported macOS version.
+
+## Live IBM metadata
+
+Live validation is separate from ordinary CI and the required-check aggregate.
+It checks the installed wheel's C ABI against `ibm_berlin` (120 qubits) and
+`ibm_aachen` (156 qubits). It submits no quantum jobs. A successful offline run
+does not establish live compatibility; live validation remains unperformed until
+a manual run succeeds after this workflow is merged.
+
+After human merge, open **Actions → Live IBM metadata → Run workflow**. Select
+the `main` branch and `both` (the default), `ibm_berlin`, or `ibm_aachen`. The
+equivalent command is:
+
+```console
+gh workflow run live-metadata.yml --ref main -f backend=both
+```
+
+The workflow checks out the dispatch commit and permits only `refs/heads/main`.
+The `ibm-quantum` environment must use **Selected branches and tags** with a
+single **branch** rule, `main`. Keep the existing `IBM_QUANTUM_API_KEY` and
+`IBM_QUANTUM_INSTANCE_CRN` environment secrets. Build and installation steps run
+before the live step receives these secrets. The library derives the region from
+the CRN; this workflow has no endpoint override. Runs are serialized and have a
+15-minute timeout, with no schedules or automatic retries.
+
+For an explicitly authorized local run from merged `main`, supply the same two
+environment variables through a secure credential source, then run:
+
+```console
+uvx nox -s live-metadata -- both
+```
+
+The non-default session builds and installs a wheel with credentials removed
+from the build environment. To use an already installed wheel and test group:
+
+```console
+python -m pytest test/python/test_live_metadata.py --run-live --ibm-backend both -n 0 --tb=line --show-capture=no
+```
+
+Live tests are skipped before credential access in ordinary pytest, Nox, and
+wheel tests, even if credentials are present. Explicit live runs reject missing
+credentials and invalid backend selections. Backends run sequentially, each with
+one session that is freed on success or failure. Checks exercise size queries,
+identity, physical indices, coupling ownership, operation metadata and site
+tuples, optional calibration ranges, current status, and queue length. Busy
+backends and `QDMI_ERROR_NOTSUPPORTED` for optional metadata are accepted; gate
+lists and changing calibration values are not pinned.
+
+Reports contain backend names, outcomes, and fixed diagnostic categories or QDMI
+status codes. Traceback locals, exception chains, and captured output are
+suppressed. Do not enable HTTP debugging, attach account data, or upload raw
+responses, topology dumps, or calibration snapshots. This workflow creates no
+result artifacts. Review its redacted result after dispatch. Any compatibility
+fix needs a synthetic regression test and a follow-up PR; quantum execution
+requires a separately agreed budget.
 
 ## Lint
 
