@@ -19,6 +19,26 @@
 
 from __future__ import annotations
 
+from ._paths import (
+    IBM_QDMI_CATALOG_PATH,
+    IBM_QDMI_CMAKE_DIR,
+    IBM_QDMI_DEVICE_ID,
+    IBM_QDMI_INCLUDE_DIR,
+    IBM_QDMI_LIBRARY_PATH,
+    IBM_QDMI_PREFIX,
+)
 from ._version import version as __version__
 
-__all__ = ["__version__"]
+__all__ = [
+    "IBM_QDMI_CATALOG_PATH",
+    "IBM_QDMI_CMAKE_DIR",
+    "IBM_QDMI_DEVICE_ID",
+    "IBM_QDMI_INCLUDE_DIR",
+    "IBM_QDMI_LIBRARY_PATH",
+    "IBM_QDMI_PREFIX",
+    "__version__",
+]
+
+
+def __dir__() -> list[str]:
+    return __all__

@@ -185,5 +185,8 @@ results are unsupported. See the
 ## Python package
 
 `ibm.qdmi.__version__` reports the installed distribution version. The package
-bundles the native interface and headers but exposes no Python backend class,
-command-line interface, or quantum framework integration.
+exports `IBM_QDMI_DEVICE_ID` and `IBM_QDMI_PREFIX`, together with the
+`pathlib.Path` constants `IBM_QDMI_LIBRARY_PATH`, `IBM_QDMI_CATALOG_PATH`,
+`IBM_QDMI_INCLUDE_DIR`, and `IBM_QDMI_CMAKE_DIR`. Importing it does not load a
+device. See [installation](installation.md#device-discovery) for catalogue and
+information CLI usage. Quantum framework integration remains separate.

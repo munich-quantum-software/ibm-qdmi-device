@@ -14,18 +14,18 @@ cmake --build build/native --config Release
 cmake --install build/native --config Release --prefix build/install/prefix
 ```
 
-The `ibm-qdmi-device_Runtime` component installs the shared library. The
-`ibm-qdmi-device_Development` component installs headers, link artifacts, and
-CMake package configuration. Install both to build a downstream consumer.
+The `ibm-qdmi-device_Runtime` component installs the shared library and device
+catalogue. The `ibm-qdmi-device_Development` component installs headers, link
+artifacts, and CMake package configuration. Install both to build a downstream
+consumer.
 
 Consumers use `find_package(ibm-qdmi-device 0.1 REQUIRED CONFIG)` and link
 `ibm-qdmi-device::ibm-qdmi-device`. Set `CMAKE_PREFIX_PATH` to the installation
 prefix. Headers use the `ibm_qdmi/` include directory.
 
-Lifecycle, session, and metadata-query functions are implemented. Job functions
-remain declarations only and fail to link if called. No discovery manifest is
-installed. See [API status](api.md) for the supported interface and a query
-example.
+The exported target carries `QDMI_DEVICE_ID`, `QDMI_DEVICE_PREFIX`, and
+`QDMI_MANIFEST_NAME` properties. See [API status](api.md) for the supported
+interface and a query example.
 
 ## Python package
 
@@ -37,5 +37,22 @@ uv pip install .
 The `ibm-qdmi` distribution installs the `ibm.qdmi` namespace. Its `data/`
 directory contains the native runtime and development components. The package
 includes typing metadata and exposes `ibm.qdmi.__version__`.
+
+## Device discovery
+
+The relocatable `ibm-qdmi-device.qdmi.json` catalogue lives beside the shared
+library. It contains `ibm.default`, `ibm.berlin`, and `ibm.aachen`. Concrete
+entries set only the backend name. The generic entry requires an explicit
+backend. Supply credentials and the instance CRN when opening a session; the
+catalogue contains neither.
+
+MQT Core users can set `MQT_CORE_QDMI_CONFIG_FILE` to the catalogue path before
+importing its driver. The driver resolves the library relative to that file.
+Move the catalogue and library together when relocating a native installation.
+
+`ibm-qdmi --catalog_path` prints the installed catalogue path. The information
+CLI also accepts `--include_dir`, `--cmake_dir`, `--lib_path`, and `--version`.
+`python -m ibm.qdmi` provides the same interface. These commands do not load a
+device or contact IBM.
 
 See [development](development.md) for wheel and source-distribution checks.
