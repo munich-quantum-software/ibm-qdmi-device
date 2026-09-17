@@ -40,7 +40,13 @@ def run_live_tests(
         Captured, synthetic-only pytest diagnostics.
     """
     source = Path(__file__).parent
-    for name in ("conftest.py", "test_live_metadata.py", "metadata_checks.py", "native_support.py"):
+    for name in (
+        "conftest.py",
+        "test_live_metadata.py",
+        "metadata_checks.py",
+        "native_support.py",
+        "offline_service.py",
+    ):
         shutil.copyfile(source / name, tmp_path / name)
     (tmp_path / "pyproject.toml").write_text('[tool.pytest]\nfilterwarnings = ["error"]\n', encoding="utf-8")
     # The guard replaces the test's environment and loader before any test body.

@@ -29,7 +29,7 @@ endif()
 gtest_discover_tests(ibm-qdmi-package-tests DISCOVERY_MODE PRE_TEST)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
-  add_executable(ibm-qdmi-backend-tests test_backend.cpp)
+  add_executable(ibm-qdmi-backend-tests test_backend.cpp test_jobs.cpp)
   target_link_libraries(ibm-qdmi-backend-tests PRIVATE ibm-qdmi-core GTest::gtest_main)
   target_compile_definitions(
     ibm-qdmi-backend-tests

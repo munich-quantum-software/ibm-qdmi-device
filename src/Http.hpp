@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -28,8 +29,10 @@ namespace ibm {
 struct Request {
   std::string url;
   std::map<std::string, std::string> headers;
-  // A nonempty form selects POST; backend requests always use GET.
   std::map<std::string, std::string> form;
+  bool post = false;
+  std::string body;
+  std::chrono::milliseconds timeout{30000};
 };
 struct Response {
   std::int32_t status = 0;

@@ -19,10 +19,13 @@
 
 #include "Auth.hpp"
 #include "Http.hpp"
+#include "Job.hpp"
 #include "Metadata.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <ibm-qdmi-device/constants.h>
 #include <ibm_qdmi/device.h>
@@ -34,6 +37,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -52,6 +56,16 @@ struct IBM_QDMI_Device_Session_impl_d {
   std::vector<std::unique_ptr<IBM_QDMI_Site_impl_d>> sites;
   std::vector<std::unique_ptr<IBM_QDMI_Operation_impl_d>> operations;
 };
+struct IBM_QDMI_Device_Job_impl_d {
+  explicit IBM_QDMI_Device_Job_impl_d(
+      std::shared_ptr<IBM_QDMI_Device_Session_impl_d> owner)
+      : session(std::move(owner)),
+        job(*session->auth, session->configuration.backend,
+            session->metadata.sites.size()) {}
+  std::timed_mutex mutex;
+  std::shared_ptr<IBM_QDMI_Device_Session_impl_d> session;
+  ibm::Job job;
+};
 
 namespace {
 struct State {
@@ -60,6 +74,9 @@ struct State {
   std::unordered_map<IBM_QDMI_Device_Session,
                      std::shared_ptr<IBM_QDMI_Device_Session_impl_d>>
       sessions;
+  std::unordered_map<IBM_QDMI_Device_Job,
+                     std::shared_ptr<IBM_QDMI_Device_Job_impl_d>>
+      jobs;
 };
 State& state() {
   static State value;
@@ -94,6 +111,19 @@ sessionFor(IBM_QDMI_Device_Session handle) {
   const auto found = registry.sessions.find(handle);
   require(found != registry.sessions.end());
   return found->second;
+}
+std::shared_ptr<IBM_QDMI_Device_Job_impl_d> jobFor(IBM_QDMI_Device_Job handle) {
+  auto& registry = state();
+  const std::scoped_lock lock(registry.mutex);
+  const auto found = registry.jobs.find(handle);
+  require(found != registry.jobs.end());
+  return found->second;
+}
+template <class Value> Value readValue(std::size_t size, const void* value) {
+  require(size == sizeof(Value));
+  Value result{};
+  std::memcpy(&result, value, size);
+  return result;
 }
 int copyBytes(const void* source, std::size_t required, std::size_t size,
               void* value, std::size_t* sizeRet) {
@@ -161,7 +191,8 @@ int IBM_QDMI_device_finalize() {
     auto& registry = state();
     const std::scoped_lock lock(registry.mutex);
     require(registry.initialized, QDMI_ERROR_BADSTATE);
-    require(registry.sessions.empty(), QDMI_ERROR_FATAL);
+    require(registry.sessions.empty() && registry.jobs.empty(),
+            QDMI_ERROR_FATAL);
     registry.initialized = false;
     return QDMI_SUCCESS;
   });
@@ -277,6 +308,8 @@ int IBM_QDMI_device_session_query_device_property(
       return copyString(metadata.version, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_LIBRARYVERSION:
       return copyString("1.3.3", size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
+      return copyValue(QDMI_PROGRAM_FORMAT_QASM3, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
@@ -324,6 +357,194 @@ int IBM_QDMI_device_session_query_device_property(
     default:
       return QDMI_ERROR_NOTSUPPORTED;
     }
+  });
+}
+
+int IBM_QDMI_device_session_create_device_job(IBM_QDMI_Device_Session handle,
+                                              IBM_QDMI_Device_Job* result) {
+  return boundary([&] {
+    require(result != nullptr);
+    auto session = sessionFor(handle);
+    const std::scoped_lock sessionLock(session->mutex);
+    require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
+    auto allocated = std::make_shared<IBM_QDMI_Device_Job_impl_d>(session);
+    auto* job = allocated.get();
+    auto& registry = state();
+    const std::scoped_lock lock(registry.mutex);
+    registry.jobs.emplace(job, std::move(allocated));
+    *result = job;
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_session_retrieve_device_job_by_id(
+    IBM_QDMI_Device_Session handle, const char* id,
+    IBM_QDMI_Device_Job* result) {
+  return boundary([&] {
+    require(result != nullptr && id != nullptr);
+    auto session = sessionFor(handle);
+    const std::scoped_lock sessionLock(session->mutex);
+    require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
+    auto allocated = std::make_shared<IBM_QDMI_Device_Job_impl_d>(session);
+    allocated->job.retrieve(id);
+    auto* job = allocated.get();
+    auto& registry = state();
+    const std::scoped_lock lock(registry.mutex);
+    registry.jobs.emplace(job, std::move(allocated));
+    *result = job;
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
+                                      QDMI_Device_Job_Parameter parameter,
+                                      std::size_t size, const void* value) {
+  return boundary([&]() -> int {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    auto& job = owned->job;
+    require(validEnum(parameter, QDMI_DEVICE_JOB_PARAMETER_MAX));
+    require(value == nullptr || size != 0);
+    require(job.configurable(), QDMI_ERROR_BADSTATE);
+    switch (parameter) {
+    case QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT:
+      if (value != nullptr) {
+        const auto format = readValue<QDMI_Program_Format>(size, value);
+        require(validEnum(format, QDMI_PROGRAM_FORMAT_MAX));
+        require(format == QDMI_PROGRAM_FORMAT_QASM3, QDMI_ERROR_NOTSUPPORTED);
+        job.format = format;
+      }
+      break;
+    case QDMI_DEVICE_JOB_PARAMETER_PROGRAM:
+      if (value != nullptr) {
+        job.setProgram(readString(size, value));
+      }
+      break;
+    case QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM:
+      if (value != nullptr) {
+        const auto shots = readValue<std::size_t>(size, value);
+        require(shots != 0);
+        job.shots = shots;
+      }
+      break;
+    case IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME:
+      if (value != nullptr) {
+        const auto seconds = readValue<std::uint64_t>(size, value);
+        require(seconds != 0 && seconds <= 10800);
+        job.maxExecutionTime = seconds;
+      }
+      break;
+    default:
+      return QDMI_ERROR_NOTSUPPORTED;
+    }
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_job_query_property(IBM_QDMI_Device_Job handle,
+                                       QDMI_Device_Job_Property property,
+                                       std::size_t size, void* value,
+                                       std::size_t* sizeRet) {
+  return boundary([&]() -> int {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    const auto& job = owned->job;
+    require(validEnum(property, QDMI_DEVICE_JOB_PROPERTY_MAX));
+    switch (property) {
+    case QDMI_DEVICE_JOB_PROPERTY_ID:
+      require(!job.id.empty(), QDMI_ERROR_BADSTATE);
+      return copyString(job.id, size, value, sizeRet);
+    case QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT:
+      require(job.format.has_value(), QDMI_ERROR_BADSTATE);
+      return copyOptional(job.format, size, value, sizeRet);
+    case QDMI_DEVICE_JOB_PROPERTY_PROGRAM:
+      require(!job.program.empty(), QDMI_ERROR_BADSTATE);
+      return copyString(job.program, size, value, sizeRet);
+    case QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM:
+      return copyValue(job.shots, size, value, sizeRet);
+    default:
+      return QDMI_ERROR_NOTSUPPORTED;
+    }
+  });
+}
+int IBM_QDMI_device_job_submit(IBM_QDMI_Device_Job handle) {
+  return boundary([&] {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    owned->job.submit();
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_job_check(IBM_QDMI_Device_Job handle,
+                              QDMI_Job_Status* status) {
+  return boundary([&] {
+    require(status != nullptr);
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    *status = owned->job.check();
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_job_cancel(IBM_QDMI_Device_Job handle) {
+  return boundary([&] {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    owned->job.cancel();
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_job_wait(IBM_QDMI_Device_Job handle, std::size_t timeout) {
+  return boundary([&] {
+    const auto started = std::chrono::steady_clock::now();
+    const auto maximum = std::chrono::duration_cast<std::chrono::seconds>(
+                             ibm::Deadline::max() - started)
+                             .count();
+    const auto deadline =
+        timeout == 0 || std::cmp_greater_equal(timeout, maximum)
+            ? ibm::Deadline::max()
+            : started + std::chrono::seconds(timeout);
+    auto owned = jobFor(handle);
+    for (;;) {
+      std::unique_lock lock(owned->mutex, std::defer_lock);
+      require(lock.try_lock_until(deadline), QDMI_ERROR_TIMEOUT);
+      const auto status = owned->job.check(deadline);
+      require(status != QDMI_JOB_STATUS_CREATED, QDMI_ERROR_BADSTATE);
+      require(status != QDMI_JOB_STATUS_FAILED, QDMI_ERROR_FATAL);
+      if (ibm::terminal(status)) {
+        return QDMI_SUCCESS;
+      }
+      lock.unlock();
+      const auto now = std::chrono::steady_clock::now();
+      require(now < deadline, QDMI_ERROR_TIMEOUT);
+      std::this_thread::sleep_until(
+          std::min(deadline, now + std::chrono::seconds{1}));
+    }
+  });
+}
+int IBM_QDMI_device_job_get_results(IBM_QDMI_Device_Job handle,
+                                    QDMI_Job_Result result, std::size_t size,
+                                    void* value, std::size_t* sizeRet) {
+  return boundary([&]() -> int {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    require(validEnum(result, QDMI_JOB_RESULT_MAX));
+    require(result == QDMI_JOB_RESULT_SHOTS ||
+                result == QDMI_JOB_RESULT_HIST_KEYS ||
+                result == QDMI_JOB_RESULT_HIST_VALUES,
+            QDMI_ERROR_NOTSUPPORTED);
+    const auto& data = owned->job.results();
+    if (result == QDMI_JOB_RESULT_SHOTS) {
+      return copyString(data.shots, size, value, sizeRet);
+    }
+    if (result == QDMI_JOB_RESULT_HIST_KEYS) {
+      return copyString(data.keys, size, value, sizeRet);
+    }
+    return copyList(data.counts, size, value, sizeRet);
+  });
+}
+void IBM_QDMI_device_job_free(IBM_QDMI_Device_Job handle) {
+  (void)boundary([&] {
+    auto& registry = state();
+    const std::scoped_lock lock(registry.mutex);
+    registry.jobs.erase(handle);
+    return QDMI_SUCCESS;
   });
 }
 int IBM_QDMI_device_session_query_site_property(IBM_QDMI_Device_Session handle,

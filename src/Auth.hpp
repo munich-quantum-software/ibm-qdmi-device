@@ -28,6 +28,7 @@
 
 namespace ibm {
 using Clock = std::function<std::chrono::steady_clock::time_point()>;
+using Deadline = std::chrono::steady_clock::time_point;
 struct Configuration {
   std::string apiKey;
   std::string backend;
@@ -42,15 +43,21 @@ class Auth {
 public:
   explicit Auth(Configuration configuration, Transport transport = send,
                 Clock clock = std::chrono::steady_clock::now);
-  std::string get(const std::string& resource);
+  std::string get(const std::string& resource,
+                  Deadline deadline = Deadline::max());
+  /// GET may refresh and retry once after 401. POST is sent at most once.
+  Response request(const std::string& resource, bool post = false,
+                   const std::string& body = {},
+                   Deadline deadline = Deadline::max());
 
 private:
-  void refresh();
+  void refresh(Deadline deadline);
+  [[nodiscard]] std::chrono::milliseconds remaining(Deadline deadline) const;
   Configuration configuration;
   Transport transport;
   Clock clock;
   std::string bearer;
   std::chrono::steady_clock::time_point expires;
-  std::mutex mutex;
+  std::timed_mutex mutex;
 };
 } // namespace ibm
