@@ -5,14 +5,13 @@
 The library implements IBM-prefixed QDMI 1.3.3 device
 initialization/finalization, session
 allocation/configuration/initialization/free, and device, site, and operation
-queries. Job functions are declarations only. There is no discoverable device
-catalogue, child-device enumeration, or executable program format yet. A driver
-that requires every QDMI job symbol cannot load this partial interface.
+queries, and the complete job lifecycle. The supported program format is
+OpenQASM 3. Child-device enumeration is unsupported.
 
 <!-- The native API link is generated alongside the Sphinx HTML. -->
 <!-- rumdl-disable MD033 -->
 The <a href="cpp/index.html">generated QDMI declaration reference</a> also
-describes unimplemented job functions and upstream client declarations.
+describes the implemented device functions and upstream client declarations.
 <!-- rumdl-enable MD033 -->
 
 ## Session configuration
@@ -134,6 +133,55 @@ int queryQubitCount(const char *apiKey, const char *crn, const char *backend,
   return result == QDMI_SUCCESS ? finalized : result;
 }
 ```
+
+## Jobs and results
+
+Configure the program format and a null-terminated program before submission.
+Shots default to 1,024; an explicit shot count must be positive. The custom
+`IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a `uint64_t`
+number of seconds from 1 through 10,800, defaulting to 60. This bounds QPU
+execution time, not queue or wall-clock time. A null parameter value probes
+support without changing configuration.
+
+Programs must be static, bound OpenQASM 3 with explicit classical declarations
+and indexed measurements. The `q` register must span the backend's physical
+qubits; physical `$n` references are also accepted. Use backend-native
+operations and route circuits before submitting them. Classical control flow,
+parameter inputs, custom declarations, register broadcasting, and scheduled
+delays are unsupported. The service validates native gate semantics.
+
+Each submission creates one Sampler V2 job with one circuit and classified
+measurements. Twirling and dynamical decoupling are disabled. Submission is
+never automatically retried, including after an authentication failure or a lost
+response. A failed submission freezes that handle. An ambiguous response may
+mean IBM accepted the job; inspect the platform before creating a replacement.
+
+Job ID, program, format, and shots are queryable. An unset supported property
+returns `QDMI_ERROR_BADSTATE`; queue position returns `QDMI_ERROR_NOTSUPPORTED`.
+A job retains its session resources; freeing a session or job handle does not
+cancel a remote job. Free every job and session before device finalization.
+
+`job_check` polls once. `job_wait` accepts a timeout in seconds, with zero
+meaning no overall deadline. The deadline includes authentication and HTTP
+requests. Timeout leaves the remote job active; cancellation is a separate
+request. A finished or canceled job ends waiting successfully; a failed job
+returns `QDMI_ERROR_FATAL`. Cancellation racing with completion returns
+`QDMI_ERROR_INVALIDARGUMENT` and preserves the completed state.
+
+Result queries return comma-separated binary shots, comma-separated histogram
+keys, and a matching `size_t` count array. Strings include their terminating
+null byte. Bits follow classical declaration order, with the highest bit index
+on the left. Leading zeros and shot order are preserved. Results of unfinished
+or canceled jobs return `QDMI_ERROR_INVALIDARGUMENT`. Results not yet available
+after completion return `QDMI_ERROR_BADSTATE`; malformed results fail rather
+than fabricating counts. Completed results are cached. Statevectors and
+probabilities are unsupported.
+
+Retrieval by job ID creates a read-only local handle without resubmitting. It
+requires the same backend, retained input parameters, and the supported
+single-circuit Sampler V2 plain-JSON contract. Private jobs and Qiskit-encoded
+results are unsupported. See the
+[IBM jobs API](https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest/tags/jobs).
 
 ## Python package
 

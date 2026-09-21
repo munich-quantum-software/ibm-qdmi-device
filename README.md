@@ -5,13 +5,14 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue?logo=cplusplus&style=flat-square)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-3.24%2B-blue?logo=cmake&style=flat-square)](https://cmake.org/)
 
-IBM cloud backend queries through the
+IBM quantum execution through the
 [Quantum Device Management Interface (QDMI)](https://github.com/Munich-Quantum-Software-Stack/QDMI).
 
 The native library authenticates with IBM Quantum Platform and exposes backend,
-site, and operation metadata through QDMI. Job execution and device discovery
-are not implemented. See [API status](docs/api.md) for supported queries and
-session configuration.
+site, and operation metadata through QDMI. It submits native OpenQASM 3
+circuits, manages jobs, and returns ordered shots and histograms. Live metadata
+validation has passed; quantum execution has not yet been validated on hardware.
+See [API status](docs/api.md) for the supported interface and configuration.
 
 ## Build from source
 

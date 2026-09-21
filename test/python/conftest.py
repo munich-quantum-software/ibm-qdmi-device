@@ -22,6 +22,8 @@ from __future__ import annotations
 import pytest
 from metadata_checks import BACKENDS
 
+pytest_plugins = ["offline_service"]
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register the live test controls without reading credentials."""

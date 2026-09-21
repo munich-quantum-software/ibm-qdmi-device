@@ -1,8 +1,9 @@
 # IBM QDMI Device
 
-This project exposes IBM Quantum Platform backend metadata through QDMI. The
-native library supports API-key authentication and device, site, and operation
-queries. Quantum job execution and device discovery are not yet implemented.
+This project exposes IBM Quantum Platform through QDMI. The native library
+supports API-key authentication, backend queries, OpenQASM 3 job execution,
+cancellation, retrieval, ordered shots, and histograms. Quantum execution
+remains unverified on hardware until the gated live checks succeed.
 
 <!-- MyST directives use fenced blocks rather than code languages. -->
 <!-- rumdl-disable MD040 -->

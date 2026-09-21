@@ -28,7 +28,7 @@ if(BUILD_IBM_QDMI_DOCS)
   configure_file("${PROJECT_SOURCE_DIR}/docs/Doxyfile.in" "${PROJECT_BINARY_DIR}/Doxyfile" @ONLY)
 endif()
 
-add_library(ibm-qdmi-core STATIC Auth.cpp Http.cpp Metadata.cpp)
+add_library(ibm-qdmi-core STATIC Auth.cpp Http.cpp Job.cpp Metadata.cpp Program.cpp)
 target_compile_features(ibm-qdmi-core PUBLIC cxx_std_20)
 target_include_directories(ibm-qdmi-core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
                                                 "${CMAKE_CURRENT_BINARY_DIR}/include")

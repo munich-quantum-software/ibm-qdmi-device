@@ -64,6 +64,16 @@ class Native:
         self.device = self.library.IBM_QDMI_device_session_query_device_property
         self.site = self.library.IBM_QDMI_device_session_query_site_property
         self.operation = self.library.IBM_QDMI_device_session_query_operation_property
+        self.create_job = self.library.IBM_QDMI_device_session_create_device_job
+        self.retrieve_job = self.library.IBM_QDMI_device_session_retrieve_device_job_by_id
+        self.job_set = self.library.IBM_QDMI_device_job_set_parameter
+        self.job_property = self.library.IBM_QDMI_device_job_query_property
+        self.submit = self.library.IBM_QDMI_device_job_submit
+        self.cancel = self.library.IBM_QDMI_device_job_cancel
+        self.job_check = self.library.IBM_QDMI_device_job_check
+        self.wait = self.library.IBM_QDMI_device_job_wait
+        self.results = self.library.IBM_QDMI_device_job_get_results
+        self.job_free = self.library.IBM_QDMI_device_job_free
         for function, arguments in (
             (self.initialize, []),
             (self.finalize, []),
@@ -72,6 +82,16 @@ class Native:
             (self.set, [pointer, ctypes.c_int, size, pointer]),
             (self.init, [pointer]),
             (self.device, [pointer, ctypes.c_int, size, pointer, size_pointer]),
+            (self.create_job, [pointer, ctypes.POINTER(pointer)]),
+            (self.retrieve_job, [pointer, ctypes.c_char_p, ctypes.POINTER(pointer)]),
+            (self.job_set, [pointer, ctypes.c_int, size, pointer]),
+            (self.job_property, [pointer, ctypes.c_int, size, pointer, size_pointer]),
+            (self.submit, [pointer]),
+            (self.cancel, [pointer]),
+            (self.job_check, [pointer, ctypes.POINTER(ctypes.c_int)]),
+            (self.wait, [pointer, size]),
+            (self.results, [pointer, ctypes.c_int, size, pointer, size_pointer]),
+            (self.job_free, [pointer]),
             (self.site, [pointer, pointer, ctypes.c_int, size, pointer, size_pointer]),
             (
                 self.operation,
@@ -92,6 +112,21 @@ class Native:
             function.argtypes = arguments
             function.restype = ctypes.c_int
         self.free.restype = None
+        self.job_free.restype = None
+
+    @contextmanager
+    def job(self, session: ctypes.c_void_p) -> Iterator[ctypes.c_void_p]:
+        """Allocate a job and release its local resources after use.
+
+        Yields:
+            An unconfigured job handle.
+        """
+        handle = ctypes.c_void_p()
+        check(self.create_job(session, ctypes.byref(handle)), "job allocation")
+        try:
+            yield handle
+        finally:
+            self.job_free(handle)
 
     @contextmanager
     def session(self, parameters: Mapping[int, str]) -> Iterator[ctypes.c_void_p]:
