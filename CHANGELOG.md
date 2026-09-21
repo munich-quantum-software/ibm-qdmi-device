@@ -13,7 +13,7 @@ releases may include breaking changes.
 ### Fixed
 
 - 🐛 Avoid hostname resolution when starting offline test servers and report
-  slow wheel tests. ([**@marcelwa**])
+  slow wheel tests. ([#16]) ([**@marcelwa**])
 
 ### Added
 
@@ -54,6 +54,7 @@ releases may include breaking changes.
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [Unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device
+[#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#10]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/10
 [#11]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/11
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
