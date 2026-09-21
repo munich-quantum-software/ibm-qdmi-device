@@ -12,7 +12,9 @@ The native library authenticates with IBM Quantum Platform and exposes backend,
 site, and operation metadata through QDMI. It submits native OpenQASM 3
 circuits, manages jobs, and returns ordered shots and histograms. Live metadata
 validation has passed; quantum execution has not yet been validated on hardware.
-See [API status](docs/api.md) for the supported interface and configuration.
+See [API status](docs/api.md) for the supported interface and configuration. The
+optional [Qiskit integration](docs/qiskit.md) supports transpilation, execution,
+ordered memory, and sampler and estimator primitives.
 
 ## Build from source
 

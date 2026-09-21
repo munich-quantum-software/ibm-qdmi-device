@@ -14,6 +14,7 @@ remains unverified on hardware until the gated live checks succeed.
 installation
 development
 api
+qiskit
 contributing
 support
 security
