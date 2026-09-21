@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- 🐛 Avoid hostname resolution when starting offline test servers and report
+  slow wheel tests. ([**@marcelwa**])
+
 ### Added
 
 - ✨ Add the public Qiskit backend, metadata-derived targets, physical-layout
