@@ -9,7 +9,9 @@ commands. Keep this file focused on repository-specific guardrails.
 - `src/` contains the native device, HTTP transport, IAM authentication, and
   metadata parsing. `include/` contains public IBM constants. Generated QDMI
   headers stay in the build tree.
-- `python/ibm/qdmi/` contains the Python package and version metadata.
+- `python/ibm/qdmi/` contains the Python package, installed paths, and
+  information CLI. The catalogue template lives in `cmake/` and installs beside
+  the library.
 - `test/` contains native packaging checks and pytest tests.
 - `cmake/`, `CMakeLists.txt`, and `pyproject.toml` define builds. Keep generated
   output in `build/` and `docs/_build/`, never in commits.

@@ -1,0 +1,27 @@
+{
+  "schema-version": 1,
+  "qdmi": {
+    "devices": [
+      {
+        "id": "ibm.default",
+        "library": "@IBM_QDMI_LIBRARY_FILE@",
+        "prefix": "IBM",
+        "enabled": true
+      },
+      {
+        "id": "ibm.berlin",
+        "library": "@IBM_QDMI_LIBRARY_FILE@",
+        "prefix": "IBM",
+        "enabled": true,
+        "session": {"custom1": "ibm_berlin"}
+      },
+      {
+        "id": "ibm.aachen",
+        "library": "@IBM_QDMI_LIBRARY_FILE@",
+        "prefix": "IBM",
+        "enabled": true,
+        "session": {"custom1": "ibm_aachen"}
+      }
+    ]
+  }
+}

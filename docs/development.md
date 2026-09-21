@@ -51,12 +51,13 @@ uvx nox -s tests minimums
 
 Nox tests Python 3.11 through 3.14. The minimums sessions resolve minimum direct
 dependencies and restore `uv.lock` afterward. Tests inspect installed package
-metadata, headers, CMake exports, and shared-library loading. Backend
-integration tests run the installed C ABI against an ephemeral loopback HTTP
-server. They verify authentication headers, error recovery, session isolation,
-and property queries without contacting IBM. The synthetic fixture in
-`test/fixtures/` models IBM API version `2026-04-15`; no recorded account data
-is used.
+metadata, headers, CMake exports, and shared-library loading. Backend discovery
+checks open all three installed catalogue entries through MQT Core after copying
+the native artifacts to a fresh directory. Backend integration tests run the
+installed C ABI against an ephemeral loopback HTTP server. They verify
+authentication headers, error recovery, session isolation, and property queries
+without contacting IBM. The synthetic fixture in `test/fixtures/` models IBM API
+version `2026-04-15`; no recorded account data is used.
 
 Build an sdist and a wheel from that sdist:
 
