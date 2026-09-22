@@ -1,5 +1,13 @@
 # Development and testing
 
+Run the [examples](examples.md) and their offline checks with
+`uvx nox -s examples`. This session installs the optional example dependencies
+and checks both local simulation and the loopback IBM service.
+
+The documentation session generates the Python API from `python/ibm/` and the
+native API with Doxygen. Edit declarations and docstrings to update those
+references; generated pages stay in the documentation build directory.
+
 ## Environment
 
 Use uv for dependency management and Nox for automation. Install development

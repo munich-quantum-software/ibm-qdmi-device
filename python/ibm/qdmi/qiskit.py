@@ -132,7 +132,8 @@ class IBMBackend(QDMIBackend):
             The unchanged circuit, preserving physical and classical indices.
 
         Raises:
-            CircuitValidationError: Measurements or finite parameters are missing.
+            mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
+                Measurements or finite parameters are missing.
             UnsupportedOperationError: An instruction or site tuple is unsupported.
         """
         if circuit.num_qubits > self.num_qubits or not circuit.num_clbits:
@@ -179,7 +180,8 @@ class IBMBackend(QDMIBackend):
             MQT Core's QDMI job, with one native job per circuit.
 
         Raises:
-            CircuitValidationError: The requested shot count is zero.
+            mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
+                The requested shot count is zero.
         """
         if options.get("shots", self.options.shots) == 0:
             msg = "shots must be positive."

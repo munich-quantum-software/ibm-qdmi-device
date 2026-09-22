@@ -16,7 +16,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 PROJECT_NAME           = "IBM QDMI Device"
-PROJECT_BRIEF          = "IBM backend queries and QDMI interface declarations"
+PROJECT_BRIEF          = "IBM backend queries, OpenQASM 3 execution, and QDMI interfaces"
 OUTPUT_DIRECTORY       = _build/doxygen
 INPUT                  = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi" \
                          "@IBM_QDMI_UPSTREAM_HEADERS@" \

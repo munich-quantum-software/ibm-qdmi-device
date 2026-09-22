@@ -91,6 +91,7 @@ docs = [
   "furo>=2025.12.19",
   "myst-nb>=1.4",
   "sphinx>=9",
+  "sphinx-autoapi>=3.6.1",
   "sphinx-copybutton>=0.5.2",
   "sphinx-design>=0.7",
 ]
@@ -98,9 +99,15 @@ build = [
   "build>=1.2.2",
   "scikit-build-core>=1.0.3",
 ]
+examples = [
+  { include-group = "test" },
+  "mqt-bench>=2.2.2",
+  "mqt-core[pennylane,qiskit]~=4.0.0",
+]
 typecheck = [
   { include-group = "test" },
   { include-group = "docs" },
+  { include-group = "examples" },
   "nox>=2026.8.10",
 ]
 
@@ -199,6 +206,7 @@ show-fixes = true
 "python/ibm/qdmi/__main__.py" = [ "T20" ]
 "docs/**" = [ "INP001", "T20" ]
 "test/**" = [ "INP001", "T20" ]
+"examples/**" = [ "T20" ]
 
 [tool.ruff.lint.isort]
 known-first-party = [ "ibm.qdmi" ]
@@ -245,6 +253,9 @@ extend-ignore-re = [
 optin = "optin"
 
 
+[tool.ty.environment]
+extra-paths = [ "test/python" ]
+
 [tool.ty.terminal]
 # Error if ty emits any warning-level diagnostics.
 error-on-warning = true
@@ -262,6 +273,7 @@ filterwarnings = [
 ]
 log_level = "INFO"
 minversion = "9.0"
+pythonpath = [ ".", "test/python" ]
 strict = true
 testpaths = [ "test/python", "test/ci" ]
 

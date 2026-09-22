@@ -24,9 +24,12 @@ jobs:
         uv.lock
         noxfile.py
         test/python/**
+        examples/native/**
       additional-python-files: |
         .github/workflows/cpp-coverage.yml
         test/fixtures/**
+        examples/**
+        test/examples/**
       additional-cd-files: |
         .github/workflows/ci.yml
         LICENSE
@@ -145,7 +148,7 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.14"
-      - run: uvx nox -s tests minimums
+      - run: uvx nox -s tests minimums examples
   build-sdist:
     name: 🚀 CD
     needs: change-detection
