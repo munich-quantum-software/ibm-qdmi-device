@@ -64,9 +64,11 @@ prepared batch is submitted. A submission or result failure attempts
 cancellation of earlier jobs; remote cancellation can race with completion, and
 submissions are never retried.
 
-Pass native custom job settings through `job_parameters`, for example
-`job_parameters={"custom1": "60"}` for the maximum execution time. The native
-parameter contracts are documented in {doc}`api`.
+The adapter forwards compatible custom job settings through `job_parameters`;
+the native parameter contracts are documented in {doc}`api`. MQT Core 4's Python
+custom-parameter interface cannot encode the `uint64_t` execution-time cap.
+PennyLane therefore retains the native default of 60 seconds; use the native C
+interface to change that cap.
 
 For local development without IBM access, use MQT Core's
 `qml.device("mqt.ddsim.default", wires=2)` with the same finite-shot QNode API.
