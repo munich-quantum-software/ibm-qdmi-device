@@ -56,11 +56,11 @@ static unsigned long positiveNumber(const char* text, unsigned long maximum) {
 int main(int argc, char** argv) {
   if (argc == 1 || (argc == 2 && strcmp(argv[1], "--help") == 0)) {
     puts("Usage: ibm-qdmi-execute --run BACKEND [--timeout SECONDS] "
-         "[--endpoint http://127.0.0.1:PORT]\n"
+         "[--test-port PORT]\n"
          "Run 16 shots with a 60-second QPU cap. Timeout: 1..60 seconds "
          "(default: 60).\n"
          "Set IBM_QUANTUM_API_KEY and IBM_QUANTUM_INSTANCE_CRN. "
-         "The endpoint option is for a local test service.");
+         "The test port connects to a local service at 127.0.0.1.");
     return EXIT_SUCCESS;
   }
   if (argc < 3 || strcmp(argv[1], "--run") != 0 || argv[2][0] == '\0' ||
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  const char* endpoint = NULL;
+  unsigned long testPort = 0;
   unsigned long timeout = 60;
   bool timeoutSet = false;
   for (int i = 3; i < argc; i += 2) {
@@ -80,29 +80,16 @@ int main(int argc, char** argv) {
         fputs("Timeout must be an integer from 1 to 60.\n", stderr);
         return EXIT_FAILURE;
       }
-    } else if (strcmp(argv[i], "--endpoint") == 0 && endpoint == NULL) {
-      endpoint = argv[i + 1];
-      const char prefix[] = "http://127.0.0.1:";
-      if (strncmp(endpoint, prefix, sizeof(prefix) - 1) != 0 ||
-          positiveNumber(endpoint + sizeof(prefix) - 1, 65535) == 0) {
-        fputs("The test endpoint must be http://127.0.0.1:PORT.\n", stderr);
+    } else if (strcmp(argv[i], "--test-port") == 0 && testPort == 0) {
+      testPort = positiveNumber(argv[i + 1], 65535);
+      if (testPort == 0) {
+        fputs("The test port must be an integer from 1 to 65535.\n", stderr);
         return EXIT_FAILURE;
       }
     } else {
       fputs("Unknown or duplicate option; use --help for options.\n", stderr);
       return EXIT_FAILURE;
     }
-  }
-
-  // Read the environment before native initialization can start worker threads.
-  // NOLINTNEXTLINE(clang-diagnostic-deprecated-declarations)
-  const char* apiKey = getenv("IBM_QUANTUM_API_KEY");
-  // NOLINTNEXTLINE(clang-diagnostic-deprecated-declarations)
-  const char* instanceCrn = getenv("IBM_QUANTUM_INSTANCE_CRN");
-  if (apiKey == NULL || *apiKey == '\0' || instanceCrn == NULL ||
-      *instanceCrn == '\0') {
-    fputs("Set IBM_QUANTUM_API_KEY and IBM_QUANTUM_INSTANCE_CRN.\n", stderr);
-    return EXIT_FAILURE;
   }
 
   IBM_QDMI_Device_Session session = NULL;
@@ -115,23 +102,27 @@ int main(int argc, char** argv) {
     return exitCode;
   }
   if (!succeeded(IBM_QDMI_device_session_alloc(&session), "Allocate session") ||
-      !setText(session, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, apiKey) ||
-      !setText(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN,
-               instanceCrn) ||
       !setText(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND, argv[2])) {
     goto cleanup;
   }
-  if (endpoint != NULL) {
+  if (testPort != 0) {
+    char endpoint[32];
     char authUrl[64];
-    // The validated endpoint fits this buffer; also check snprintf's length.
-    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
-    const int length = snprintf(authUrl, sizeof(authUrl), "%s/auth", endpoint);
-    if (length < 0 || (size_t)length >= sizeof(authUrl) ||
+    // The port is bounded and both lengths are checked before use.
+    // NOLINTBEGIN(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    const int endpointLength =
+        snprintf(endpoint, sizeof(endpoint), "http://127.0.0.1:%lu", testPort);
+    const int authLength = snprintf(authUrl, sizeof(authUrl),
+                                    "http://127.0.0.1:%lu/auth", testPort);
+    // NOLINTEND(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (endpointLength < 0 || (size_t)endpointLength >= sizeof(endpoint) ||
+        authLength < 0 || (size_t)authLength >= sizeof(authUrl) ||
         !setText(session, QDMI_DEVICE_SESSION_PARAMETER_BASEURL, endpoint) ||
         !setText(session, QDMI_DEVICE_SESSION_PARAMETER_AUTHURL, authUrl)) {
       goto cleanup;
     }
   }
+  // Session initialization resolves credentials from the environment.
   if (!succeeded(IBM_QDMI_device_session_init(session), "Initialize session")) {
     goto cleanup;
   }

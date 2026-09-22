@@ -44,7 +44,9 @@ To submit a hardware job, provide `IBM_QUANTUM_API_KEY` and
 16-shot job with a 60-second execution limit and a bounded wait. Use
 `--timeout 1..60` to shorten the wait. It attempts cancellation after a timeout
 or execution failure and always releases local handles. The optional
-`--endpoint` accepts only loopback URLs for synthetic tests.
+`--test-port` accepts a port from 1 to 65535 and connects only to `127.0.0.1`
+for synthetic tests. Session initialization loads credentials through the native
+library's environment support.
 
 ## Qiskit sampling and benchmarks
 

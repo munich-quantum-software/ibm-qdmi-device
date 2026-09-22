@@ -45,14 +45,16 @@ def executable() -> Path:
     return result
 
 
-def run_example(executable: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_example(
+    executable: Path, *args: str, api_key: str = "synthetic-key", crn: str = CRN
+) -> subprocess.CompletedProcess[str]:
     """Execute with synthetic credentials and no inherited IBM settings.
 
     Returns:
         Captured output and process status.
     """
     env = {key: value for key, value in os.environ.items() if not key.startswith("IBM_QUANTUM_")}
-    env.update(IBM_QUANTUM_API_KEY="synthetic-key", IBM_QUANTUM_INSTANCE_CRN=CRN)
+    env.update(IBM_QUANTUM_API_KEY=api_key, IBM_QUANTUM_INSTANCE_CRN=crn)
     return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed example and synthetic inputs
         [str(executable), *args], env=env, capture_output=True, text=True, timeout=30, check=False
     )
@@ -66,19 +68,62 @@ def test_help_requires_no_service(executable: Path) -> None:
     assert not result.stderr
 
 
-@pytest.mark.parametrize("option", [("--timeout", "0"), ("--timeout", "61"), ("--endpoint", "https://example.com")])
+@pytest.mark.parametrize(
+    "option",
+    [
+        ("--timeout", "0"),
+        ("--timeout", "61"),
+        ("--test-port", "0"),
+        ("--test-port", "65536"),
+        ("--test-port", "-1"),
+        ("--test-port", "65535/auth"),
+        ("--test-port", "65535@external.invalid"),
+        ("--test-port", "http://127.0.0.1:65535"),
+    ],
+)
 def test_invalid_options_submit_nothing(executable: Path, option: tuple[str, str]) -> None:
-    """Invalid bounds and non-loopback overrides fail before authentication."""
+    """Only bounded numeric ports and wait timeouts reach session initialization."""
     result = run_example(executable, "--run", "ibm_test", *option)
     assert result.returncode != 0
     assert "synthetic-key" not in result.stderr
     assert CRN not in result.stderr
 
 
+@pytest.mark.parametrize(("api_key", "crn"), [("", CRN), ("synthetic-key", "")])
+def test_missing_credentials_make_no_requests(executable: Path, api_key: str, crn: str) -> None:
+    """Native environment defaults reject missing credentials before transport."""
+    with remote_runtime() as runtime:
+        port = runtime.snapshot()["url"].rsplit(":", 1)[1]
+        result = run_example(executable, "--run", "ibm_test", "--test-port", port, api_key=api_key, crn=crn)
+        assert result.returncode != 0
+        assert not result.stdout
+        assert "Initialize session: QDMI status" in result.stderr
+        assert "synthetic-key" not in result.stderr
+        assert CRN not in result.stderr
+        assert not runtime.snapshot()["requests"]
+
+
+def test_authentication_failure_is_redacted(executable: Path) -> None:
+    """An IAM rejection reports a status without credential values or submission."""
+    with remote_runtime() as runtime:
+        runtime.set_failure("authentication")
+        port = runtime.snapshot()["url"].rsplit(":", 1)[1]
+        result = run_example(executable, "--run", "ibm_test", "--test-port", port)
+        assert result.returncode != 0
+        assert not result.stdout
+        assert "Initialize session: QDMI status" in result.stderr
+        assert "synthetic-key" not in result.stderr
+        assert CRN not in result.stderr
+        snapshot = runtime.snapshot()
+        assert [path for path, _, _ in snapshot["requests"]] == ["/auth"]
+        assert not snapshot["submissions"]
+
+
 def test_native_lifecycle(executable: Path) -> None:
     """A full physical register yields ordered shots through the installed ABI."""
     with remote_runtime() as runtime:
-        result = run_example(executable, "--run", "ibm_test", "--endpoint", runtime.snapshot()["url"])
+        port = runtime.snapshot()["url"].rsplit(":", 1)[1]
+        result = run_example(executable, "--run", "ibm_test", "--test-port", port)
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip().split(",") == ["1"] * 16
         assert not result.stderr
@@ -95,7 +140,8 @@ def test_timeout_cancels_without_resubmission(executable: Path) -> None:
     """A bounded wait attempts cancellation before freeing native handles."""
     with remote_runtime() as runtime:
         runtime.set_state("Queued", 0)
-        result = run_example(executable, "--run", "ibm_test", "--endpoint", runtime.snapshot()["url"], "--timeout", "1")
+        port = runtime.snapshot()["url"].rsplit(":", 1)[1]
+        result = run_example(executable, "--run", "ibm_test", "--test-port", port, "--timeout", "1")
         assert result.returncode != 0
         assert "Wait for job: QDMI status" in result.stderr
         assert len(runtime.snapshot()["submissions"]) == 1
