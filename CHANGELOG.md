@@ -21,7 +21,8 @@ releases may include breaking changes.
 ### Added
 
 - 📚 Add generated Python API references and runnable native QDMI, Qiskit, MQT
-  Bench, H₂, and PennyLane QAOA examples with offline validation.
+  Bench, H₂, and PennyLane QAOA examples with offline validation. ([#24])
+  ([**@marcelwa**])
 
 - ✨ Add PennyLane devices for the IBM catalogue with finite-shot measurements,
   gradients, shot vectors, and validated native OpenQASM execution. ([#22])
@@ -86,6 +87,7 @@ releases may include breaking changes.
 [#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
 [#21]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/21
 [#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
+[#24]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/24
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
