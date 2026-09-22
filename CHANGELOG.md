@@ -21,7 +21,8 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Add PennyLane devices for the IBM catalogue with finite-shot measurements,
-  gradients, shot vectors, and validated native OpenQASM execution.
+  gradients, shot vectors, and validated native OpenQASM execution. ([#22])
+  ([**@marcelwa**])
 
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
@@ -81,6 +82,7 @@ releases may include breaking changes.
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
 [#21]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/21
+[#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
