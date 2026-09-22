@@ -54,6 +54,10 @@ releases may include breaking changes.
 
 ### Changed
 
+- 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
+  Docs before merging. Retain Actions type checks, source-distribution checks,
+  and offline hardware prerequisites. Configure release-tag publishing.
+
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
   workflow names, project badges, native build ignores, and changelog

@@ -141,9 +141,10 @@ fix needs a synthetic regression test and a follow-up PR.
 
 ## Gated quantum execution
 
-After human merge of the hardware workflow, pushes to `main` run all offline
-checks before hardware validation. Manual **Actions → CI → Run workflow**
-dispatches from `main` use the same gates:
+Pushes to `main` run all offline Actions checks before hardware validation.
+Pre-commit.ci and Read the Docs guard pull-request merges; hardware execution
+does not wait for their results on the merged commit. Manual
+**Actions → CI → Run workflow** dispatches from `main` use the same gates:
 
 ```console
 gh workflow run ci.yml --ref main
@@ -226,21 +227,38 @@ HTML, and builds Sphinx with warnings treated as errors. HTML output is in
 CI builds and tests without backend credentials, then permits the bounded
 hardware checks described above on merged `main`. Its offline aggregate includes
 change detection, native tests on Linux, macOS, and Windows (MSVC and ClangCL),
-installation tests, sanitizers, coverage, C++ and Python lint, the complete hook
-set, Python/Qiskit tests, sdist and wheel builds, documentation, and the
+installation tests, sanitizers, coverage, clang-tidy, Python type and
+source-distribution checks, Python/Qiskit tests, sdist and wheel builds, and the
 installed Linux candidate. PR checks may skip jobs deselected by change
 detection; failures, cancellations, and unexpected skips block the aggregate.
-Lint and documentation run on every change. Pushes to `main` run every
-prerequisite.
+Pushes to `main` run every Actions prerequisite. Pre-commit.ci runs the hook
+checks on pull requests; its configuration skips `ty`, which the Python Actions
+job runs together with `check-sdist`. Read the Docs runs the strict
+documentation build. Keep the local lint and documentation Nox sessions for
+development.
 
-Configure branch protection or a ruleset for `main` to require `🚦 Check` from
-GitHub Actions. The workflow alone does not enforce merge protection. Provision
-labels used by Renovate and release drafting, including
+Configure the `main` ruleset to require `🚦 Check` from GitHub Actions,
+`pre-commit.ci - pr` from pre-commit.ci, and the documentation status reported
+by Read the Docs. Enable its required check only after a successful preview has
+reported the actual context. These external checks guard merging, not the
+subsequent hardware job. The workflow alone does not enforce merge protection.
+Provision labels used by Renovate and release drafting, including
 `continuous integration`, `packaging`, `code quality`, `github-actions`,
 `pre-commit`, and `patch`.
 
-Read the Docs configuration is included, but hosting must be provisioned
-separately. Release workflows publish only after a GitHub release is published
-and the `pypi` environment and PyPI trusted publisher have been configured.
-Manual CD runs only build artifacts. Enable Codecov uploads by setting the
-repository variable `CODECOV_ENABLED` to `true` after configuring the service.
+Connect the `ibm-qdmi-device` Read the Docs project to this GitHub repository.
+Set the default branch to `main`, enable public pull-request builds, and use
+`.readthedocs.yaml`. The build installs Doxygen and OpenSSL development headers
+and runs the same Nox session used locally. Preview and `latest` builds must
+include the native API under `cpp/` and complete without backend credentials.
+
+The GitHub `pypi` environment permits only tags matching `v*`. Configure a PyPI
+trusted publisher for package `ibm-qdmi`, owner `munich-quantum-software`,
+repository `ibm-qdmi-device`, workflow `cd.yml`, and environment `pypi`. Before
+the first release, create a pending publisher in the maintainer's PyPI account.
+Pending publishers neither publish a package nor reserve its name. Do not add a
+long-lived PyPI token. Release workflows attest and publish distributions only
+after a GitHub release is published; manual CD runs only build artifacts.
+
+Enable Codecov uploads by setting the repository variable `CODECOV_ENABLED` to
+`true` after configuring the service.
