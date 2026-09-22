@@ -102,12 +102,11 @@ gh workflow run live-metadata.yml --ref main -f backend=both
 ```
 
 The workflow checks out the dispatch commit and permits only `refs/heads/main`.
-The `ibm-quantum` environment must use **Selected branches and tags** with a
-single **branch** rule, `main`. Keep the existing `IBM_QUANTUM_API_KEY` and
-`IBM_QUANTUM_INSTANCE_CRN` environment secrets. Build and installation steps run
-before the live step receives these secrets. The library derives the region from
-the CRN; this workflow has no endpoint override. Runs are serialized and have a
-15-minute timeout, with no schedules or automatic retries.
+The `ibm-quantum` environment is restricted to `main`. Its `IBM_QUANTUM_API_KEY`
+and `IBM_QUANTUM_INSTANCE_CRN` secrets are available only to the live step,
+after build and installation. The library derives the region from the CRN; this
+workflow has no endpoint override. Runs are serialized and have a 15-minute
+timeout, with no schedules or automatic retries.
 
 For an explicitly authorized local run from merged `main`, supply the same two
 environment variables through a secure credential source, then run:
@@ -199,10 +198,10 @@ regression before making a follow-up fix.
 uvx nox -s lint
 ```
 
-This runs the complete prek hook set, including formatting, spelling, license
-headers, metadata, lockfile, workflow security, Ruff, and ty. Hooks can change
-files; inspect the changes and rerun until clean. To check new untracked files
-before staging, use `uvx prek run --files <paths>`.
+This runs the complete prek hook set, including pyproject.toml formatting,
+spelling, license headers, metadata, lockfile, workflow security, Ruff, and ty.
+Hooks can change files; inspect the changes and rerun until clean. To check new
+untracked files before staging, use `uvx prek run --files <paths>`.
 
 For C++ files, reproduce `.github/workflows/cpp-linter.yml` with its Clang
 version and a Ninja compilation database. Check every line of each changed file
@@ -222,7 +221,7 @@ The session builds the package in `build/docs/`, generates standalone Doxygen
 HTML, and builds Sphinx with warnings treated as errors. HTML output is in
 `docs/_build/html/`, with the generated C interface under `cpp/`.
 
-## Automation setup
+## Automation
 
 CI builds and tests without backend credentials, then permits the bounded
 hardware checks described above on merged `main`. Its offline aggregate includes
@@ -233,32 +232,22 @@ installed Linux candidate. PR checks may skip jobs deselected by change
 detection; failures, cancellations, and unexpected skips block the aggregate.
 Pushes to `main` run every Actions prerequisite. Pre-commit.ci runs the hook
 checks on pull requests; its configuration skips `ty`, which the Python Actions
-job runs together with `check-sdist`. Read the Docs runs the strict
-documentation build. Keep the local lint and documentation Nox sessions for
-development.
+job runs together with `check-sdist`. The local lint and documentation Nox
+sessions run the same checks during development.
 
-Configure the `main` ruleset to require `🚦 Check` from GitHub Actions,
-`pre-commit.ci - pr` from pre-commit.ci, and the documentation status reported
-by Read the Docs. Enable its required check only after a successful preview has
-reported the actual context. These external checks guard merging, not the
-subsequent hardware job. The workflow alone does not enforce merge protection.
-Provision labels used by Renovate and release drafting, including
-`continuous integration`, `packaging`, `code quality`, `github-actions`,
-`pre-commit`, and `patch`.
+The `main` ruleset requires `🚦 Check` from GitHub Actions,
+`pre-commit.ci - pr`, and the Read the Docs preview check. These checks guard
+pull-request merges. Hardware execution uses the Actions prerequisites on the
+merged commit.
 
-Connect the `ibm-qdmi-device` Read the Docs project to this GitHub repository.
-Set the default branch to `main`, enable public pull-request builds, and use
-`.readthedocs.yaml`. The build installs Doxygen and OpenSSL development headers
-and runs the same Nox session used locally. Preview and `latest` builds must
-include the native API under `cpp/` and complete without backend credentials.
+Read the Docs builds public pull-request previews and the `latest` documentation
+from `main` using `.readthedocs.yaml`. It installs Doxygen and OpenSSL
+development headers and runs the strict documentation Nox session without
+backend credentials. The published documentation includes the native API under
+`cpp/`.
 
-The GitHub `pypi` environment permits only tags matching `v*`. Configure a PyPI
-trusted publisher for package `ibm-qdmi`, owner `munich-quantum-software`,
-repository `ibm-qdmi-device`, workflow `cd.yml`, and environment `pypi`. Before
-the first release, create a pending publisher in the maintainer's PyPI account.
-Pending publishers neither publish a package nor reserve its name. Do not add a
-long-lived PyPI token. Release workflows attest and publish distributions only
-after a GitHub release is published; manual CD runs only build artifacts.
-
-Enable Codecov uploads by setting the repository variable `CODECOV_ENABLED` to
-`true` after configuring the service.
+Release workflows attest and publish the `ibm-qdmi` distributions through PyPI
+trusted publishing after a GitHub release is published. The `pypi` environment
+permits only tags matching `v*`; publishing uses short-lived identity tokens.
+Manual CD runs build artifacts. Coverage jobs upload native and Python reports
+to Codecov using OpenID Connect.
