@@ -21,7 +21,8 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Configure per-job IBM Runtime dynamical decoupling through a validated JSON
-  parameter, with disabled defaults and unchanged execution limits.
+  parameter, with disabled defaults and unchanged execution limits. ([#19])
+  ([**@marcelwa**])
 
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
@@ -71,6 +72,7 @@ releases may include breaking changes.
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
+[#19]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/19
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
