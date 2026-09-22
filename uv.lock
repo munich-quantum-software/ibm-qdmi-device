@@ -796,6 +796,9 @@ name = "ibm-qdmi"
 source = { editable = "." }
 
 [package.optional-dependencies]
+pennylane = [
+    { name = "mqt-core", extra = ["pennylane", "qiskit"] },
+]
 qiskit = [
     { name = "mqt-core", extra = ["qiskit"] },
 ]
@@ -807,7 +810,7 @@ build = [
 ]
 dev = [
     { name = "build" },
-    { name = "mqt-core", extra = ["qiskit"] },
+    { name = "mqt-core", extra = ["pennylane", "qiskit"] },
     { name = "nox" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -835,7 +838,7 @@ examples = [
     { name = "pyyaml" },
 ]
 test = [
-    { name = "mqt-core", extra = ["qiskit"] },
+    { name = "mqt-core", extra = ["pennylane", "qiskit"] },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
@@ -861,8 +864,11 @@ typecheck = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = "~=4.0.0" }]
-provides-extras = ["qiskit"]
+requires-dist = [
+    { name = "mqt-core", extras = ["pennylane", "qiskit"], marker = "extra == 'pennylane'", specifier = "~=4.0.0" },
+    { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = "~=4.0.0" },
+]
+provides-extras = ["pennylane", "qiskit"]
 
 [package.metadata.requires-dev]
 build = [
@@ -871,7 +877,7 @@ build = [
 ]
 dev = [
     { name = "build", specifier = ">=1.2.2" },
-    { name = "mqt-core", extras = ["qiskit"], specifier = "~=4.0.0" },
+    { name = "mqt-core", extras = ["pennylane", "qiskit"], specifier = "~=4.0.0" },
     { name = "nox", specifier = ">=2026.8.10" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
@@ -891,7 +897,6 @@ docs = [
 examples = [
     { name = "mqt-bench", specifier = ">=2.2.2" },
     { name = "mqt-core", extras = ["pennylane", "qiskit"], specifier = "~=4.0.0" },
-    { name = "mqt-core", extras = ["qiskit"], specifier = "~=4.0.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
@@ -899,7 +904,7 @@ examples = [
     { name = "pyyaml", specifier = ">=6.0.2" },
 ]
 test = [
-    { name = "mqt-core", extras = ["qiskit"], specifier = "~=4.0.0" },
+    { name = "mqt-core", extras = ["pennylane", "qiskit"], specifier = "~=4.0.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
@@ -910,7 +915,6 @@ typecheck = [
     { name = "furo", specifier = ">=2025.12.19" },
     { name = "mqt-bench", specifier = ">=2.2.2" },
     { name = "mqt-core", extras = ["pennylane", "qiskit"], specifier = "~=4.0.0" },
-    { name = "mqt-core", extras = ["qiskit"], specifier = "~=4.0.0" },
     { name = "myst-nb", specifier = ">=1.4" },
     { name = "nox", specifier = ">=2026.8.10" },
     { name = "pytest", specifier = ">=9.1.1" },

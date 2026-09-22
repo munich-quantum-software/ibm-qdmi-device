@@ -77,8 +77,8 @@ a fixed-parameter evaluation, without an optimization loop or gradient jobs.
 ## Selecting IBM hardware
 
 Hardware access is explicit. Configure credentials and the instance as described
-in [session configuration](api.md), then select both the IBM backend and a
-catalogue device:
+in [Qiskit guide](qiskit.md#select-a-backend), then select both the IBM backend
+and a catalogue device:
 
 ```console
 uv run --group examples python -m examples.qiskit_workloads --backend ibm --device ibm.berlin --workload bell --shots 128

@@ -29,6 +29,7 @@ from mqt.core.plugins.qiskit.backend import QDMIBackend
 from offline_service import CRN
 from qiskit_service import remote_runtime
 
+from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
@@ -79,9 +80,14 @@ def test_h2(backend: QDMIBackend) -> None:
     assert -2.1 < energy < 0.1
 
 
-def test_qaoa_simulator() -> None:
+def test_qaoa(backend: QDMIBackend) -> None:
     """One QAOA layer produces a bounded objective and finite-shot counts."""
-    value, counts = pennylane_qaoa.run(qml.device("mqt.ddsim.default", wires=2), 64)
+    device = (
+        IBMDevice(device=backend.device, wires=2)
+        if isinstance(backend, IBMBackend)
+        else qml.device("mqt.ddsim.default", wires=2)
+    )
+    value, counts = pennylane_qaoa.run(device, 64)
     assert 0 <= value <= 1
     assert sum(counts.values()) == 64
     assert set(counts) <= {"00", "01", "10", "11"}

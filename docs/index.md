@@ -15,6 +15,7 @@ installation
 examples
 api
 qiskit
+pennylane
 python-api/ibm/qdmi/index
 development
 contributing
