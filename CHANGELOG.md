@@ -20,6 +20,9 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add PennyLane devices for the IBM catalogue with finite-shot measurements,
+  gradients, shot vectors, and validated native OpenQASM execution.
+
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
   diagnostics. Confirm terminal state before collecting public job results. Keep
