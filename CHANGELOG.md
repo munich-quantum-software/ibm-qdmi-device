@@ -21,9 +21,10 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Add PennyLane devices for the IBM catalogue with finite-shot measurements,
-  gradients, shot vectors, and validated native OpenQASM execution. Use MQT Core
-  4 for the shared Python adapters and Qiskit duration conversion. ([#22])
-  ([**@marcelwa**])
+  gradients, shot vectors, and validated native OpenQASM execution. Synthesize
+  CNOT for CZ/ECR bases and fold native RZZ angles into the hardware range. Use
+  MQT Core 4 for the shared Python adapters and Qiskit duration conversion.
+  ([#22]) ([**@marcelwa**])
 
 - ✨ Add native environment defaults, explicit API-key files, per-session HTTP
   timeouts, and explicit calibration and pulse capability reporting. ([#20])
