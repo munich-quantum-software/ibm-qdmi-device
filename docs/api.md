@@ -173,8 +173,9 @@ Static unitary gate declarations support native instructions absent from
 classical storage or control flow. The service validates native gate semantics.
 
 Each submission creates one Sampler V2 job with one circuit and classified
-measurements. Twirling and dynamical decoupling are disabled. Submission is
-never automatically retried, including after an authentication failure or a lost
+measurements. Twirling is disabled; dynamical decoupling is disabled by default
+and can be configured [per job](#dynamical-decoupling). Submission is never
+automatically retried, including after an authentication failure or a lost
 response. A failed submission freezes that handle. An ambiguous response may
 mean IBM accepted the job; inspect the platform before creating a replacement.
 
@@ -204,6 +205,63 @@ requires the same backend, retained input parameters, and the supported
 single-circuit Sampler V2 plain-JSON contract. Private jobs and Qiskit-encoded
 results are unsupported. See the
 [IBM jobs API](https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest/tags/jobs).
+
+### Dynamical decoupling
+
+Set `IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING` (job `CUSTOM2`) before
+submission to configure IBM Runtime's dynamical decoupling. Its value is a
+null-terminated JSON object; include the terminator in `size`.
+
+| Field                      | Accepted values           | Default    |
+| -------------------------- | ------------------------- | ---------- |
+| `enable`                   | JSON boolean              | `false`    |
+| `sequence_type`            | `"XX"`, `"XpXm"`, `"XY4"` | `"XX"`     |
+| `extra_slack_distribution` | `"middle"`, `"edges"`     | `"middle"` |
+| `scheduling_method`        | `"alap"`, `"asap"`        | `"alap"`   |
+| `skip_reset_qubits`        | JSON boolean              | `false`    |
+
+These defaults follow IBM's [dynamical-decoupling options]. Each assignment
+replaces the previous object and fills omitted fields with these defaults. An
+empty object resets all options. A null pointer only probes support. Malformed
+JSON, unknown fields, incorrect types, and unsupported values return
+`QDMI_ERROR_INVALIDARGUMENT` without changing the last valid configuration or
+making a request. Configuration is frozen after submission starts and on
+retrieved jobs. The execution-time cap and disabled twirling remain unchanged.
+
+For a configurable native job:
+
+```cpp
+const char options[] = R"({"enable":true,"sequence_type":"XpXm"})";
+const int status = IBM_QDMI_device_job_set_parameter(
+    job, IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING,
+    sizeof(options), options);
+```
+
+With MQT Core, pass the JSON string directly to the QDMI device's submission
+method. This example assumes an authenticated IBM `device` and a native, bound
+OpenQASM 3 `program`. Submission creates a paid job and requires an authorized
+backend and budget:
+
+```python
+import json
+
+from mqt.core.qdmi import ProgramFormat
+
+job = device.submit_job(
+    program,
+    ProgramFormat.QASM3,
+    num_shots=128,
+    custom2=json.dumps({"enable": True, "sequence_type": "XpXm"}),
+)
+job.wait(900)
+shots = job.get_shots()
+```
+
+The shared Qiskit `backend.run()` interface does not expose this custom option.
+IBM validates compatibility with the selected backend and circuit. Service
+rejection follows the normal submission error contract and is never retried.
+
+[dynamical-decoupling options]: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-dynamical-decoupling-options
 
 ## Python package
 

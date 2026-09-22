@@ -9,7 +9,7 @@ sphinx:
 build:
   os: ubuntu-24.04
   apt_packages:
-    - doxygen
+    - libssl-dev
   tools:
     python: "3.14"
   jobs:
@@ -17,9 +17,15 @@ build:
       - asdf plugin add uv
       - asdf install uv latest
       - asdf global uv latest
+      # Match the documentation workflow; Ubuntu's Doxygen cannot parse the QDMI headers.
+      - mkdir -p build/tools/doxygen
+      - curl --fail --location --output build/tools/doxygen.tar.gz https://github.com/doxygen/doxygen/releases/download/Release_1_16_1/doxygen-1.16.1.linux.bin.tar.gz
+      - echo "a56f885d37e3aae08a99f638d17bbb381224c03a878d9e2dda4f9fa4baf1d8bd  build/tools/doxygen.tar.gz" | sha256sum --check
+      - tar --extract --gzip --file build/tools/doxygen.tar.gz --directory build/tools/doxygen --strip-components=1
+      - build/tools/doxygen/bin/doxygen --version
     build:
       html:
-        - uvx nox --non-interactive -s docs
+        - PATH="$PWD/build/tools/doxygen/bin:$PATH" uvx nox --non-interactive -s docs
         - mkdir -p $READTHEDOCS_OUTPUT/html && cp -R docs/_build/html/. $READTHEDOCS_OUTPUT/html
       htmlzip:
         - |

@@ -24,6 +24,10 @@ releases may include breaking changes.
   timeouts, and explicit calibration and pulse capability reporting. ([#20])
   ([**@marcelwa**])
 
+- ✨ Configure per-job IBM Runtime dynamical decoupling through a validated JSON
+  parameter, with disabled defaults and unchanged execution limits. ([#19])
+  ([**@marcelwa**])
+
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
   diagnostics. Confirm terminal state before collecting public job results. Keep
@@ -58,6 +62,18 @@ releases may include breaking changes.
 
 ### Changed
 
+- 👷 Use GitHub's self-repository references for reusable CI workflows. ([#8])
+  ([**@marcelwa**])
+
+- 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
+  Docs before merging. Retain Actions type checks, source-distribution checks,
+  and offline hardware prerequisites. Use the same Doxygen version for hosted
+  native API builds. Configure release-tag publishing. ([#18]) ([**@marcelwa**])
+
+- 🛠️ Format Python project metadata consistently, install the CMake executable
+  used by development sessions, and classify release notes with label-based
+  categories, exclusions, and version rules. ([#17]) ([**@marcelwa**])
+
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
   workflow names, project badges, native build ignores, and changelog
@@ -72,9 +88,13 @@ releases may include breaking changes.
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
+[#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
+[#18]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/18
+[#19]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/19
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
+[#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [**@marcelwa**]: https://github.com/marcelwa

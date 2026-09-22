@@ -455,6 +455,11 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
         job.maxExecutionTime = seconds;
       }
       break;
+    case IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING:
+      if (value != nullptr) {
+        job.setDynamicalDecoupling(readString(size, value));
+      }
+      break;
     default:
       return QDMI_ERROR_NOTSUPPORTED;
     }

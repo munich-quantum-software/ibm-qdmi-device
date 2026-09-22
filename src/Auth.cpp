@@ -34,7 +34,6 @@
 #include <ibm_qdmi/constants.h>
 #include <ios>
 #include <iterator>
-#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -45,6 +44,8 @@
 #include <vector>
 
 #ifdef _MSC_VER
+#include <memory>
+
 // MSVC declares _dupenv_s in its C extension header.
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers)
 #endif

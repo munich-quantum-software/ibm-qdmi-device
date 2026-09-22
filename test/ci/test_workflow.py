@@ -102,7 +102,7 @@ def test_hardware_eligibility(event: str, ref: str, result: str, gate: str) -> N
 
 
 def test_main_requires_every_offline_job() -> None:
-    """Change detection cannot bypass any hardware prerequisite on main."""
+    """Change detection cannot bypass an Actions prerequisite on main."""
     jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
     gate = jobs["offline-checks-pass"]
     expected = set(jobs) - {"offline-checks-pass", "hardware", "required-checks-pass"}

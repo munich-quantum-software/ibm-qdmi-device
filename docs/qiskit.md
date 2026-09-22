@@ -82,7 +82,8 @@ current native contract.
 Each circuit creates one Sampler V2 job with a 60-second QPU execution cap,
 independent of queue time. This applies separately to every circuit in a batch.
 Direct QDMI callers can set the
-[custom execution-time parameter](api.md#jobs-and-results). The Qiskit path
+[custom execution-time parameter](api.md#jobs-and-results) and
+[dynamical-decoupling options](api.md#dynamical-decoupling). The Qiskit path
 retains the shared `shots` and `memory` execution options.
 
 ## Parameters and batches
