@@ -60,6 +60,7 @@ releases may include breaking changes.
 
 - ⚡ Allow independent session and job requests to progress concurrently while
   preserving shared IAM refresh, per-job result caches, and wait deadlines.
+  ([#23]) ([**@marcelwa**])
 
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
@@ -78,6 +79,7 @@ releases may include breaking changes.
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
+[#23]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/23
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [**@marcelwa**]: https://github.com/marcelwa
