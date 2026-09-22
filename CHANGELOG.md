@@ -54,6 +54,9 @@ releases may include breaking changes.
 
 ### Changed
 
+- 👷 Use GitHub's self-repository references for reusable CI workflows. ([#8])
+  ([**@marcelwa**])
+
 - 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
   Docs before merging. Retain Actions type checks, source-distribution checks,
   and offline hardware prerequisites. Use the same Doxygen version for hosted
@@ -83,4 +86,5 @@ releases may include breaking changes.
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
+[#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [**@marcelwa**]: https://github.com/marcelwa
