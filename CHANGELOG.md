@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🧪 Allow 60 seconds for native test discovery on slower runners. ([#13])
+  ([**@marcelwa**])
+
 - 🐛 Avoid hostname resolution when starting offline test servers and report
   slow wheel tests. ([#16]) ([**@marcelwa**])
 
