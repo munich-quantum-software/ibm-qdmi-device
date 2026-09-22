@@ -54,6 +54,11 @@ releases may include breaking changes.
 
 ### Changed
 
+- 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
+  Docs before merging. Retain Actions type checks, source-distribution checks,
+  and offline hardware prerequisites. Use the same Doxygen version for hosted
+  native API builds. Configure release-tag publishing. ([#18]) ([**@marcelwa**])
+
 - 🛠️ Format Python project metadata consistently, install the CMake executable
   used by development sessions, and classify release notes with label-based
   categories, exclusions, and version rules. ([#17]) ([**@marcelwa**])
@@ -73,6 +78,7 @@ releases may include breaking changes.
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
+[#18]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/18
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3

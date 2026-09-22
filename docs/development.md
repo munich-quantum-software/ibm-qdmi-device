@@ -102,12 +102,11 @@ gh workflow run live-metadata.yml --ref main -f backend=both
 ```
 
 The workflow checks out the dispatch commit and permits only `refs/heads/main`.
-The `ibm-quantum` environment must use **Selected branches and tags** with a
-single **branch** rule, `main`. Keep the existing `IBM_QUANTUM_API_KEY` and
-`IBM_QUANTUM_INSTANCE_CRN` environment secrets. Build and installation steps run
-before the live step receives these secrets. The library derives the region from
-the CRN; this workflow has no endpoint override. Runs are serialized and have a
-15-minute timeout, with no schedules or automatic retries.
+The `ibm-quantum` environment is restricted to `main`. Its `IBM_QUANTUM_API_KEY`
+and `IBM_QUANTUM_INSTANCE_CRN` secrets are available only to the live step,
+after build and installation. The library derives the region from the CRN; this
+workflow has no endpoint override. Runs are serialized and have a 15-minute
+timeout, with no schedules or automatic retries.
 
 For an explicitly authorized local run from merged `main`, supply the same two
 environment variables through a secure credential source, then run:
@@ -141,9 +140,10 @@ fix needs a synthetic regression test and a follow-up PR.
 
 ## Gated quantum execution
 
-After human merge of the hardware workflow, pushes to `main` run all offline
-checks before hardware validation. Manual **Actions → CI → Run workflow**
-dispatches from `main` use the same gates:
+Pushes to `main` run all offline Actions checks before hardware validation.
+Pre-commit.ci and Read the Docs guard pull-request merges; hardware execution
+does not wait for their results on the merged commit. Manual
+**Actions → CI → Run workflow** dispatches from `main` use the same gates:
 
 ```console
 gh workflow run ci.yml --ref main
@@ -210,7 +210,7 @@ to changed lines.
 
 ## Documentation
 
-Install Doxygen on `PATH`, then run:
+Install Doxygen 1.16.1 on `PATH`, then run:
 
 ```console
 uvx nox --non-interactive -s docs
@@ -221,26 +221,33 @@ The session builds the package in `build/docs/`, generates standalone Doxygen
 HTML, and builds Sphinx with warnings treated as errors. HTML output is in
 `docs/_build/html/`, with the generated C interface under `cpp/`.
 
-## Automation setup
+## Automation
 
 CI builds and tests without backend credentials, then permits the bounded
 hardware checks described above on merged `main`. Its offline aggregate includes
 change detection, native tests on Linux, macOS, and Windows (MSVC and ClangCL),
-installation tests, sanitizers, coverage, C++ and Python lint, the complete hook
-set, Python/Qiskit tests, sdist and wheel builds, documentation, and the
+installation tests, sanitizers, coverage, clang-tidy, Python type and
+source-distribution checks, Python/Qiskit tests, sdist and wheel builds, and the
 installed Linux candidate. PR checks may skip jobs deselected by change
 detection; failures, cancellations, and unexpected skips block the aggregate.
-Lint and documentation run on every change. Pushes to `main` run every
-prerequisite.
+Pushes to `main` run every Actions prerequisite. Pre-commit.ci runs the hook
+checks on pull requests; its configuration skips `ty`, which the Python Actions
+job runs together with `check-sdist`. The local lint and documentation Nox
+sessions run the same checks during development.
 
-Configure branch protection or a ruleset for `main` to require `🚦 Check` from
-GitHub Actions. The workflow alone does not enforce merge protection. Provision
-labels used by Renovate and release drafting, including
-`continuous integration`, `packaging`, `code quality`, `github-actions`,
-`pre-commit`, and `patch`.
+The `main` ruleset requires `🚦 Check` from GitHub Actions,
+`pre-commit.ci - pr`, and the Read the Docs preview check. These checks guard
+pull-request merges. Hardware execution uses the Actions prerequisites on the
+merged commit.
 
-Read the Docs configuration is included, but hosting must be provisioned
-separately. Release workflows publish only after a GitHub release is published
-and the `pypi` environment and PyPI trusted publisher have been configured.
-Manual CD runs only build artifacts. Enable Codecov uploads by setting the
-repository variable `CODECOV_ENABLED` to `true` after configuring the service.
+Read the Docs builds public pull-request previews and the `latest` documentation
+from `main` using `.readthedocs.yaml`. It installs Doxygen 1.16.1 and OpenSSL
+development headers and runs the strict documentation Nox session without
+backend credentials. The published documentation includes the native API under
+`cpp/`.
+
+Release workflows attest and publish the `ibm-qdmi` distributions through PyPI
+trusted publishing after a GitHub release is published. The `pypi` environment
+permits only tags matching `v*`; publishing uses short-lived identity tokens.
+Manual CD runs build artifacts. Coverage jobs upload native and Python reports
+to Codecov using OpenID Connect.
