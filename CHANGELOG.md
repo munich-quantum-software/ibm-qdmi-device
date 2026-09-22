@@ -54,6 +54,10 @@ releases may include breaking changes.
 
 ### Changed
 
+- 🛠️ Format Python project metadata consistently, install the CMake executable
+  used by development sessions, and classify release notes with label-based
+  categories, exclusions, and version rules.
+
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
   workflow names, project badges, native build ignores, and changelog

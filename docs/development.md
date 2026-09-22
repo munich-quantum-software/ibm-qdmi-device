@@ -198,10 +198,10 @@ regression before making a follow-up fix.
 uvx nox -s lint
 ```
 
-This runs the complete prek hook set, including formatting, spelling, license
-headers, metadata, lockfile, workflow security, Ruff, and ty. Hooks can change
-files; inspect the changes and rerun until clean. To check new untracked files
-before staging, use `uvx prek run --files <paths>`.
+This runs the complete prek hook set, including pyproject.toml formatting,
+spelling, license headers, metadata, lockfile, workflow security, Ruff, and ty.
+Hooks can change files; inspect the changes and rerun until clean. To check new
+untracked files before staging, use `uvx prek run --files <paths>`.
 
 For C++ files, reproduce `.github/workflows/cpp-linter.yml` with its Clang
 version and a Ninja compilation database. Check every line of each changed file
