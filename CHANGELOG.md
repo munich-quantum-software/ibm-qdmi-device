@@ -56,7 +56,7 @@ releases may include breaking changes.
 
 - 📦 Use MQT Core 4 for Qiskit integration and duration conversion, standardize
   exported QDMI device metadata, and check every native ABI entry point during
-  source builds.
+  source builds. ([#21]) ([**@marcelwa**])
 
 - 🛠️ Format Python project metadata consistently, install the CMake executable
   used by development sessions, and classify release notes with label-based
@@ -77,6 +77,7 @@ releases may include breaking changes.
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
+[#21]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/21
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
