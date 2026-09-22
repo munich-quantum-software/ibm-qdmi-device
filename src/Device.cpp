@@ -229,10 +229,17 @@ int IBM_QDMI_device_session_set_parameter(
     require(validEnum(parameter, QDMI_DEVICE_SESSION_PARAMETER_MAX));
     require(!session->auth, QDMI_ERROR_BADSTATE);
     std::string* destination = nullptr;
+    bool* configured = nullptr;
     switch (parameter) {
     case QDMI_DEVICE_SESSION_PARAMETER_TOKEN:
       destination = &session->configuration.apiKey;
+      configured = &session->configuration.apiKeyConfigured;
       break;
+    case QDMI_DEVICE_SESSION_PARAMETER_AUTHFILE:
+      if (value != nullptr) {
+        session->configuration.authFile = readString(size, value);
+      }
+      return QDMI_SUCCESS;
     case QDMI_DEVICE_SESSION_PARAMETER_BASEURL:
       destination = &session->configuration.baseUrl;
       break;
@@ -241,15 +248,26 @@ int IBM_QDMI_device_session_set_parameter(
       break;
     case IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND:
       destination = &session->configuration.backend;
+      configured = &session->configuration.backendConfigured;
       break;
     case IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN:
       destination = &session->configuration.crn;
+      configured = &session->configuration.crnConfigured;
       break;
+    case IBM_QDMI_DEVICE_SESSION_PARAMETER_REQUEST_TIMEOUT:
+      if (value != nullptr) {
+        session->configuration.requestTimeout =
+            ibm::parseRequestTimeout(readString(size, value));
+      }
+      return QDMI_SUCCESS;
     default:
       return QDMI_ERROR_NOTSUPPORTED;
     }
     if (value != nullptr) {
       *destination = readString(size, value);
+      if (configured != nullptr) {
+        *configured = true;
+      }
     }
     return QDMI_SUCCESS;
   });
@@ -310,6 +328,11 @@ int IBM_QDMI_device_session_query_device_property(
       return copyString("1.3.3", size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
       return copyValue(QDMI_PROGRAM_FORMAT_QASM3, size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION:
+      return copyValue(std::size_t{0}, size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_PULSESUPPORT:
+      return copyValue(QDMI_DEVICE_PULSE_SUPPORT_LEVEL_NONE, size, value,
+                       sizeRet);
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
@@ -430,6 +453,11 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
         const auto seconds = readValue<std::uint64_t>(size, value);
         require(seconds != 0 && seconds <= 10800);
         job.maxExecutionTime = seconds;
+      }
+      break;
+    case IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING:
+      if (value != nullptr) {
+        job.setDynamicalDecoupling(readString(size, value));
       }
       break;
     default:

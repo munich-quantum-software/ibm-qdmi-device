@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,6 +39,8 @@ CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"
 
 class LoopbackHTTPServer(ThreadingHTTPServer):
     """Serve loopback requests without resolving the server's hostname."""
+
+    daemon_threads = False
 
     def server_bind(self) -> None:
         """Bind the socket and use the known local server name."""
@@ -97,8 +99,10 @@ def serve() -> Iterator[Service]:
             self.send_response(status)
             if status == 302:
                 self.send_header("Location", state.url + "/redirect-target")
-            self.end_headers()
-            self.wfile.write(data.encode() if isinstance(data, str) else json.dumps(data).encode())
+            # Timeout tests close the client before the delayed reply.
+            with suppress(ConnectionError):
+                self.end_headers()
+                self.wfile.write(data.encode() if isinstance(data, str) else json.dumps(data).encode())
 
         def do_GET(self) -> None:
             """Handle a backend query."""
@@ -131,11 +135,13 @@ def service() -> Iterator[Service]:
 
 
 @pytest.fixture
-def native() -> Iterator[Native]:
+def native(monkeypatch: pytest.MonkeyPatch) -> Iterator[Native]:
     """Own the installed library lifecycle for an offline test.
 
     Yields:
         The initialized native interface.
     """
+    for name in ("IBM_QUANTUM_API_KEY", "IBM_QUANTUM_INSTANCE_CRN", "IBM_QUANTUM_BACKEND"):
+        monkeypatch.delenv(name, raising=False)
     with load_native() as api:
         yield api

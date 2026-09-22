@@ -23,19 +23,109 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <ibm_qdmi/constants.h>
+#include <ios>
+#include <iterator>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
+#ifdef _MSC_VER
+#include <memory>
+
+// MSVC declares _dupenv_s in its C extension header.
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers)
+#endif
+
 namespace ibm {
+namespace {
+std::string environment(const char* name) {
+#ifdef _MSC_VER
+  char* raw = nullptr;
+  std::size_t size = 0;
+  const auto error = _dupenv_s(&raw, &size, name);
+  const std::unique_ptr<char, decltype(&std::free)> owned(raw, std::free);
+  if (error != 0) {
+    throw Failure{error == ENOMEM ? QDMI_ERROR_OUTOFMEM : QDMI_ERROR_FATAL};
+  }
+  return raw == nullptr ? std::string{} : std::string{raw};
+#else
+  const auto* value = std::getenv(name);
+  return value == nullptr ? std::string{} : std::string{value};
+#endif
+}
+
+std::string readApiKey(const std::string& path) {
+  if (path.empty()) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  std::ifstream input(
+      std::filesystem::path{std::u8string{path.begin(), path.end()}},
+      std::ios::binary);
+  if (!input) {
+    throw Failure{QDMI_ERROR_PERMISSIONDENIED};
+  }
+  std::string key{std::istreambuf_iterator<char>{input},
+                  std::istreambuf_iterator<char>{}};
+  if (input.bad()) {
+    throw Failure{QDMI_ERROR_PERMISSIONDENIED};
+  }
+  if (key.ends_with('\n')) {
+    key.pop_back();
+    if (key.ends_with('\r')) {
+      key.pop_back();
+    }
+  }
+  if (key.empty() || key.find_first_of("\r\n") != std::string::npos ||
+      key.find('\0') != std::string::npos) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  try {
+    // The existing JSON library checks UTF-8 strictly when encoding strings.
+    static_cast<void>(nlohmann::json(key).dump());
+  } catch (const nlohmann::json::type_error&) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  return key;
+}
+} // namespace
+
+std::chrono::milliseconds parseRequestTimeout(std::string_view value) {
+  std::int32_t milliseconds = 0;
+  const auto [end, error] =
+      std::from_chars(value.data(), value.data() + value.size(), milliseconds);
+  if (error != std::errc{} || end != value.data() + value.size() ||
+      milliseconds <= 0) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  return std::chrono::milliseconds{milliseconds};
+}
+
 Configuration resolve(Configuration configuration) {
+  if (!configuration.apiKeyConfigured && configuration.apiKey.empty()) {
+    configuration.apiKey = configuration.authFile
+                               ? readApiKey(*configuration.authFile)
+                               : environment("IBM_QUANTUM_API_KEY");
+  }
+  if (!configuration.backendConfigured && configuration.backend.empty()) {
+    configuration.backend = environment("IBM_QUANTUM_BACKEND");
+  }
+  if (!configuration.crnConfigured && configuration.crn.empty()) {
+    configuration.crn = environment("IBM_QUANTUM_INSTANCE_CRN");
+  }
   if (configuration.apiKey.empty()) {
     throw Failure{QDMI_ERROR_PERMISSIONDENIED};
   }
@@ -88,7 +178,7 @@ std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
   if (now >= deadline) {
     throw Failure{QDMI_ERROR_TIMEOUT};
   }
-  return std::min(std::chrono::milliseconds{30000},
+  return std::min(configuration.requestTimeout,
                   std::chrono::ceil<std::chrono::milliseconds>(deadline - now));
 }
 

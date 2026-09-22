@@ -42,6 +42,13 @@ void require(bool condition, int code = QDMI_ERROR_FATAL) {
     throw Failure{code};
   }
 }
+nlohmann::json defaultDynamicalDecoupling() {
+  return {{"enable", false},
+          {"sequence_type", "XX"},
+          {"extra_slack_distribution", "middle"},
+          {"scheduling_method", "alap"},
+          {"skip_reset_qubits", false}};
+}
 bool identifier(const std::string& text) {
   return !text.empty() && text.size() <= 255 &&
          std::ranges::all_of(text, [](unsigned char character) {
@@ -144,7 +151,8 @@ Results decodeResults(const nlohmann::json& data,
 }
 
 Job::Job(Auth& authValue, std::string backendValue, std::size_t qubitsValue)
-    : auth(&authValue), backend(std::move(backendValue)), qubits(qubitsValue) {}
+    : auth(&authValue), backend(std::move(backendValue)), qubits(qubitsValue),
+      dynamicalDecoupling(defaultDynamicalDecoupling()) {}
 bool Job::configurable() const {
   return !attempted && status == QDMI_JOB_STATUS_CREATED;
 }
@@ -156,6 +164,27 @@ void Job::setProgram(std::string source) {
   auto layout = outputRegisters(source, qubits);
   program = std::move(source);
   registers = std::move(layout);
+}
+void Job::setDynamicalDecoupling(const std::string& options) {
+  require(configurable(), QDMI_ERROR_BADSTATE);
+  const auto parsed = nlohmann::json::parse(options, nullptr, false);
+  require(parsed.is_object(), QDMI_ERROR_INVALIDARGUMENT);
+  for (const auto& [key, value] : parsed.items()) {
+    bool valid = false;
+    if (key == "enable" || key == "skip_reset_qubits") {
+      valid = value.is_boolean();
+    } else if (key == "sequence_type") {
+      valid = value == "XX" || value == "XpXm" || value == "XY4";
+    } else if (key == "extra_slack_distribution") {
+      valid = value == "middle" || value == "edges";
+    } else if (key == "scheduling_method") {
+      valid = value == "alap" || value == "asap";
+    }
+    require(valid, QDMI_ERROR_INVALIDARGUMENT);
+  }
+  auto configured = defaultDynamicalDecoupling();
+  configured.update(parsed);
+  dynamicalDecoupling = std::move(configured);
 }
 void Job::submit() {
   require(configurable() && format.has_value() && !program.empty(),
@@ -171,7 +200,7 @@ void Job::submit() {
                      {nlohmann::json::array({program, nullptr, shots})})},
         {"options",
          {{"execution", {{"meas_type", "classified"}}},
-          {"dynamical_decoupling", {{"enable", false}}},
+          {"dynamical_decoupling", dynamicalDecoupling},
           {"twirling",
            {{"enable_gates", false}, {"enable_measure", false}}}}}}}};
   const auto body = payload.dump();

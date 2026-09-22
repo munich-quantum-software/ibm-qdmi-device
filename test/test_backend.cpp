@@ -43,8 +43,10 @@ nlohmann::json fixture() {
 ibm::Configuration configuration() {
   return {.apiKey = "synthetic-key",
           .backend = "ibm_test",
-          .crn =
-              "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"};
+          .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
+          .apiKeyConfigured = true,
+          .backendConfigured = true,
+          .crnConfigured = true};
 }
 template <class Function> void expectFailure(Function&& function, int status) {
   try {
@@ -84,6 +86,46 @@ TEST(Configuration, RejectsUnsafeEndpointsAndInvalidSelection) {
   config.crn += "\r\nInjected: header";
   expectFailure([&] { (void)ibm::resolve(config); },
                 QDMI_ERROR_INVALIDARGUMENT);
+}
+TEST(Configuration, RequestTimeoutHasPortableBounds) {
+  EXPECT_EQ(ibm::parseRequestTimeout("1"), std::chrono::milliseconds{1});
+  EXPECT_EQ(ibm::parseRequestTimeout("2147483647"),
+            std::chrono::milliseconds{2147483647});
+  for (const auto* value : {"", "0", "-1", "+1", " 1", "1 ", "1.5", "1ms",
+                            "2147483648", "9999999999999999999999"}) {
+    expectFailure([&] { static_cast<void>(ibm::parseRequestTimeout(value)); },
+                  QDMI_ERROR_INVALIDARGUMENT);
+  }
+}
+TEST(Auth, RequestTimeoutBoundsRefreshAndRetry) {
+  for (const auto timeout :
+       {std::chrono::milliseconds{30000}, std::chrono::milliseconds{125}}) {
+    auto config = ibm::resolve(configuration());
+    config.requestTimeout = timeout;
+    auto now = std::chrono::steady_clock::now();
+    const auto deadline = now + std::chrono::milliseconds{40000};
+    std::vector<std::chrono::milliseconds> timeouts;
+    int backendRequests = 0;
+    ibm::Auth auth(
+        config,
+        [&](const ibm::Request& request) {
+          timeouts.push_back(request.timeout);
+          if (!request.form.empty()) {
+            return ibm::Response{.status = 200,
+                                 .body = fixture()["auth"].dump()};
+          }
+          if (++backendRequests == 1) {
+            now = deadline - std::chrono::milliseconds{50};
+            return ibm::Response{.status = 401, .body = "{}"};
+          }
+          return ibm::Response{.status = 200, .body = "{}"};
+        },
+        [&] { return now; });
+    EXPECT_EQ(auth.get("/status", deadline), "{}");
+    EXPECT_EQ(timeouts, (std::vector<std::chrono::milliseconds>{
+                            timeout, timeout, std::chrono::milliseconds{50},
+                            std::chrono::milliseconds{50}}));
+  }
 }
 TEST(Auth, RefreshesBeforeExpiryAndRetriesUnauthorizedGetOnce) {
   auto now = std::chrono::steady_clock::time_point{};
