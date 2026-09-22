@@ -57,7 +57,7 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
-qiskit = [ "mqt-core[qiskit]~=3.10.0" ]
+qiskit = [ "mqt-core[qiskit]~=4.0.0" ]
 
 [project.urls]
 Homepage = "https://github.com/munich-quantum-software/ibm-qdmi-device"
@@ -74,7 +74,7 @@ dev = [
   "nox>=2026.8.10",
 ]
 test = [
-  "mqt-core[qiskit]~=3.10.0",
+  "mqt-core[qiskit]~=4.0.0",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",

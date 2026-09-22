@@ -24,7 +24,8 @@ ctest --test-dir build/native -C Release --output-on-failure
 ```
 
 Use `Debug` in both configuration and build commands for a debug build. The
-native check compiles QDMI headers as C and C++ and links the shared library. It
+native check compiles QDMI headers as C and C++ and links every QDMI entry
+point. The generated ABI-definition executable is built but never run. The suite
 also exercises session configuration, IAM refresh, metadata parsing, and error
 mapping using synthetic responses. Job tests cover submission, cancellation,
 retrieval, deadlines, and result decoding without contacting IBM.

@@ -54,6 +54,10 @@ releases may include breaking changes.
 
 ### Changed
 
+- 📦 Use MQT Core 4 for Qiskit integration and duration conversion, standardize
+  exported QDMI device metadata, and check every native ABI entry point during
+  source builds.
+
 - 🛠️ Format Python project metadata consistently, install the CMake executable
   used by development sessions, and classify release notes with label-based
   categories, exclusions, and version rules. ([#17]) ([**@marcelwa**])
