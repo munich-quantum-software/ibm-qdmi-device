@@ -33,6 +33,11 @@
 #include <string>
 #include <utility>
 
+// libcurl exposes a macro in curl.h on some platforms and a function otherwise.
+#ifndef curl_easy_setopt
+#include <curl/easy.h>
+#endif
+
 namespace ibm {
 bool validEndpoint(const std::string& url) {
   const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(
@@ -61,6 +66,13 @@ Response send(const Request& request) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   cpr::Session client;
+  // Avoid process-wide signal handler races between concurrent requests.
+  // libcurl exposes this option through its variadic C API and requires a long.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+  if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_NOSIGNAL, 1L) !=
+      CURLE_OK) {
+    throw Failure{QDMI_ERROR_FATAL};
+  }
   client.SetUrl(cpr::Url{request.url});
   client.SetTimeout(cpr::Timeout{request.timeout});
   client.SetConnectTimeout(cpr::ConnectTimeout{request.timeout});

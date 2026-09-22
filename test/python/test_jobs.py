@@ -22,6 +22,8 @@ from __future__ import annotations
 import ctypes
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from typing import TYPE_CHECKING
 
 import pytest
@@ -272,6 +274,100 @@ def test_request_timeout_does_not_retry_submission(native: Native, job_service: 
             assert native.submit(job) == -11
             assert native.submit(job) == -10
     assert sum(path == "/v1/jobs" for path, _, _ in job_service.requests) == 1
+
+
+@pytest.mark.parametrize("blocked", ["status", "retrieval", "results"])
+def test_independent_session_requests_progress(native: Native, job_service: Service, blocked: str) -> None:
+    """Blocked HTTP calls allow independent metadata and job results to proceed."""
+    entered = Event()
+    release = Event()
+    paths = {
+        "status": "/v1/backends/ibm_test/status",
+        "retrieval": "/v1/jobs/slow-job",
+        "results": "/v1/jobs/slow-job/results",
+    }
+    job_service.data["slow-job"] = {**job_service.data["synthetic-job"], "id": "slow-job"}
+
+    def block(path: str) -> None:
+        if path == paths[blocked]:
+            entered.set()
+            assert release.wait(5)
+
+    with native.session(job_service.parameters) as session:
+        assert native.init(session) == 0
+        slow = ctypes.c_void_p()
+        assert native.retrieve_job(session, b"slow-job", ctypes.byref(slow)) == 0
+        retrieved = ctypes.c_void_p()
+        try:
+            with native.job(session) as fast:
+                configure(native, fast)
+                assert native.submit(fast) == 0
+                job_service.before_respond = block
+
+                def request() -> int:
+                    if blocked == "status":
+                        return native.device(session, 2, 0, None, None)
+                    if blocked == "retrieval":
+                        return native.retrieve_job(session, b"slow-job", ctypes.byref(retrieved))
+                    return native.results(slow, 0, 0, None, None)
+
+                def independent() -> tuple[int, int]:
+                    return native.device(session, 0, 0, None, None), native.results(fast, 0, 0, None, None)
+
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    pending = pool.submit(request)
+                    try:
+                        assert entered.wait(5)
+                        assert pool.submit(independent).result(timeout=2) == (0, 0)
+                    finally:
+                        release.set()
+                    assert pending.result(timeout=5) == 0
+        finally:
+            native.job_free(slow)
+            if retrieved.value is not None:
+                native.job_free(retrieved)
+    assert sum(path == "/auth" for path, _, _ in job_service.requests) == 1
+    assert sum(path == "/v1/jobs/synthetic-job/results" for path, _, _ in job_service.requests) == 1
+
+
+def test_concurrent_results_share_job_cache(native: Native, job_service: Service) -> None:
+    """Concurrent readers of one job make a single result request."""
+    with native.session(job_service.parameters) as session:
+        assert native.init(session) == 0
+        with native.job(session) as job:
+            configure(native, job)
+            assert native.submit(job) == 0
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                results = list(pool.map(lambda _: native.results(job, 0, 0, None, None), range(12)))
+            assert results == [0] * 12
+    assert sum(path.endswith("/results") for path, _, _ in job_service.requests) == 1
+
+
+def test_wait_deadline_includes_job_lock(native: Native, job_service: Service) -> None:
+    """A wait deadline bounds contention with another operation on the same job."""
+    entered = Event()
+    release = Event()
+
+    def block(path: str) -> None:
+        if path.endswith("/results"):
+            entered.set()
+            assert release.wait(5)
+
+    with native.session(job_service.parameters) as session:
+        assert native.init(session) == 0
+        with native.job(session) as job:
+            configure(native, job)
+            assert native.submit(job) == 0
+            job_service.before_respond = block
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                pending = pool.submit(native.results, job, 0, 0, None, None)
+                try:
+                    assert entered.wait(5)
+                    assert pool.submit(native.wait, job, 1).result(timeout=2) == -11
+                finally:
+                    release.set()
+                assert pending.result(timeout=5) == 0
+            assert native.wait(job, 1) == 0
 
 
 @pytest.mark.parametrize("change", ["backend", "program", "private", "pubs", "encoding"])

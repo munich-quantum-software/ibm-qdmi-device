@@ -21,8 +21,10 @@
 
 #include "Http.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -60,13 +62,18 @@ public:
                    Deadline deadline = Deadline::max());
 
 private:
-  void refresh(Deadline deadline);
+  struct Token {
+    std::string bearer;
+    Deadline expires;
+    std::atomic<bool> valid{true};
+  };
+  std::shared_ptr<Token> acquireToken(Deadline deadline);
+  std::shared_ptr<Token> refresh(Deadline deadline);
   [[nodiscard]] std::chrono::milliseconds remaining(Deadline deadline) const;
   Configuration configuration;
   Transport transport;
   Clock clock;
-  std::string bearer;
-  std::chrono::steady_clock::time_point expires;
+  std::shared_ptr<Token> cachedToken;
   std::timed_mutex mutex;
 };
 } // namespace ibm

@@ -68,6 +68,10 @@ releases may include breaking changes.
 
 ### Changed
 
+- ⚡ Allow independent session and job requests to progress concurrently while
+  preserving shared IAM refresh, per-job result caches, and wait deadlines.
+  ([#23]) ([**@marcelwa**])
+
 - 👷 Use GitHub's self-repository references for reusable CI workflows. ([#8])
   ([**@marcelwa**])
 
@@ -101,6 +105,7 @@ releases may include breaking changes.
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
 [#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
+[#23]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/23
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
