@@ -58,6 +58,9 @@ releases may include breaking changes.
 
 ### Changed
 
+- ⚡ Allow independent session and job requests to progress concurrently while
+  preserving shared IAM refresh, per-job result caches, and wait deadlines.
+
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
   workflow names, project badges, native build ignores, and changelog

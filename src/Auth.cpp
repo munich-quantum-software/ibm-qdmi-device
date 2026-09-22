@@ -181,7 +181,7 @@ std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
                   std::chrono::ceil<std::chrono::milliseconds>(deadline - now));
 }
 
-void Auth::refresh(Deadline deadline) {
+std::shared_ptr<Auth::Token> Auth::refresh(Deadline deadline) {
   const auto started = clock();
   const auto response = transport(
       {.url = configuration.authUrl,
@@ -196,10 +196,10 @@ void Auth::refresh(Deadline deadline) {
   }
   checkResponse(response);
   const auto data = nlohmann::json::parse(response.body);
-  const auto token = data.at("access_token").get<std::string>();
+  const auto bearer = data.at("access_token").get<std::string>();
   const auto& lifetime = data.at("expires_in");
-  if (!lifetime.is_number_integer() || token.empty() ||
-      token.find_first_of("\r\n") != std::string::npos) {
+  if (!lifetime.is_number_integer() || bearer.empty() ||
+      bearer.find_first_of("\r\n") != std::string::npos) {
     throw Failure{QDMI_ERROR_FATAL};
   }
   const auto seconds = lifetime.get<std::int64_t>();
@@ -207,24 +207,32 @@ void Auth::refresh(Deadline deadline) {
     throw Failure{QDMI_ERROR_FATAL};
   }
   // Keep a safety margin while still allowing short-lived test/service tokens.
-  expires = started + std::chrono::seconds{
-                          seconds - std::min<std::int64_t>(60, seconds / 10)};
-  bearer = token;
+  auto token = std::make_shared<Token>();
+  token->expires =
+      started +
+      std::chrono::seconds{seconds - std::min<std::int64_t>(60, seconds / 10)};
+  token->bearer = bearer;
+  return token;
 }
 
-Response Auth::request(const std::string& resource, bool post,
-                       const std::string& body, Deadline deadline) {
+std::shared_ptr<Auth::Token> Auth::acquireToken(Deadline deadline) {
   std::unique_lock lock(mutex, std::defer_lock);
   if (!lock.try_lock_until(deadline)) {
     throw Failure{QDMI_ERROR_TIMEOUT};
   }
-  if (bearer.empty() || clock() >= expires) {
-    refresh(deadline);
+  if (!cachedToken || !cachedToken->valid || clock() >= cachedToken->expires) {
+    cachedToken = refresh(deadline);
   }
+  return cachedToken;
+}
+
+Response Auth::request(const std::string& resource, bool post,
+                       const std::string& body, Deadline deadline) {
+  auto token = acquireToken(deadline);
   const auto request = [&] {
     return transport({.url = configuration.baseUrl + resource,
                       .headers = {{"Accept", "application/json"},
-                                  {"Authorization", "Bearer " + bearer},
+                                  {"Authorization", "Bearer " + token->bearer},
                                   {"Service-CRN", configuration.crn},
                                   {"IBM-API-Version", "2026-04-15"},
                                   {"Content-Type", "application/json"}},
@@ -234,14 +242,16 @@ Response Auth::request(const std::string& resource, bool post,
                       .timeout = remaining(deadline)});
   };
   auto response = request();
-  if (!post && !response.failed && !response.timedOut &&
-      response.status == 401) {
-    bearer.clear();
-    refresh(deadline);
-    response = request();
-  }
-  if (post && response.status == 401) {
-    bearer.clear();
+  if (!response.failed && !response.timedOut && response.status == 401) {
+    // A late response invalidates only the token used for that request.
+    token->valid = false;
+    if (!post) {
+      token = acquireToken(deadline);
+      response = request();
+      if (!response.failed && !response.timedOut && response.status == 401) {
+        token->valid = false;
+      }
+    }
   }
   return response;
 }

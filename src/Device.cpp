@@ -315,7 +315,7 @@ int IBM_QDMI_device_session_query_device_property(
     std::size_t size, void* value, std::size_t* sizeRet) {
   return boundary([&]() -> int {
     auto session = sessionFor(handle);
-    const std::scoped_lock lock(session->mutex);
+    std::unique_lock lock(session->mutex);
     require(validEnum(property, QDMI_DEVICE_PROPERTY_MAX));
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
     const auto& metadata = session->metadata;
@@ -364,8 +364,11 @@ int IBM_QDMI_device_session_query_device_property(
     }
     case QDMI_DEVICE_PROPERTY_STATUS:
     case QDMI_DEVICE_PROPERTY_QUEUELENGTH: {
-      const auto status = ibm::parseStatus(nlohmann::json::parse(
-          session->auth->get(resource(*session, "status"))));
+      auto* auth = session->auth.get();
+      const auto path = resource(*session, "status");
+      lock.unlock();
+      const auto status =
+          ibm::parseStatus(nlohmann::json::parse(auth->get(path)));
       if (property == QDMI_DEVICE_PROPERTY_QUEUELENGTH) {
         return copyValue(status.queue, size, value, sizeRet);
       }
@@ -405,9 +408,10 @@ int IBM_QDMI_device_session_retrieve_device_job_by_id(
   return boundary([&] {
     require(result != nullptr && id != nullptr);
     auto session = sessionFor(handle);
-    const std::scoped_lock sessionLock(session->mutex);
+    std::unique_lock sessionLock(session->mutex);
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
     auto allocated = std::make_shared<IBM_QDMI_Device_Job_impl_d>(session);
+    sessionLock.unlock();
     allocated->job.retrieve(id);
     auto* job = allocated.get();
     auto& registry = state();

@@ -21,12 +21,14 @@
 
 #include <cpr/body.h>
 #include <cpr/cprtypes.h>
+#include <cpr/curlholder.h>
 #include <cpr/error.h>
 #include <cpr/payload.h>
 #include <cpr/response.h>
 #include <cpr/session.h>
 #include <cstdint>
 #include <curl/curl.h>
+#include <curl/easy.h>
 #include <curl/urlapi.h>
 #include <ibm_qdmi/constants.h>
 #include <memory>
@@ -61,6 +63,13 @@ Response send(const Request& request) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   cpr::Session client;
+  // Avoid process-wide signal handler races between concurrent requests.
+  // libcurl exposes this option through its variadic C API and requires a long.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+  if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_NOSIGNAL, 1L) !=
+      CURLE_OK) {
+    throw Failure{QDMI_ERROR_FATAL};
+  }
   client.SetUrl(cpr::Url{request.url});
   client.SetTimeout(cpr::Timeout{request.timeout});
   client.SetConnectTimeout(cpr::ConnectTimeout{request.timeout});

@@ -62,6 +62,7 @@ class Service:
     requests: list[tuple[str, dict[str, str], bytes]] = field(default_factory=list)
     url: str = ""
     respond: Callable[[str, bytes], tuple[int, Any]] | None = None
+    before_respond: Callable[[str], None] | None = None
 
     @property
     def parameters(self) -> dict[int, str]:
@@ -91,6 +92,8 @@ def serve() -> Iterator[Service]:
         def respond(self, body: bytes) -> None:
             """Record the request and return the selected fixture response."""
             state.requests.append((self.path, dict(self.headers), body))
+            if state.before_respond is not None:
+                state.before_respond(self.path)
             key = self.path.rsplit("/", 1)[-1]
             status = state.errors.get(key, 200 if key in state.data else 404)
             data = state.data.get(key, {})

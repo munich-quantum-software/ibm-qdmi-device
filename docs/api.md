@@ -62,6 +62,13 @@ deadline takes precedence. The default is 30 seconds; a refresh and retry may
 require multiple requests. Other errors are not retried. See
 [IBM authentication](https://quantum.cloud.ibm.com/docs/en/guides/cloud-setup-rest-api).
 
+Independent device queries, job retrievals, and operations on different job
+handles may perform HTTP requests concurrently. IAM refresh remains serialized
+within each session, and a delayed unauthorized response cannot invalidate a
+newer token. Operations on one job remain serialized to protect its state and
+result cache. Job-wait deadlines include time spent waiting for the job lock or
+an IAM refresh. Submission is always attempted at most once per job handle.
+
 ## Query behavior
 
 Initialization reads backend configuration and calibration properties into a
