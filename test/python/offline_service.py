@@ -24,6 +24,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from socketserver import TCPServer
 from threading import Thread
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +35,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
 CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"
+
+
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    """Serve loopback requests without resolving the server's hostname."""
+
+    def server_bind(self) -> None:
+        """Bind the socket and use the known local server name."""
+        TCPServer.server_bind(self)
+        self.server_name = "localhost"
+        self.server_port = self.server_address[1]
 
 
 @dataclass
@@ -97,7 +108,7 @@ def serve() -> Iterator[Service]:
             """Handle the IAM form exchange."""
             self.respond(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
 
-    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+    with LoopbackHTTPServer(("127.0.0.1", 0), Handler) as server:
         state.url = f"http://127.0.0.1:{server.server_port}"
         thread = Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
         thread.start()

@@ -223,7 +223,7 @@ skip = ["*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64"]
 archs = "auto64"
 test-groups = ["test"]
 test-sources = ["test/python", "test/fixtures"]
-test-command = "pytest test/python"
+test-command = "pytest test/python --durations=10"
 build-frontend = "uv"
 
 [tool.cibuildwheel.linux]

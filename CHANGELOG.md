@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- 🐛 Avoid hostname resolution when starting offline test servers and report
+  slow wheel tests. ([#16]) ([**@marcelwa**])
+
 ### Added
 
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
@@ -59,6 +64,7 @@ releases may include breaking changes.
 [#11]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/11
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
+[#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
