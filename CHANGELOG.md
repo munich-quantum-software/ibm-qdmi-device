@@ -21,7 +21,8 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Add native environment defaults, explicit API-key files, per-session HTTP
-  timeouts, and explicit calibration and pulse capability reporting.
+  timeouts, and explicit calibration and pulse capability reporting. ([#20])
+  ([**@marcelwa**])
 
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
@@ -73,6 +74,7 @@ releases may include breaking changes.
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
+[#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [**@marcelwa**]: https://github.com/marcelwa
