@@ -12,6 +12,10 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Accept IBM measurement calibration repeated in per-qubit readout and gate
+  metadata so public backends can initialize for quantum execution. ([#25])
+  ([**@marcelwa**])
+
 - 🧪 Allow 60 seconds for native test discovery on slower runners. ([#13])
   ([**@marcelwa**])
 
@@ -111,6 +115,7 @@ releases may include breaking changes.
 [#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
 [#23]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/23
 [#24]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/24
+[#25]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/25
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
