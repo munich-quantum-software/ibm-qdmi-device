@@ -20,6 +20,9 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Configure per-job IBM Runtime dynamical decoupling through a validated JSON
+  parameter, with disabled defaults and unchanged execution limits.
+
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
   diagnostics. Confirm terminal state before collecting public job results. Keep
