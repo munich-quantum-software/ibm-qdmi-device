@@ -22,7 +22,7 @@ requires = [ "scikit-build-core>=1.0.3" ]
 
 [project]
 name = "ibm-qdmi"
-description = "IBM quantum execution through QDMI and Qiskit"
+description = "IBM quantum execution through QDMI, Qiskit, and PennyLane"
 readme = "README.md"
 license = "Apache-2.0 WITH LLVM-exception"
 license-files = [ "LICENSE" ]
@@ -57,7 +57,8 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
-qiskit = [ "mqt-core[qiskit]~=3.10.0" ]
+pennylane = [ "mqt-core[pennylane,qiskit]~=4.0.0" ]
+qiskit = [ "mqt-core[qiskit]~=4.0.0" ]
 
 [project.urls]
 Homepage = "https://github.com/munich-quantum-software/ibm-qdmi-device"
@@ -65,6 +66,11 @@ Issues = "https://github.com/munich-quantum-software/ibm-qdmi-device/issues"
 
 [project.scripts]
 ibm-qdmi = "ibm.qdmi.__main__:main"
+
+[project.entry-points."pennylane.plugins"]
+"ibm.default" = "ibm.qdmi.pennylane:IBMDevice"
+"ibm.berlin" = "ibm.qdmi.pennylane:IBMBerlinDevice"
+"ibm.aachen" = "ibm.qdmi.pennylane:IBMAachenDevice"
 
 
 [dependency-groups]
@@ -74,7 +80,7 @@ dev = [
   "nox>=2026.8.10",
 ]
 test = [
-  "mqt-core[qiskit]~=3.10.0",
+  "mqt-core[pennylane,qiskit]~=4.0.0",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
@@ -251,6 +257,8 @@ addopts = [
 ]
 filterwarnings = [
   "error",
+  # PennyLane pins Autograd <1.9; its wraps helper returns in finally on Python 3.14.
+  "ignore:'return' in a 'finally' block:SyntaxWarning:.*autograd[/\\\\]wrap_util",
 ]
 log_level = "INFO"
 minversion = "9.0"

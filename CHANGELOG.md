@@ -20,6 +20,12 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add PennyLane devices for the IBM catalogue with finite-shot measurements,
+  gradients, shot vectors, and validated native OpenQASM execution. Synthesize
+  CNOT for CZ/ECR bases and fold native RZZ angles into the hardware range. Use
+  MQT Core 4 for the shared Python adapters and Qiskit duration conversion.
+  ([#22]) ([**@marcelwa**])
+
 - ✨ Add native environment defaults, explicit API-key files, per-session HTTP
   timeouts, and explicit calibration and pulse capability reporting. ([#20])
   ([**@marcelwa**])
@@ -94,6 +100,7 @@ releases may include breaking changes.
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
+[#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8

@@ -15,6 +15,7 @@ installation
 development
 api
 qiskit
+pennylane
 contributing
 support
 security
