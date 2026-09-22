@@ -71,6 +71,7 @@ def _run_tests(
     session: nox.Session,
     *,
     install_args: Sequence[str] = (),
+    dependency_groups: Sequence[str] = (),
     extra_command: Sequence[str] = (),
     pytest_run_args: Sequence[str] = (),
 ) -> None:
@@ -89,6 +90,7 @@ def _run_tests(
         "build",
         "--only-group",
         "test",
+        *(argument for group in dependency_groups for argument in ("--only-group", group)),
         *install_args,
         env=env,
     )
@@ -99,6 +101,7 @@ def _run_tests(
         "--no-dev",  # do not auto-install dev dependencies
         "--no-build-isolation-package",
         "ibm-qdmi",  # build the project without isolation
+        *(argument for group in dependency_groups for argument in ("--group", group)),
         *install_args,
         env=env,
     )
@@ -134,6 +137,17 @@ def minimums(session: nox.Session) -> None:
         )
         env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
         session.run("uv", "tree", "--frozen", env=env)
+
+
+@nox.session(python="3.14", reuse_venv=True)
+def examples(session: nox.Session) -> None:
+    """Exercise the runnable examples with local simulators and loopback IBM."""
+    _run_tests(
+        session,
+        dependency_groups=["examples"],
+        extra_command=["python", "test/examples/build_native.py"],
+        pytest_run_args=["test/examples", "-n", "0"],
+    )
 
 
 @nox.session(python="3.14", reuse_venv=True)

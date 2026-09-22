@@ -20,6 +20,9 @@ releases may include breaking changes.
 
 ### Added
 
+- 📚 Add generated Python API references and runnable native QDMI, Qiskit, MQT
+  Bench, H₂, and PennyLane QAOA examples with offline validation.
+
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
   diagnostics. Confirm terminal state before collecting public job results. Keep

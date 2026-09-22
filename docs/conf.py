@@ -40,12 +40,24 @@ language = "en"
 master_doc = "index"
 
 extensions = [
+    "autoapi.extension",
     "native_api",
     "myst_nb",
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx.ext.intersphinx",
 ]
+
+autoapi_dirs = ["../python/ibm"]
+autoapi_root = "python-api"
+autoapi_python_use_implicit_namespaces = True
+autoapi_add_toctree_entry = False
+autoapi_keep_files = False
+autoapi_ignore = ["*/__main__.py"]
+autoapi_options = ["members", "imported-members", "undoc-members", "show-inheritance", "show-module-summary"]
+
+# MQT Core uses this type alias in signatures but does not publish it in its inventory.
+nitpick_ignore = [("py:class", "mqt.core.plugins.qiskit.backend.ParametersType")]
 
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
@@ -67,6 +79,9 @@ html_theme_options = {
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    "mqt-core": ("https://mqt.readthedocs.io/projects/core/en/stable", None),
+    "qiskit": ("https://docs.quantum.ibm.com/api/qiskit", None),
+    "pennylane": ("https://docs.pennylane.ai/en/stable", None),
 }
 
 myst_enable_extensions = [

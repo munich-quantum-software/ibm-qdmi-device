@@ -66,3 +66,15 @@ run("${CMAKE_COMMAND}" --build "${work}/consumer-${suffix}" --config
     "${IBM_QDMI_INSTALL_TEST_CONFIG}")
 run("${CMAKE_CTEST_COMMAND}" --test-dir "${work}/consumer-${suffix}" -C
     "${IBM_QDMI_INSTALL_TEST_CONFIG}" --output-on-failure)
+
+run("${CMAKE_COMMAND}"
+    -S
+    "${source}/examples/native"
+    -B
+    "${work}/example-${suffix}"
+    "-DCMAKE_BUILD_TYPE=${IBM_QDMI_INSTALL_TEST_CONFIG}"
+    "-DCMAKE_PREFIX_PATH=${relocated}")
+run("${CMAKE_COMMAND}" --build "${work}/example-${suffix}" --config
+    "${IBM_QDMI_INSTALL_TEST_CONFIG}")
+run("${CMAKE_CTEST_COMMAND}" --test-dir "${work}/example-${suffix}" -C
+    "${IBM_QDMI_INSTALL_TEST_CONFIG}" --output-on-failure)

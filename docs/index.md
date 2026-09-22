@@ -12,9 +12,11 @@ remains unverified on hardware until the gated live checks succeed.
 :maxdepth: 2
 
 installation
-development
+examples
 api
 qiskit
+python-api/ibm/qdmi/index
+development
 contributing
 support
 security
