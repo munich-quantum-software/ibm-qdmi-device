@@ -21,19 +21,22 @@
 
 #include <cpr/body.h>
 #include <cpr/cprtypes.h>
-#include <cpr/curlholder.h>
 #include <cpr/error.h>
 #include <cpr/payload.h>
 #include <cpr/response.h>
 #include <cpr/session.h>
 #include <cstdint>
 #include <curl/curl.h>
-#include <curl/easy.h>
 #include <curl/urlapi.h>
 #include <ibm_qdmi/constants.h>
 #include <memory>
 #include <string>
 #include <utility>
+
+// libcurl exposes a macro in curl.h on some platforms and a function otherwise.
+#ifndef curl_easy_setopt
+#include <curl/easy.h>
+#endif
 
 namespace ibm {
 bool validEndpoint(const std::string& url) {

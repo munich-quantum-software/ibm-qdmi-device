@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import gc
+import json
 import math
 import os
 import subprocess
@@ -31,6 +32,7 @@ import numpy as np
 import pytest
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, JobSubmissionError, UnsupportedOperationError
 from mqt.core.plugins.qiskit.job import QDMIJob
+from mqt.core.qdmi import ProgramFormat
 from offline_service import CRN
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, transpile
 from qiskit.circuit import Parameter
@@ -124,6 +126,24 @@ def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> 
     assert [experiment.header["name"] for experiment in result.results] == ["first", "second"]
     assert result.results[0].header["creg_sizes"] == [["z", 2], ["a", 1]]
     assert len(runtime.snapshot()["submissions"]) == 2
+
+
+def test_direct_qdmi_dynamical_decoupling(runtime: RuntimeProxy) -> None:
+    """Send the documented JSON string through MQT Core's direct job API."""
+    backend = open_backend(runtime)
+    program = 'OPENQASM 3; include "stdgates.inc"; qubit[5] q; bit[1] c; x q[4]; c[0] = measure q[4];'
+    job = backend.device.submit_job(
+        program,
+        ProgramFormat.QASM3,
+        num_shots=7,
+        custom2=json.dumps({"enable": True, "sequence_type": "XpXm"}),
+    )
+    job.wait(10)
+    assert job.get_shots() == ["1"] * 7
+    submitted = runtime.snapshot()["submissions"]
+    assert len(submitted) == 1
+    assert submitted[0]["params"]["options"]["dynamical_decoupling"]["enable"] is True
+    assert submitted[0]["params"]["options"]["dynamical_decoupling"]["sequence_type"] == "XpXm"
 
 
 def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:

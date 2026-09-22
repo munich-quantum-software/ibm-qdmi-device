@@ -24,6 +24,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <ibm_qdmi/constants.h>
+// The stored JSON member requires the complete type, not just the json alias.
+#include <nlohmann/json.hpp> // IWYU pragma: keep
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
@@ -50,6 +52,8 @@ class Job {
 public:
   Job(Auth& auth, std::string backend, std::size_t qubits);
   void setProgram(std::string source);
+  /// Validate and replace DD options atomically, filling omitted defaults.
+  void setDynamicalDecoupling(const std::string& options);
   void submit();
   void retrieve(const std::string& remoteId);
   QDMI_Job_Status check(Deadline deadline = Deadline::max());
@@ -68,6 +72,7 @@ private:
   Auth* auth;
   std::string backend;
   std::size_t qubits;
+  nlohmann::json dynamicalDecoupling;
   bool attempted = false;
   std::vector<Register> registers;
   std::optional<Results> cached;

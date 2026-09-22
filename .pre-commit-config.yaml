@@ -42,7 +42,7 @@ repos:
 
   ## Check for security issues in GitHub Actions workflows
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.29.0
+    rev: v1.30.1
     hooks:
       - id: zizmor
         priority: 0
@@ -57,7 +57,7 @@ repos:
 
   ## Check pyproject.toml file
   - repo: https://github.com/henryiii/validate-pyproject-schema-store
-    rev: 2026.08.15
+    rev: 2026.09.11
     hooks:
       - id: validate-pyproject
         priority: 0
@@ -81,7 +81,7 @@ repos:
 
   ## Check for typos
   - repo: https://github.com/adhtruong/mirrors-typos
-    rev: v1.49.0
+    rev: v1.50.1
     hooks:
       - id: typos
         priority: 3
@@ -130,6 +130,13 @@ repos:
       - id: rumdl-fmt
         priority: 6
 
+  ## Format pyproject.toml with pyproject-fmt
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.29.4
+    hooks:
+      - id: pyproject-fmt
+        priority: 5
+
   ## Format CMake files with cmake-format
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
@@ -142,7 +149,7 @@ repos:
 
   ## Format C++ files with clang-format
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v22.1.8
+    rev: v23.1.1
     hooks:
       - id: clang-format
         types_or: [c++, c, cuda]

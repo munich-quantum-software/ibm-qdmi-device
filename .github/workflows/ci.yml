@@ -44,7 +44,7 @@ jobs:
         include:
           - runs-on: ubuntu-24.04
             config: Debug
-    uses: ./.github/workflows/cpp-tests-ubuntu.yml
+    uses: $/.github/workflows/cpp-tests-ubuntu.yml
     with:
       runs-on: ${{ matrix.runs-on }}
       config: ${{ matrix.config }}
@@ -61,7 +61,7 @@ jobs:
         include:
           - runs-on: macos-26
             config: Debug
-    uses: ./.github/workflows/cpp-tests-macos.yml
+    uses: $/.github/workflows/cpp-tests-macos.yml
     with:
       runs-on: ${{ matrix.runs-on }}
       config: ${{ matrix.config }}
@@ -83,7 +83,7 @@ jobs:
           - runs-on: windows-2025
             config: Release
             compiler: ClangCL
-    uses: ./.github/workflows/cpp-tests-windows.yml
+    uses: $/.github/workflows/cpp-tests-windows.yml
     with:
       compiler: ${{ matrix.compiler }}
       runs-on: ${{ matrix.runs-on }}
@@ -97,19 +97,19 @@ jobs:
       fail-fast: false
       matrix:
         runs-on: [ubuntu-24.04, macos-26, windows-2025]
-    uses: ./.github/workflows/cpp-install-tests.yml
+    uses: $/.github/workflows/cpp-install-tests.yml
     with:
       runs-on: ${{ matrix.runs-on }}
   cpp-sanitizers:
     name: 🇨 Sanitizers
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
-    uses: ./.github/workflows/cpp-sanitizers.yml
+    uses: $/.github/workflows/cpp-sanitizers.yml
   cpp-coverage:
     name: 🇨 Coverage
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
-    uses: ./.github/workflows/cpp-coverage.yml
+    uses: $/.github/workflows/cpp-coverage.yml
     permissions:
       contents: read
       id-token: write
@@ -117,7 +117,7 @@ jobs:
     name: 🇨 Lint
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-linter)
-    uses: ./.github/workflows/cpp-linter.yml
+    uses: $/.github/workflows/cpp-linter.yml
     with:
       clang-version: 21
       files-changed-only: false
@@ -133,17 +133,6 @@ jobs:
       check-stubs: false
       enable-ty: true
       enable-mypy: false
-  lint:
-    name: 🪝 Lint
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          python-version: "3.14"
-      - run: uvx nox -s lint
   python-tests:
     name: 🐍 Test
     needs: change-detection
@@ -153,7 +142,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.14"
       - run: uvx nox -s tests minimums
@@ -175,7 +164,7 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
   documentation:
     name: 📚 Documentation
-    uses: ./.github/workflows/documentation.yml
+    uses: $/.github/workflows/documentation.yml
   offline-checks-pass:
     name: Offline checks
     if: always()
@@ -190,7 +179,6 @@ jobs:
         cpp-coverage,
         cpp-linter,
         python-linter,
-        lint,
         python-tests,
         build-sdist,
         build-wheel,
@@ -229,7 +217,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.14"
       - name: Build an sdist and its wheel
@@ -267,7 +255,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.14"
           enable-cache: false

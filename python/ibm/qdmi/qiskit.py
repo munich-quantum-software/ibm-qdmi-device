@@ -122,11 +122,6 @@ class IBMBackend(QDMIBackend):
             The device target, with durations in seconds.
         """
         target = super()._build_target()
-        # QDMI durations are integer picoseconds; Qiskit expects seconds.
-        for name in target.operation_names:
-            for properties in target[name].values():
-                if properties is not None and properties.duration is not None:
-                    properties.duration *= 1e-12
         target.add_instruction(Barrier, name="barrier")
         return target
 

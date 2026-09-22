@@ -215,6 +215,12 @@ TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
   EXPECT_EQ(
       service.submitted["params"]["options"]["twirling"]["enable_measure"],
       false);
+  EXPECT_EQ(service.submitted["params"]["options"]["dynamical_decoupling"],
+            (nlohmann::json{{"enable", false},
+                            {"sequence_type", "XX"},
+                            {"extra_slack_distribution", "middle"},
+                            {"scheduling_method", "alap"},
+                            {"skip_reset_qubits", false}}));
   fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
   EXPECT_EQ(job.check(), QDMI_JOB_STATUS_QUEUED);
   fails([&] { (void)job.results(); }, QDMI_ERROR_INVALIDARGUMENT);
@@ -233,6 +239,60 @@ TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
   EXPECT_EQ(retrieved.results().shots, job.results().shots);
   fails([&] { retrieved.submit(); }, QDMI_ERROR_BADSTATE);
 }
+TEST(Job, ConfiguresDynamicalDecouplingWithoutChangingExecutionLimits) {
+  for (const auto* sequence : {"XX", "XpXm", "XY4"}) {
+    Service service;
+    ibm::Auth auth(configuration(),
+                   [&](const auto& request) { return service(request); });
+    ibm::Job job(auth, "ibm_test", 2);
+    configure(job);
+    job.maxExecutionTime = 42;
+    const nlohmann::json options{{"enable", true},
+                                 {"sequence_type", sequence},
+                                 {"extra_slack_distribution", "edges"},
+                                 {"scheduling_method", "asap"},
+                                 {"skip_reset_qubits", true}};
+    job.setDynamicalDecoupling(options.dump());
+    EXPECT_TRUE(service.requests.empty());
+    job.submit();
+    const auto& submitted = service.submitted["params"]["options"];
+    EXPECT_EQ(submitted["dynamical_decoupling"], options);
+    EXPECT_EQ(
+        submitted["twirling"],
+        (nlohmann::json{{"enable_gates", false}, {"enable_measure", false}}));
+    EXPECT_EQ(service.submitted["cost"], 42);
+    EXPECT_EQ(service.submitted["params"]["pubs"][0][2], 3);
+    fails([&] { job.setDynamicalDecoupling("{}"); }, QDMI_ERROR_BADSTATE);
+  }
+}
+TEST(Job, ValidatesAndReplacesDynamicalDecouplingAtomically) {
+  Service service;
+  ibm::Auth auth(configuration(),
+                 [&](const auto& request) { return service(request); });
+  ibm::Job job(auth, "ibm_test", 2);
+  configure(job);
+  job.setDynamicalDecoupling(
+      R"({"enable":true,"sequence_type":"XY4","skip_reset_qubits":true})");
+  job.setDynamicalDecoupling(R"({"enable":true})");
+  for (const auto* invalid :
+       {"", "{", "[]", "null", "true", "42", R"("XX")", R"({"unknown":true})",
+        R"({"enable":1})", R"({"enable":"true"})",
+        R"({"skip_reset_qubits":null})", R"({"sequence_type":"xx"})",
+        R"({"sequence_type":true})", R"({"extra_slack_distribution":"center"})",
+        R"({"extra_slack_distribution":[]})", R"({"scheduling_method":"ALAP"})",
+        R"({"scheduling_method":0})", R"({"enable":false,"invalid":true})"}) {
+    fails([&] { job.setDynamicalDecoupling(invalid); },
+          QDMI_ERROR_INVALIDARGUMENT);
+  }
+  EXPECT_TRUE(service.requests.empty());
+  job.submit();
+  EXPECT_EQ(service.submitted["params"]["options"]["dynamical_decoupling"],
+            (nlohmann::json{{"enable", true},
+                            {"sequence_type", "XX"},
+                            {"extra_slack_distribution", "middle"},
+                            {"scheduling_method", "alap"},
+                            {"skip_reset_qubits", false}}));
+}
 TEST(Job, NeverRetriesUnauthorizedOrAmbiguousSubmission) {
   for (const bool ambiguous : {false, true}) {
     Service service;
@@ -242,6 +302,7 @@ TEST(Job, NeverRetriesUnauthorizedOrAmbiguousSubmission) {
                    [&](const auto& request) { return service(request); });
     ibm::Job job(auth, "ibm_test", 2);
     configure(job);
+    job.setDynamicalDecoupling(R"({"enable":true})");
     fails([&] { job.submit(); },
           ambiguous ? QDMI_ERROR_TIMEOUT : QDMI_ERROR_PERMISSIONDENIED);
     const auto count = service.requests.size();
