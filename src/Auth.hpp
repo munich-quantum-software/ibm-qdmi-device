@@ -24,7 +24,9 @@
 #include <chrono>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 
 namespace ibm {
 using Clock = std::function<std::chrono::steady_clock::time_point()>;
@@ -35,10 +37,17 @@ struct Configuration {
   std::string crn;
   std::string baseUrl;
   std::string authUrl = "https://iam.cloud.ibm.com/identity/token";
+  std::optional<std::string> authFile;
+  std::chrono::milliseconds requestTimeout{30000};
+  bool apiKeyConfigured = false;
+  bool backendConfigured = false;
+  bool crnConfigured = false;
 };
 /// Resolve and validate a copy; unsuccessful initialization does not mutate
 /// inputs.
 Configuration resolve(Configuration configuration);
+/// Parse positive decimal milliseconds within the portable transport limit.
+std::chrono::milliseconds parseRequestTimeout(std::string_view value);
 class Auth {
 public:
   explicit Auth(Configuration configuration, Transport transport = send,

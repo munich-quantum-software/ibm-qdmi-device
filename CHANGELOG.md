@@ -20,6 +20,9 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add native environment defaults, explicit API-key files, per-session HTTP
+  timeouts, and explicit calibration and pulse capability reporting.
+
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
   checks, using the tested wheel, fresh-session retrieval, and redacted
   diagnostics. Confirm terminal state before collecting public job results. Keep
