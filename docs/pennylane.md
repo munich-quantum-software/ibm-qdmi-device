@@ -1,16 +1,17 @@
 # PennyLane integration
 
-Install the optional adapter with `pip install 'ibm-qdmi[pennylane]'`. The
-`IBMDevice` class reuses MQT Core's PennyLane preprocessing, job orchestration,
-and sample decoding. It exports `ibm.default`, `ibm.berlin`, and `ibm.aachen` as
-PennyLane device names.
+From a source checkout, install the optional adapter with
+`uv pip install '.[pennylane]'`. The `IBMDevice` class reuses MQT Core's
+PennyLane preprocessing, job orchestration, and sample decoding. It exports
+`ibm.default`, `ibm.berlin`, and `ibm.aachen` as PennyLane device names.
 
 ## Configure a device
 
 Set `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` as described in
-{doc}`installation`. The generic `ibm.default` device also requires
-`IBM_QUANTUM_BACKEND` or an explicit `backend_name`. Concrete catalogue IDs keep
-their backend selection unless `backend_name` is supplied.
+[backend configuration](qiskit.md#select-a-backend). The generic `ibm.default`
+device also requires `IBM_QUANTUM_BACKEND` or an explicit `backend_name`.
+Concrete catalogue IDs keep their backend selection unless `backend_name` is
+supplied.
 
 ```python
 import pennylane as qml
@@ -29,6 +30,12 @@ Supply `api_key`, `instance_crn`, and `backend_name` explicitly to override the
 environment. `IBMDevice(device=opened_device, wires=2)` adapts an existing QDMI
 session and rejects connection overrides. Importing the adapter and inspecting
 entry points do not open a session or submit work.
+
+The wrapper uses environment credentials as explicit session parameters when
+`api_key` or `instance_crn` is omitted. An environment API key therefore takes
+precedence over a registered authentication file. To retain a native session's
+file selection, open it through the QDMI driver and pass it as `device`; see
+{doc}`api` for native credential precedence.
 
 Wire labels map in their declared order to physical qubits starting at zero. For
 example, `wires=["control", "target"]` maps those labels to physical qubits 0
