@@ -210,7 +210,7 @@ to changed lines.
 
 ## Documentation
 
-Install Doxygen on `PATH`, then run:
+Install Doxygen 1.16.1 on `PATH`, then run:
 
 ```console
 uvx nox --non-interactive -s docs
@@ -241,7 +241,7 @@ pull-request merges. Hardware execution uses the Actions prerequisites on the
 merged commit.
 
 Read the Docs builds public pull-request previews and the `latest` documentation
-from `main` using `.readthedocs.yaml`. It installs Doxygen and OpenSSL
+from `main` using `.readthedocs.yaml`. It installs Doxygen 1.16.1 and OpenSSL
 development headers and runs the strict documentation Nox session without
 backend credentials. The published documentation includes the native API under
 `cpp/`.

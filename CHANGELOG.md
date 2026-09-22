@@ -56,8 +56,8 @@ releases may include breaking changes.
 
 - 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
   Docs before merging. Retain Actions type checks, source-distribution checks,
-  and offline hardware prerequisites. Configure release-tag publishing. ([#18])
-  ([**@marcelwa**])
+  and offline hardware prerequisites. Use the same Doxygen version for hosted
+  native API builds. Configure release-tag publishing. ([#18]) ([**@marcelwa**])
 
 - 🛠️ Format Python project metadata consistently, install the CMake executable
   used by development sessions, and classify release notes with label-based
