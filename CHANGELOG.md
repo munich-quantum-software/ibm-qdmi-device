@@ -56,7 +56,8 @@ releases may include breaking changes.
 
 - 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
   Docs before merging. Retain Actions type checks, source-distribution checks,
-  and offline hardware prerequisites. Configure release-tag publishing.
+  and offline hardware prerequisites. Configure release-tag publishing. ([#18])
+  ([**@marcelwa**])
 
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
@@ -72,6 +73,7 @@ releases may include breaking changes.
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
+[#18]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/18
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
