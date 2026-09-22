@@ -35,7 +35,7 @@ jobs:
   cpp-tests-ubuntu:
     name: 🇨 Test 🐧
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -52,7 +52,7 @@ jobs:
   cpp-tests-macos:
     name: 🇨 Test 🍎
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +69,7 @@ jobs:
   cpp-tests-windows:
     name: 🇨 Test 🏁
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -92,7 +92,7 @@ jobs:
   cpp-install-tests:
     name: 📦 Install
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -103,12 +103,12 @@ jobs:
   cpp-sanitizers:
     name: 🇨 Sanitizers
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     uses: ./.github/workflows/cpp-sanitizers.yml
   cpp-coverage:
     name: 🇨 Coverage
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     uses: ./.github/workflows/cpp-coverage.yml
     permissions:
       contents: read
@@ -116,7 +116,7 @@ jobs:
   cpp-linter:
     name: 🇨 Lint
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-linter)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-linter)
     uses: ./.github/workflows/cpp-linter.yml
     with:
       clang-version: 21
@@ -127,7 +127,7 @@ jobs:
   python-linter:
     name: 🐍 Lint
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-python-linter)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-linter)
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@ace7363a2a8e036e5efc6717be67f1eda29a120e # v2.4.2
     with:
       check-stubs: false
@@ -147,7 +147,7 @@ jobs:
   python-tests:
     name: 🐍 Test
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -160,12 +160,12 @@ jobs:
   build-sdist:
     name: 🚀 CD
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@ace7363a2a8e036e5efc6717be67f1eda29a120e # v2.4.2
   build-wheel:
     name: 🚀 CD
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     strategy:
       fail-fast: false
       matrix:
@@ -176,8 +176,8 @@ jobs:
   documentation:
     name: 📚 Documentation
     uses: ./.github/workflows/documentation.yml
-  required-checks-pass:
-    name: 🚦 Check
+  offline-checks-pass:
+    name: Offline checks
     if: always()
     needs:
       [
@@ -195,6 +195,7 @@ jobs:
         build-sdist,
         build-wheel,
         documentation,
+        candidate-wheel,
       ]
     runs-on: ubuntu-slim
     steps:
@@ -203,19 +204,102 @@ jobs:
         with:
           allowed-skips: >-
             ${{
-              needs.change-detection.outputs.run-cpp-tests == 'false'
+              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false'
               && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-install-tests,cpp-sanitizers,cpp-coverage,' || ''
             }}
             ${{
-              needs.change-detection.outputs.run-cpp-linter == 'false'
+              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-linter == 'false'
               && 'cpp-linter,' || ''
             }}
             ${{
-              needs.change-detection.outputs.run-python-linter == 'false'
+              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-linter == 'false'
               && 'python-linter,' || ''
             }}
             ${{
-              needs.change-detection.outputs.run-python-tests == 'false' && needs.change-detection.outputs.run-cd == 'false'
+              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-tests == 'false' && needs.change-detection.outputs.run-cd == 'false'
               && 'build-sdist,build-wheel,python-tests,' || ''
+            }}
+          jobs: ${{ toJSON(needs) }}
+
+  candidate-wheel:
+    name: Candidate wheel
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.14"
+      - name: Build an sdist and its wheel
+        env:
+          SKBUILD_BUILD_DIR: build/candidate/wheel/{wheel_tag}/{build_type}
+        run: uv run --locked --only-group build python -m build --outdir build/candidate/dist
+      - name: Test the installed candidate offline
+        run: |
+          uv venv build/candidate/venv
+          uv export --locked --only-group test --no-emit-project --output-file build/candidate/requirements.txt
+          uv pip install --python build/candidate/venv/bin/python -r build/candidate/requirements.txt build/candidate/dist/*.whl
+          build/candidate/venv/bin/python -m pytest test/python test/ci
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hardware-candidate
+          path: build/candidate/dist/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  hardware:
+    name: IBM quantum execution
+    needs: [offline-checks-pass, candidate-wheel]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: ibm-quantum
+    concurrency:
+      group: ibm-quantum-execution
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.14"
+          enable-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: hardware-candidate
+          path: build/hardware/dist
+      - name: Install the tested candidate
+        run: |
+          uv venv build/hardware/venv
+          uv export --locked --only-group test --no-emit-project --output-file build/hardware/requirements.txt
+          uv pip install --python build/hardware/venv/bin/python -r build/hardware/requirements.txt build/hardware/dist/*.whl
+      - name: Validate quantum execution
+        env:
+          IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+          IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
+        run: >-
+          build/hardware/venv/bin/python -m pytest test/python/test_quantum.py
+          --run-quantum --ibm-backend both -n 0 --tb=line --show-capture=no
+
+  required-checks-pass:
+    name: 🚦 Check
+    if: always()
+    needs: [offline-checks-pass, hardware]
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require offline checks and eligible hardware execution
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          allowed-skips: >-
+            ${{
+              (github.ref != 'refs/heads/main' ||
+              (github.event_name != 'push' && github.event_name != 'workflow_dispatch')) && 'hardware' || ''
             }}
           jobs: ${{ toJSON(needs) }}

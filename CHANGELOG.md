@@ -12,10 +12,19 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🧪 Allow 60 seconds for native test discovery on slower runners. ([#13])
+  ([**@marcelwa**])
+
 - 🐛 Avoid hostname resolution when starting offline test servers and report
   slow wheel tests. ([#16]) ([**@marcelwa**])
 
 ### Added
+
+- 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
+  checks, using the tested wheel, fresh-session retrieval, and redacted
+  diagnostics. Confirm terminal state before collecting public job results. Keep
+  hardware access explicitly opt-in and unverified until the first merged-main
+  run. ([#13]) ([**@marcelwa**])
 
 - ✨ Add the public Qiskit backend, metadata-derived targets, physical-layout
   serialization, ordered results, and shared sampler and estimator primitives.
@@ -54,10 +63,11 @@ releases may include breaking changes.
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [Unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device
-[#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#10]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/10
 [#11]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/11
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
+[#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
+[#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3

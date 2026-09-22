@@ -92,7 +92,10 @@ before fixing them. Quantum checks require the separate `quantum` marker and
 `--run-quantum` opt-in. Run them only after the offline CI gates on merged
 `main`. The authorized CI budget is one job each on Berlin and Aachen, 128 shots
 per job, and at most 60 seconds of QPU execution per job. Do not make paid local
-submissions or automatically retry hardware tests.
+submissions or automatically retry hardware tests. Preserve the tested candidate
+wheel across offline and hardware jobs, keep every prerequisite mandatory on
+`main`, and retain the `🚦 Check` required-check identity. Hardware results and
+job IDs must not be uploaded as artifacts.
 
 ## Git and GitHub
 

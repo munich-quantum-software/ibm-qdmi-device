@@ -732,6 +732,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
+    { name = "pyyaml" },
     { name = "scikit-build-core" },
 ]
 docs = [
@@ -748,6 +749,7 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
+    { name = "pyyaml" },
 ]
 typecheck = [
     { name = "furo" },
@@ -758,6 +760,7 @@ typecheck = [
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
+    { name = "pyyaml" },
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sphinx-copybutton" },
@@ -781,6 +784,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "scikit-build-core", specifier = ">=1.0.3" },
 ]
 docs = [
@@ -796,6 +800,7 @@ test = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
 ]
 typecheck = [
     { name = "furo", specifier = ">=2025.12.19" },
@@ -806,6 +811,7 @@ typecheck = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "sphinx", specifier = ">=9.0" },
     { name = "sphinx-copybutton", specifier = ">=0.5.2" },
     { name = "sphinx-design", specifier = ">=0.7.0" },
