@@ -32,6 +32,12 @@ TEST(Session, ValidatesConfigurationAndLifetime) {
   EXPECT_EQ(IBM_QDMI_device_session_alloc(nullptr), QDMI_ERROR_INVALIDARGUMENT);
   IBM_QDMI_Device_Session session = nullptr;
   ASSERT_EQ(IBM_QDMI_device_session_alloc(&session), QDMI_SUCCESS);
+  ASSERT_EQ(IBM_QDMI_device_session_set_parameter(
+                session, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, 1, ""),
+            QDMI_SUCCESS);
+  ASSERT_EQ(IBM_QDMI_device_session_set_parameter(
+                session, QDMI_DEVICE_SESSION_PARAMETER_CUSTOM1, 1, ""),
+            QDMI_SUCCESS);
   EXPECT_EQ(IBM_QDMI_device_session_init(session), QDMI_ERROR_PERMISSIONDENIED);
   EXPECT_EQ(IBM_QDMI_device_session_set_parameter(
                 session, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, 0, "key"),

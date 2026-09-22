@@ -49,9 +49,6 @@ target_compile_features(ibm-qdmi-native-example PRIVATE c_std_17)
 target_link_libraries(ibm-qdmi-native-example PRIVATE ibm-qdmi-device::ibm-qdmi-device)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
-  # Link every QDMI entry point; the generated executable is never run.
-  generate_device_defs_executable(${QDMI_PREFIX} TARGET ${QDMI_TARGET_NAME})
-
   add_executable(ibm-qdmi-backend-tests test_backend.cpp test_jobs.cpp)
   target_link_libraries(ibm-qdmi-backend-tests PRIVATE ibm-qdmi-core GTest::gtest_main)
   target_compile_definitions(

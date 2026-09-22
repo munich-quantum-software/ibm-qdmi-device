@@ -32,6 +32,8 @@ import pytest
 from mqt.core.plugins.pennylane import PennyLaneConfigurationError, PennyLaneExecutionError, PennyLaneValidationError
 from offline_service import CRN
 from pennylane import numpy as pnp
+from qiskit import QuantumCircuit, qasm3
+from qiskit.quantum_info import Operator as QiskitOperator
 from qiskit_service import remote_runtime
 
 from ibm.qdmi.pennylane import IBMDevice
@@ -69,6 +71,19 @@ def open_device(runtime: RuntimeProxy, wires: int | Sequence[Hashable] = 2) -> I
         base_url=url,
         auth_url=url + "/auth",
     )
+
+
+def configure_entangler(runtime: RuntimeProxy, name: str) -> None:
+    """Replace CX with one native entangler on the directed synthetic chain."""
+    config = runtime.snapshot()["configuration"]
+    gates = [gate for gate in config["gates"] if gate["name"] != "cx"]
+    gates.append({
+        "name": name,
+        "parameters": ["theta"] if name == "rzz" else [],
+        "coupling_map": config["coupling_map"],
+    })
+    runtime.set_configuration("gates", gates)
+    runtime.set_configuration("basis_gates", ["x", "sx", "rz", name])
 
 
 @pytest.mark.parametrize("wires", [2, ["control", "target"], [4, 2]])
@@ -264,8 +279,10 @@ assert set(plugins) == {'ibm.default', 'ibm.berlin', 'ibm.aachen'}
     assert result.returncode == 0, result.stderr
 
 
-def test_qaoa_decomposition(runtime: RuntimeProxy) -> None:
+@pytest.mark.parametrize("entangler", ["cx", "cz", "ecr"])
+def test_qaoa_decomposition(runtime: RuntimeProxy, entangler: str) -> None:
     """Ordinary QAOA gates compile to IBM's basis with matching probabilities."""
+    configure_entangler(runtime, entangler)
     device = open_device(runtime)
 
     def circuit() -> qml.measurements.ProbabilityMP:
@@ -283,7 +300,122 @@ def test_qaoa_decomposition(runtime: RuntimeProxy) -> None:
     assert qml.decomposition.enabled_graph() == graph_before
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     assert "sx q[0];" in source
-    assert "cx q[0], q[1];" in source
+    assert f"{entangler} q[0], q[1];" in source
+
+
+@pytest.mark.parametrize("entangler", ["cz", "ecr"])
+def test_cnot_native_synthesis(runtime: RuntimeProxy, entangler: str) -> None:
+    """CNOT synthesis preserves the full unitary and produces Bell samples."""
+    configure_entangler(runtime, entangler)
+    device = open_device(runtime, ["control", "target"])
+
+    @qml.qnode(device, shots=128)
+    def circuit() -> qml.measurements.CountsMP:
+        qml.Hadamard("control")
+        qml.CNOT(["control", "target"])
+        return qml.counts(wires=["control", "target"])
+
+    counts = circuit()
+    assert set(counts) == {"00", "11"}
+    assert sum(counts.values()) == 128
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = qasm3.loads(source)
+    assert set(emitted.count_ops()) <= {"x", "sx", "rz", entangler, "measure"}
+    expected = QuantumCircuit(5)
+    expected.h(0)
+    expected.cx(0, 1)
+    assert QiskitOperator(emitted.remove_final_measurements(inplace=False)).equiv(QiskitOperator(expected))
+
+
+@pytest.mark.parametrize("entangler", ["cz", "ecr"])
+def test_synthesized_cnot_preserves_directed_placement(runtime: RuntimeProxy, entangler: str) -> None:
+    """A reversed synthesized pair rejects the entire batch before submission."""
+    configure_entangler(runtime, entangler)
+    device = open_device(runtime)
+    tapes = tuple(
+        qml.tape.QuantumScript([qml.CNOT(wires)], [qml.sample(wires=[0, 1])], shots=3) for wires in ([0, 1], [1, 0])
+    )
+    prepared, _ = device.preprocess_transforms()(tapes)
+    with pytest.raises(PennyLaneValidationError, match="not advertised"):
+        device.execute(prepared)
+    assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize(
+    "angle",
+    [
+        -9 * math.pi / 4,
+        -math.pi,
+        -3 * math.pi / 4,
+        -math.pi / 2,
+        -math.pi / 4,
+        -1e-12,
+        0,
+        1e-12,
+        math.pi / 4,
+        math.pi / 2,
+        3 * math.pi / 4,
+        math.pi,
+        2 * math.pi,
+        9 * math.pi / 4,
+    ],
+)
+def test_native_rzz_angle_folding(runtime: RuntimeProxy, angle: float) -> None:
+    """Bound RZZ angles remain equivalent across signs, quadrants, and periods."""
+    configure_entangler(runtime, "rzz")
+    device = open_device(runtime)
+    tape = qml.tape.QuantumScript([qml.IsingZZ(angle, [0, 1])], [qml.sample(wires=[0, 1])], shots=1)
+    device.execute(tape)
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = qasm3.loads(source)
+    assert set(emitted.count_ops()) <= {"x", "rz", "rzz", "measure"}
+    for instruction in emitted.data:
+        if instruction.operation.name == "rzz":
+            assert 0 <= float(instruction.operation.params[0]) <= math.pi / 2
+    expected = QuantumCircuit(5)
+    expected.rzz(angle, 0, 1)
+    assert QiskitOperator(emitted.remove_final_measurements(inplace=False)).equiv(QiskitOperator(expected))
+
+
+def test_native_rzz_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
+    """Gradient shifts use calibrated RZZ angles and preserve the derivative."""
+    configure_entangler(runtime, "rzz")
+    device = open_device(runtime)
+
+    @qml.qnode(device, shots=4096, diff_method="parameter-shift")
+    def circuit(theta: float) -> qml.measurements.ExpectationMP:
+        qml.Hadamard(0)
+        qml.Hadamard(1)
+        qml.IsingZZ(theta, [0, 1])
+        return qml.expval(qml.X(0))
+
+    theta = pnp.array(math.pi / 4, requires_grad=True)
+    assert qml.grad(circuit)(theta) == pytest.approx(-math.sin(theta), abs=0.04)
+    submissions = runtime.snapshot()["submissions"]
+    assert len(submissions) >= 2
+    for submission in submissions:
+        emitted = qasm3.loads(submission["params"]["pubs"][0][0])
+        angles = [float(item.operation.params[0]) for item in emitted.data if item.operation.name == "rzz"]
+        assert angles
+        assert all(0 < angle <= math.pi / 2 for angle in angles)
+
+
+def test_rzz_corrections_validate_placement(runtime: RuntimeProxy) -> None:
+    """Unavailable correction gates reject the batch before any submission."""
+    configure_entangler(runtime, "rzz")
+    config = runtime.snapshot()["configuration"]
+    for gate in config["gates"]:
+        if gate["name"] == "x":
+            gate["coupling_map"] = [[i] for i in range(1, 5)]
+    runtime.set_configuration("gates", config["gates"])
+    device = open_device(runtime)
+    tapes = tuple(
+        qml.tape.QuantumScript([qml.IsingZZ(angle, [0, 1])], [qml.sample(wires=[0, 1])], shots=1)
+        for angle in (math.pi / 4, -math.pi / 4)
+    )
+    with pytest.raises(PennyLaneValidationError, match="not advertised"):
+        device.execute(tapes)
+    assert not runtime.snapshot()["submissions"]
 
 
 def test_noncommuting_observables(runtime: RuntimeProxy) -> None:

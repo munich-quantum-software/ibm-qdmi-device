@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 import os
+from functools import partial
 from typing import TYPE_CHECKING, ClassVar
 
 try:
@@ -52,16 +53,28 @@ if TYPE_CHECKING:
     from pennylane.devices import ExecutionConfig
     from pennylane.operation import Operator
     from pennylane.tape import QuantumScript
+    from pennylane.wires import Wires
 
 __all__ = ["IBMAachenDevice", "IBMBerlinDevice", "IBMDevice"]
 
 
-def _decompose_operation(operation: Operator) -> Sequence[Operator]:
-    """Express single-qubit rotations in the SX/RZ basis without losing derivatives.
+def _decompose_operation(operation: Operator, *, target_gates: set[str]) -> Sequence[Operator]:
+    """Express rotations and CNOT in the native basis without losing derivatives.
 
     Returns:
         Equivalent operations up to an unobservable global phase.
     """
+    if isinstance(operation, qml.CNOT):
+        control, target = operation.wires
+        if "CZ" in target_gates:
+            return [qml.Hadamard(target), qml.CZ(operation.wires), qml.Hadamard(target)]
+        if "ECR" in target_gates:
+            return [
+                qml.RZ(-math.pi / 2, control),
+                qml.RX(-math.pi / 2, target),
+                qml.ECR(operation.wires),
+                qml.X(control),
+            ]
     if isinstance(operation, qml.operation.Operation) and len(operation.wires) == 1:
         try:
             phi, theta, omega = operation.single_qubit_rot_angles()
@@ -78,6 +91,27 @@ def _decompose_operation(operation: Operator) -> Sequence[Operator]:
     return operation.decomposition()
 
 
+def _fold_rzz_angle(angle: float, wires: Wires) -> Sequence[Operator]:
+    """Fold a bound RZZ into IBM's calibrated interval up to global phase.
+
+    Returns:
+        Equivalent operations with any RZZ angle in (0, pi/2].
+    """
+    angle = math.remainder(angle, 2 * math.pi)
+    operations: list[Operator] = []
+    if abs(angle) > math.pi / 2:
+        # A pi shift contributes Z on each wire, up to global phase.
+        angle -= math.copysign(math.pi, angle)
+        operations.extend(qml.RZ(math.pi, wire) for wire in wires)
+    if angle < 0:
+        operations.append(qml.X(wires[0]))
+    if angle != 0:
+        operations.append(qml.IsingZZ(abs(angle), wires))
+    if angle < 0:
+        operations.append(qml.X(wires[0]))
+    return operations
+
+
 class _IBMProgramConverter(_ProgramConverter):
     """Keep Core's validation and decoding with IBM's physical QASM layout."""
 
@@ -90,10 +124,16 @@ class _IBMProgramConverter(_ProgramConverter):
         circuit = QuantumCircuit(len(self._device_wires), len(self._device_wires))
         gates = get_standard_gate_name_mapping()
         for operation in tape.operations:
-            spelling, indices, parameters = self._prepare_operation(operation)
-            gate = gates[spelling].to_mutable()
-            gate.params = list(parameters)
-            circuit.append(gate, indices)
+            operations: Sequence[Operator] = [operation]
+            if isinstance(operation, qml.IsingZZ):
+                _, _, parameters = self._prepare_operation(operation)
+                # Fold only bound execution parameters, after gradient transforms.
+                operations = _fold_rzz_angle(parameters[0], operation.wires)
+            for native_operation in operations:
+                spelling, indices, parameters = self._prepare_operation(native_operation)
+                gate = gates[spelling].to_mutable()
+                gate.params = list(parameters)
+                circuit.append(gate, indices)
         circuit.measure(range(len(self._device_wires)), range(len(self._device_wires)))
         return self._program(tape, qiskit_to_qasm3(circuit, self._device.qubits_num()))
 
@@ -155,16 +195,17 @@ class IBMDevice(QDMIDevice):
         self._converter = _IBMProgramConverter(self.qdmi_device, self.wires, self._program_format)
 
     def preprocess_transforms(self, execution_config: ExecutionConfig | None = None) -> CompilePipeline:
-        """Extend Core's decomposition for IBM's native single-qubit basis.
+        """Extend Core's decomposition for IBM's native basis.
 
         Returns:
-            Core's preprocessing pipeline with differentiable SX/RZ synthesis.
+            Core's preprocessing pipeline with differentiable native synthesis.
         """
         pipeline = super().preprocess_transforms(execution_config)
         if not {"SX", "RZ"} <= self._converter.target_gates:
             return pipeline
+        decomposer = partial(_decompose_operation, target_gates=self._converter.target_gates)
         return CompilePipeline([
-            BoundTransform(decompose, transform.args, {**transform.kwargs, "decomposer": _decompose_operation})
+            BoundTransform(decompose, transform.args, {**transform.kwargs, "decomposer": decomposer})
             if transform.tape_transform is decompose.tape_transform
             else transform
             for transform in pipeline

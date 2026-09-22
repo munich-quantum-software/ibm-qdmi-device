@@ -23,19 +23,108 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <ibm_qdmi/constants.h>
+#include <ios>
+#include <iterator>
+#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
+#ifdef _MSC_VER
+// MSVC declares _dupenv_s in its C extension header.
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers)
+#endif
+
 namespace ibm {
+namespace {
+std::string environment(const char* name) {
+#ifdef _MSC_VER
+  char* raw = nullptr;
+  std::size_t size = 0;
+  const auto error = _dupenv_s(&raw, &size, name);
+  const std::unique_ptr<char, decltype(&std::free)> owned(raw, std::free);
+  if (error != 0) {
+    throw Failure{error == ENOMEM ? QDMI_ERROR_OUTOFMEM : QDMI_ERROR_FATAL};
+  }
+  return raw == nullptr ? std::string{} : std::string{raw};
+#else
+  const auto* value = std::getenv(name);
+  return value == nullptr ? std::string{} : std::string{value};
+#endif
+}
+
+std::string readApiKey(const std::string& path) {
+  if (path.empty()) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  std::ifstream input(
+      std::filesystem::path{std::u8string{path.begin(), path.end()}},
+      std::ios::binary);
+  if (!input) {
+    throw Failure{QDMI_ERROR_PERMISSIONDENIED};
+  }
+  std::string key{std::istreambuf_iterator<char>{input},
+                  std::istreambuf_iterator<char>{}};
+  if (input.bad()) {
+    throw Failure{QDMI_ERROR_PERMISSIONDENIED};
+  }
+  if (key.ends_with('\n')) {
+    key.pop_back();
+    if (key.ends_with('\r')) {
+      key.pop_back();
+    }
+  }
+  if (key.empty() || key.find_first_of("\r\n") != std::string::npos ||
+      key.find('\0') != std::string::npos) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  try {
+    // The existing JSON library checks UTF-8 strictly when encoding strings.
+    static_cast<void>(nlohmann::json(key).dump());
+  } catch (const nlohmann::json::type_error&) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  return key;
+}
+} // namespace
+
+std::chrono::milliseconds parseRequestTimeout(std::string_view value) {
+  std::int32_t milliseconds = 0;
+  const auto [end, error] =
+      std::from_chars(value.data(), value.data() + value.size(), milliseconds);
+  if (error != std::errc{} || end != value.data() + value.size() ||
+      milliseconds <= 0) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  return std::chrono::milliseconds{milliseconds};
+}
+
 Configuration resolve(Configuration configuration) {
+  if (!configuration.apiKeyConfigured && configuration.apiKey.empty()) {
+    configuration.apiKey = configuration.authFile
+                               ? readApiKey(*configuration.authFile)
+                               : environment("IBM_QUANTUM_API_KEY");
+  }
+  if (!configuration.backendConfigured && configuration.backend.empty()) {
+    configuration.backend = environment("IBM_QUANTUM_BACKEND");
+  }
+  if (!configuration.crnConfigured && configuration.crn.empty()) {
+    configuration.crn = environment("IBM_QUANTUM_INSTANCE_CRN");
+  }
   if (configuration.apiKey.empty()) {
     throw Failure{QDMI_ERROR_PERMISSIONDENIED};
   }
@@ -88,11 +177,11 @@ std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
   if (now >= deadline) {
     throw Failure{QDMI_ERROR_TIMEOUT};
   }
-  return std::min(std::chrono::milliseconds{30000},
+  return std::min(configuration.requestTimeout,
                   std::chrono::ceil<std::chrono::milliseconds>(deadline - now));
 }
 
-void Auth::refresh(Deadline deadline) {
+std::shared_ptr<Auth::Token> Auth::refresh(Deadline deadline) {
   const auto started = clock();
   const auto response = transport(
       {.url = configuration.authUrl,
@@ -107,10 +196,10 @@ void Auth::refresh(Deadline deadline) {
   }
   checkResponse(response);
   const auto data = nlohmann::json::parse(response.body);
-  const auto token = data.at("access_token").get<std::string>();
+  const auto bearer = data.at("access_token").get<std::string>();
   const auto& lifetime = data.at("expires_in");
-  if (!lifetime.is_number_integer() || token.empty() ||
-      token.find_first_of("\r\n") != std::string::npos) {
+  if (!lifetime.is_number_integer() || bearer.empty() ||
+      bearer.find_first_of("\r\n") != std::string::npos) {
     throw Failure{QDMI_ERROR_FATAL};
   }
   const auto seconds = lifetime.get<std::int64_t>();
@@ -118,24 +207,32 @@ void Auth::refresh(Deadline deadline) {
     throw Failure{QDMI_ERROR_FATAL};
   }
   // Keep a safety margin while still allowing short-lived test/service tokens.
-  expires = started + std::chrono::seconds{
-                          seconds - std::min<std::int64_t>(60, seconds / 10)};
-  bearer = token;
+  auto token = std::make_shared<Token>();
+  token->expires =
+      started +
+      std::chrono::seconds{seconds - std::min<std::int64_t>(60, seconds / 10)};
+  token->bearer = bearer;
+  return token;
 }
 
-Response Auth::request(const std::string& resource, bool post,
-                       const std::string& body, Deadline deadline) {
+std::shared_ptr<Auth::Token> Auth::acquireToken(Deadline deadline) {
   std::unique_lock lock(mutex, std::defer_lock);
   if (!lock.try_lock_until(deadline)) {
     throw Failure{QDMI_ERROR_TIMEOUT};
   }
-  if (bearer.empty() || clock() >= expires) {
-    refresh(deadline);
+  if (!cachedToken || !cachedToken->valid || clock() >= cachedToken->expires) {
+    cachedToken = refresh(deadline);
   }
+  return cachedToken;
+}
+
+Response Auth::request(const std::string& resource, bool post,
+                       const std::string& body, Deadline deadline) {
+  auto token = acquireToken(deadline);
   const auto request = [&] {
     return transport({.url = configuration.baseUrl + resource,
                       .headers = {{"Accept", "application/json"},
-                                  {"Authorization", "Bearer " + bearer},
+                                  {"Authorization", "Bearer " + token->bearer},
                                   {"Service-CRN", configuration.crn},
                                   {"IBM-API-Version", "2026-04-15"},
                                   {"Content-Type", "application/json"}},
@@ -145,14 +242,16 @@ Response Auth::request(const std::string& resource, bool post,
                       .timeout = remaining(deadline)});
   };
   auto response = request();
-  if (!post && !response.failed && !response.timedOut &&
-      response.status == 401) {
-    bearer.clear();
-    refresh(deadline);
-    response = request();
-  }
-  if (post && response.status == 401) {
-    bearer.clear();
+  if (!response.failed && !response.timedOut && response.status == 401) {
+    // A late response invalidates only the token used for that request.
+    token->valid = false;
+    if (!post) {
+      token = acquireToken(deadline);
+      response = request();
+      if (!response.failed && !response.timedOut && response.status == 401) {
+        token->valid = false;
+      }
+    }
   }
   return response;
 }

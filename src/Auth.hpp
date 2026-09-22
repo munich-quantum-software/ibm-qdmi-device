@@ -21,10 +21,14 @@
 
 #include "Http.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 
 namespace ibm {
 using Clock = std::function<std::chrono::steady_clock::time_point()>;
@@ -35,10 +39,17 @@ struct Configuration {
   std::string crn;
   std::string baseUrl;
   std::string authUrl = "https://iam.cloud.ibm.com/identity/token";
+  std::optional<std::string> authFile;
+  std::chrono::milliseconds requestTimeout{30000};
+  bool apiKeyConfigured = false;
+  bool backendConfigured = false;
+  bool crnConfigured = false;
 };
 /// Resolve and validate a copy; unsuccessful initialization does not mutate
 /// inputs.
 Configuration resolve(Configuration configuration);
+/// Parse positive decimal milliseconds within the portable transport limit.
+std::chrono::milliseconds parseRequestTimeout(std::string_view value);
 class Auth {
 public:
   explicit Auth(Configuration configuration, Transport transport = send,
@@ -51,13 +62,18 @@ public:
                    Deadline deadline = Deadline::max());
 
 private:
-  void refresh(Deadline deadline);
+  struct Token {
+    std::string bearer;
+    Deadline expires;
+    std::atomic<bool> valid{true};
+  };
+  std::shared_ptr<Token> acquireToken(Deadline deadline);
+  std::shared_ptr<Token> refresh(Deadline deadline);
   [[nodiscard]] std::chrono::milliseconds remaining(Deadline deadline) const;
   Configuration configuration;
   Transport transport;
   Clock clock;
-  std::string bearer;
-  std::chrono::steady_clock::time_point expires;
+  std::shared_ptr<Token> cachedToken;
   std::timed_mutex mutex;
 };
 } // namespace ibm

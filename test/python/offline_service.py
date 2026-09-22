@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,6 +39,8 @@ CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"
 
 class LoopbackHTTPServer(ThreadingHTTPServer):
     """Serve loopback requests without resolving the server's hostname."""
+
+    daemon_threads = False
 
     def server_bind(self) -> None:
         """Bind the socket and use the known local server name."""
@@ -60,6 +62,7 @@ class Service:
     requests: list[tuple[str, dict[str, str], bytes]] = field(default_factory=list)
     url: str = ""
     respond: Callable[[str, bytes], tuple[int, Any]] | None = None
+    before_respond: Callable[[str], None] | None = None
 
     @property
     def parameters(self) -> dict[int, str]:
@@ -89,6 +92,8 @@ def serve() -> Iterator[Service]:
         def respond(self, body: bytes) -> None:
             """Record the request and return the selected fixture response."""
             state.requests.append((self.path, dict(self.headers), body))
+            if state.before_respond is not None:
+                state.before_respond(self.path)
             key = self.path.rsplit("/", 1)[-1]
             status = state.errors.get(key, 200 if key in state.data else 404)
             data = state.data.get(key, {})
@@ -97,8 +102,10 @@ def serve() -> Iterator[Service]:
             self.send_response(status)
             if status == 302:
                 self.send_header("Location", state.url + "/redirect-target")
-            self.end_headers()
-            self.wfile.write(data.encode() if isinstance(data, str) else json.dumps(data).encode())
+            # Timeout tests close the client before the delayed reply.
+            with suppress(ConnectionError):
+                self.end_headers()
+                self.wfile.write(data.encode() if isinstance(data, str) else json.dumps(data).encode())
 
         def do_GET(self) -> None:
             """Handle a backend query."""
@@ -131,11 +138,13 @@ def service() -> Iterator[Service]:
 
 
 @pytest.fixture
-def native() -> Iterator[Native]:
+def native(monkeypatch: pytest.MonkeyPatch) -> Iterator[Native]:
     """Own the installed library lifecycle for an offline test.
 
     Yields:
         The initialized native interface.
     """
+    for name in ("IBM_QUANTUM_API_KEY", "IBM_QUANTUM_INSTANCE_CRN", "IBM_QUANTUM_BACKEND"):
+        monkeypatch.delenv(name, raising=False)
     with load_native() as api:
         yield api

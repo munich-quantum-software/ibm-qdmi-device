@@ -25,7 +25,17 @@ releases may include breaking changes.
   ([**@marcelwa**])
 
 - ✨ Add PennyLane devices for the IBM catalogue with finite-shot measurements,
-  gradients, shot vectors, and validated native OpenQASM execution. ([#22])
+  gradients, shot vectors, and validated native OpenQASM execution. Synthesize
+  CNOT for CZ/ECR bases and fold native RZZ angles into the hardware range. Use
+  MQT Core 4 for the shared Python adapters and Qiskit duration conversion.
+  ([#22]) ([**@marcelwa**])
+
+- ✨ Add native environment defaults, explicit API-key files, per-session HTTP
+  timeouts, and explicit calibration and pulse capability reporting. ([#20])
+  ([**@marcelwa**])
+
+- ✨ Configure per-job IBM Runtime dynamical decoupling through a validated JSON
+  parameter, with disabled defaults and unchanged execution limits. ([#19])
   ([**@marcelwa**])
 
 - 🧪 Gate bounded Berlin and Aachen quantum execution behind all offline CI
@@ -62,9 +72,17 @@ releases may include breaking changes.
 
 ### Changed
 
-- 📦 Use MQT Core 4 for Qiskit integration and duration conversion, standardize
-  exported QDMI device metadata, and check every native ABI entry point during
-  source builds. ([#21]) ([**@marcelwa**])
+- ⚡ Allow independent session and job requests to progress concurrently while
+  preserving shared IAM refresh, per-job result caches, and wait deadlines.
+  ([#23]) ([**@marcelwa**])
+
+- 👷 Use GitHub's self-repository references for reusable CI workflows. ([#8])
+  ([**@marcelwa**])
+
+- 👷 Delegate hook checks to pre-commit.ci and documentation builds to Read the
+  Docs before merging. Retain Actions type checks, source-distribution checks,
+  and offline hardware prerequisites. Use the same Doxygen version for hosted
+  native API builds. Configure release-tag publishing. ([#18]) ([**@marcelwa**])
 
 - 🛠️ Format Python project metadata consistently, install the CMake executable
   used by development sessions, and classify release notes with label-based
@@ -85,11 +103,15 @@ releases may include breaking changes.
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
 [#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
-[#21]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/21
-[#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
-[#24]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/24
+[#18]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/18
+[#19]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/19
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
+[#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
+[#22]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/22
+[#23]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/23
+[#24]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/24
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
+[#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [**@marcelwa**]: https://github.com/marcelwa
