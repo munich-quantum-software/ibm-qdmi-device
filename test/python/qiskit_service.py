@@ -182,6 +182,10 @@ class RuntimeServer:
         """Override one synthetic metadata field before opening a session."""
         self.runtime.service.data["configuration"][key] = value
 
+    def set_properties(self, value: object) -> None:
+        """Replace synthetic calibration metadata before opening a session."""
+        self.runtime.service.data["properties"] = value
+
     def set_failure(self, category: str) -> None:
         """Select a synthetic result or authentication failure."""
         self.runtime.cancel_failure = category == "cancellation"
@@ -219,6 +223,10 @@ class RuntimeProxy(Protocol):
 
     def set_configuration(self, key: str, value: object) -> None:
         """Override one backend configuration field."""
+        ...
+
+    def set_properties(self, value: object) -> None:
+        """Replace backend calibration metadata."""
         ...
 
 

@@ -459,3 +459,21 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
                 .operations.size(),
             3);
 }
+TEST(Metadata, MergesRepeatedMeasurementCalibration) {
+  auto data = fixture();
+  data["configuration"]["supported_instructions"] = {"measure"};
+  data["properties"]["qubits"][0].push_back(
+      {{"name", "readout_length"}, {"value", 1.5}, {"unit", "us"}});
+  data["properties"]["gates"].push_back(
+      {{"gate", "measure"},
+       {"qubits", {0}},
+       {"parameters",
+        {{{"name", "gate_length"}, {"value", 2}, {"unit", "us"}},
+         {{"name", "gate_error"}, {"value", 0.03}}}}});
+  const auto metadata =
+      ibm::parseMetadata(data["configuration"], data["properties"]);
+  const auto& measurement = metadata.operations[3];
+  ASSERT_EQ(measurement.calibrations.size(), 1);
+  EXPECT_EQ(measurement.calibrations[0].second.duration, 1500000);
+  EXPECT_DOUBLE_EQ(*measurement.calibrations[0].second.fidelity, 0.97);
+}
