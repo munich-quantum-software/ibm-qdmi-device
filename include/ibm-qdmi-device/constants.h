@@ -31,3 +31,11 @@
 /// Maximum QPU execution time in seconds (uint64_t, 1..10800); default: 60.
 #define IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME                       \
   QDMI_DEVICE_JOB_PARAMETER_CUSTOM1
+
+/// Null-terminated dynamical-decoupling JSON object; disabled by default.
+/// Accepts enable and skip_reset_qubits booleans, sequence_type (XX, XpXm,
+/// XY4), extra_slack_distribution (middle, edges), and scheduling_method
+/// (alap, asap). Each assignment replaces the previous options; omitted fields
+/// default to false, false, XX, middle, and alap, respectively.
+#define IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING                     \
+  QDMI_DEVICE_JOB_PARAMETER_CUSTOM2
