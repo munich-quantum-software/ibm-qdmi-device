@@ -54,6 +54,10 @@ releases may include breaking changes.
 
 ### Changed
 
+- 🛠️ Format Python project metadata consistently, install the CMake executable
+  used by development sessions, and classify release notes with label-based
+  categories, exclusions, and version rules. ([#17]) ([**@marcelwa**])
+
 - 👷 Route CI checks by changed files, aggregate results in `🚦 Check`, add
   Windows ClangCL testing, build caching, and Linux mold setup, and standardize
   workflow names, project badges, native build ignores, and changelog
@@ -68,6 +72,7 @@ releases may include breaking changes.
 [#12]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/12
 [#13]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/13
 [#16]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/16
+[#17]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/17
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
