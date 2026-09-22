@@ -21,12 +21,18 @@
 
 #include <ibm_qdmi/constants.h>
 
-/// Required null-terminated backend name; set before session initialization.
+/// Null-terminated backend name; defaults to IBM_QUANTUM_BACKEND.
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND                              \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM1
-/// Required null-terminated IBM Cloud instance CRN; set before initialization.
+/// Null-terminated IBM Cloud instance CRN; defaults to
+/// IBM_QUANTUM_INSTANCE_CRN.
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN                         \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM2
+
+/// Positive decimal-string HTTP timeout in milliseconds (1..2147483647).
+/// The default is 30000; a shorter job-wait deadline takes precedence.
+#define IBM_QDMI_DEVICE_SESSION_PARAMETER_REQUEST_TIMEOUT                      \
+  QDMI_DEVICE_SESSION_PARAMETER_CUSTOM3
 
 /// Maximum QPU execution time in seconds (uint64_t, 1..10800); default: 60.
 #define IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME                       \

@@ -20,6 +20,10 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add native environment defaults, explicit API-key files, per-session HTTP
+  timeouts, and explicit calibration and pulse capability reporting. ([#20])
+  ([**@marcelwa**])
+
 - ✨ Configure per-job IBM Runtime dynamical decoupling through a validated JSON
   parameter, with disabled defaults and unchanged execution limits. ([#19])
   ([**@marcelwa**])
@@ -89,6 +93,7 @@ releases may include breaking changes.
 [#19]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/19
 [#1]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/1
 [#2]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/2
+[#20]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/20
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8

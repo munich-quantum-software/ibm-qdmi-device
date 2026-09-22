@@ -257,6 +257,23 @@ def test_wait_timeout_and_cancellation(native: Native, job_service: Service) -> 
             assert native.results(job, 0, 0, None, None) == -7
 
 
+def test_request_timeout_does_not_retry_submission(native: Native, job_service: Service) -> None:
+    """The session's HTTP timeout bounds a submission and freezes its handle."""
+
+    def delayed_submission(_path: str, _body: bytes) -> tuple[int, dict[str, str]]:
+        time.sleep(1)
+        return 200, {"id": "synthetic-job", "backend": "ibm_test"}
+
+    job_service.respond = delayed_submission
+    with native.session({**job_service.parameters, 999999997: "200"}) as session:
+        assert native.init(session) == 0
+        with native.job(session) as job:
+            configure(native, job)
+            assert native.submit(job) == -11
+            assert native.submit(job) == -10
+    assert sum(path == "/v1/jobs" for path, _, _ in job_service.requests) == 1
+
+
 @pytest.mark.parametrize("change", ["backend", "program", "private", "pubs", "encoding"])
 def test_retrieval_rejects_incompatible_jobs(native: Native, job_service: Service, change: str) -> None:
     """A failed retrieval publishes no local handle and submits nothing."""
