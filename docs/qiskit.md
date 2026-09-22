@@ -43,6 +43,10 @@ may supply identity metadata, including through the inherited
 preserves administrator definitions in MQT Core's driver. Each normal
 construction creates a fresh session.
 
+Credentials read from the environment become explicit native session parameters
+and override registered defaults. Adapt an already-open device to preserve
+authentication configured directly through QDMI.
+
 ## Transpile and execute
 
 The target uses physical indices, native gate signatures and applicable site

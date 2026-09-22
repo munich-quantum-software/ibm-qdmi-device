@@ -46,6 +46,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
 ]
 
 autoapi_dirs = ["../python/ibm"]

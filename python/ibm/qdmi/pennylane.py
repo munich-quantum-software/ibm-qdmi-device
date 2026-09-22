@@ -25,7 +25,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 try:
     import pennylane as qml
-    from mqt.core.plugins.pennylane import PennyLaneConfigurationError, QDMIDevice
+    from mqt.core.plugins.pennylane import PennyLaneConfigurationError
+    from mqt.core.plugins.pennylane.device import QDMIDevice
     from qiskit.circuit import QuantumCircuit
     from qiskit.circuit.library import get_standard_gate_name_mapping
 except ImportError as error:
@@ -34,8 +35,9 @@ except ImportError as error:
 
 # Core 4 pins this converter contract; reuse validation and sample metadata.
 from mqt.core.plugins.pennylane.converter import _ProgramConverter  # ruff: ignore[import-private-name]
+from pennylane import CompilePipeline
 from pennylane.devices.preprocess import decompose
-from pennylane.transforms.core import BoundTransform, CompilePipeline
+from pennylane.transforms.core import BoundTransform
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import register_device
