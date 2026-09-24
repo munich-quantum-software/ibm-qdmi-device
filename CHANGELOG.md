@@ -31,7 +31,7 @@ releases may include breaking changes.
 ### Added
 
 - 🧪 Add full H₂ QSCI and seven MQT Bench showcases with simulator tutorials and
-  offline validation.
+  offline validation. ([#38]) ([**@marcelwa**])
 
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
   during documentation builds. Preserve standalone native API links. ([#37])
@@ -168,3 +168,5 @@ releases may include breaking changes.
 [**@marcelwa**]: https://github.com/marcelwa
 
 [#37]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/37
+
+[#38]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/38
