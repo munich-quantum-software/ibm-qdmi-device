@@ -29,7 +29,7 @@ releases may include breaking changes.
 
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component. Collect native transport and in-process CLI coverage offline,
-  without additional QPU submissions. ([**@marcelwa**])
+  without additional QPU submissions. ([#33]) ([**@marcelwa**])
 
 - 📚 Add task-based navigation, Python package and dependency guides, API links,
   and MQSC branding. Align community support, security reporting, and
@@ -146,4 +146,5 @@ releases may include breaking changes.
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
+[#33]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/33
 [**@marcelwa**]: https://github.com/marcelwa
