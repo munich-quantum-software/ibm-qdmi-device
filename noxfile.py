@@ -76,42 +76,19 @@ def _run_tests(
     pytest_run_args: Sequence[str] = (),
 ) -> None:
     env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
-    if shutil.which("cmake") is None:
-        session.install("cmake")
-    if shutil.which("ninja") is None:
-        session.install("ninja")
-
-    # install build and test dependencies on top of the existing environment
-    session.run(
-        "uv",
-        "sync",
-        "--inexact",
-        "--only-group",
-        "build",
-        "--only-group",
-        "test",
-        *(argument for group in dependency_groups for argument in ("--only-group", group)),
-        *install_args,
-        env=env,
-    )
-    session.run(
-        "uv",
-        "sync",
-        "--inexact",
-        "--no-dev",  # do not auto-install dev dependencies
-        "--no-build-isolation-package",
-        "ibm-qdmi",  # build the project without isolation
-        *(argument for group in dependency_groups for argument in ("--group", group)),
-        *install_args,
-        env=env,
-    )
-    if extra_command:
-        session.run(*extra_command, env=env)
-    session.run(
+    run_args = [
         "uv",
         "run",
-        "--no-sync",  # do not sync as everything is already installed
+        "--no-dev",
+        "--group",
+        "test",
+        *(argument for group in dependency_groups for argument in ("--group", group)),
         *install_args,
+    ]
+    if extra_command:
+        session.run(*run_args, *extra_command, env=env)
+    session.run(
+        *run_args,
         "pytest",
         *pytest_run_args,
         *session.posargs,
@@ -158,37 +135,16 @@ def docs(session: nox.Session) -> None:
     args, posargs = parser.parse_known_args(session.posargs)
 
     env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
-    if shutil.which("cmake") is None:
-        session.install("cmake")
-    if shutil.which("ninja") is None:
-        session.install("ninja")
     session.run(
         "uv",
-        "sync",
-        "--inexact",
-        "--only-group",
-        "build",
-        "--only-group",
-        "docs",
-        env=env,
-    )
-    session.run(
-        "uv",
-        "sync",
-        "--inexact",
+        "run",
         "--no-dev",
-        "--no-build-isolation-package",
-        "ibm-qdmi",
+        "--group",
+        "docs",
         "--config-settings-package",
         "ibm-qdmi:build-dir=build/docs",
         "--config-settings-package",
         "ibm-qdmi:cmake.define.BUILD_IBM_QDMI_DOCS=ON",
-        env=env,
-    )
-    session.run(
-        "uv",
-        "run",
-        "--no-sync",
         "sphinx-build",
         "-n",
         "-T",
