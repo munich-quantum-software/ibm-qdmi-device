@@ -30,6 +30,9 @@ releases may include breaking changes.
 
 ### Added
 
+- 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
+  during documentation builds. Preserve standalone native API links.
+
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component, with central pytest markers and test selection. Collect native
   transport and in-process CLI coverage offline, without additional QPU

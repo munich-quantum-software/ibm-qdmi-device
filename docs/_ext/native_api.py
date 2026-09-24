@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Build and publish standalone Doxygen HTML without Breathe."""
+"""Build Doxygen XML for Breathe and retain standalone HTML links."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def _doxygen_output(app: Sphinx) -> Path:
 
 
 def build_doxygen(app: Sphinx) -> None:
-    """Generate the standalone native API documentation.
+    """Generate native API XML and standalone HTML.
 
     Raises:
         ExtensionError: If Doxygen is unavailable or generation fails.

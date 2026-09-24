@@ -147,6 +147,8 @@ def docs(session: nox.Session) -> None:
         "--no-dev",
         "--group",
         "docs",
+        "--group",
+        "examples",
         "--config-settings-package",
         "ibm-qdmi:build-dir=build/docs",
         "--config-settings-package",

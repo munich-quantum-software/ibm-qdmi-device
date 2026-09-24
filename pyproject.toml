@@ -89,6 +89,8 @@ test = [
   "pyyaml>=6.0.2",
 ]
 docs = [
+  # Breathe 5 cannot disambiguate headers through qualified file paths.
+  "breathe>=4.36,<5",
   "furo>=2025.12.19",
   "myst-nb>=1.4",
   "sphinx>=9",
