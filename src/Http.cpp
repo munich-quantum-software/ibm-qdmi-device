@@ -31,6 +31,7 @@
 #include <ibm_qdmi/constants.h>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 
 // libcurl exposes a macro in curl.h on some platforms and a function otherwise.
@@ -39,6 +40,13 @@
 #endif
 
 namespace ibm {
+internal::Hooks& internal::hooks() {
+  static Hooks value{.sleepUntil = [](auto deadline) {
+    std::this_thread::sleep_until(deadline);
+  }};
+  return value;
+}
+
 bool validEndpoint(const std::string& url) {
   const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(
       curl_url(), curl_url_cleanup);

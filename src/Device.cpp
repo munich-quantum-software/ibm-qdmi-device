@@ -37,7 +37,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -524,7 +523,7 @@ int IBM_QDMI_device_job_cancel(IBM_QDMI_Device_Job handle) {
 }
 int IBM_QDMI_device_job_wait(IBM_QDMI_Device_Job handle, std::size_t timeout) {
   return boundary([&] {
-    const auto started = std::chrono::steady_clock::now();
+    const auto started = ibm::internal::hooks().now();
     const auto maximum = std::chrono::duration_cast<std::chrono::seconds>(
                              ibm::Deadline::max() - started)
                              .count();
@@ -543,9 +542,9 @@ int IBM_QDMI_device_job_wait(IBM_QDMI_Device_Job handle, std::size_t timeout) {
         return QDMI_SUCCESS;
       }
       lock.unlock();
-      const auto now = std::chrono::steady_clock::now();
+      const auto now = ibm::internal::hooks().now();
       require(now < deadline, QDMI_ERROR_TIMEOUT);
-      std::this_thread::sleep_until(
+      ibm::internal::hooks().sleepUntil(
           std::min(deadline, now + std::chrono::seconds{1}));
     }
   });
