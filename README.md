@@ -1,5 +1,12 @@
 # IBM QDMI Device
 
+<!-- rumdl-disable MD033 -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/logo-mqsc-dark.svg">
+  <img src="docs/_static/logo-mqsc-light.svg" alt="Munich Quantum Software Company" width="280">
+</picture>
+<!-- rumdl-enable MD033 -->
+
 [![CI](https://img.shields.io/github/actions/workflow/status/munich-quantum-software/ibm-qdmi-device/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/munich-quantum-software/ibm-qdmi-device/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache--2.0_WITH_LLVM--exception-blue?style=flat-square)](LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue?logo=cplusplus&style=flat-square)](https://isocpp.org/)
@@ -15,9 +22,9 @@ The native library authenticates with IBM Quantum Platform and exposes backend,
 site, and operation metadata through QDMI. It submits native OpenQASM 3
 circuits, manages jobs, and returns ordered shots and histograms. Live metadata
 validation has passed; quantum execution has not yet been validated on hardware.
-See [API status](docs/api.md) for the supported interface and configuration. The
-optional [Qiskit integration](docs/qiskit.md) supports transpilation, execution,
-ordered memory, and sampler and estimator primitives.
+See the [usage guide](docs/api.md) for the supported interface and
+configuration. The optional [Qiskit integration](docs/qiskit.md) supports
+transpilation, execution, ordered memory, and sampler and estimator primitives.
 
 Start with [installation](docs/installation.md), then follow the
 [runnable examples](docs/examples.md) for native QDMI jobs, Bell sampling, MQT
@@ -26,15 +33,16 @@ local simulation and require an explicit IBM device selection for hardware.
 
 ## Where to start
 
-| Task                                     | Guide                                                     |
-| ---------------------------------------- | --------------------------------------------------------- |
-| Install native or Python packages        | [Installation](docs/installation.md)                      |
-| Select a device and locate the catalogue | [Device discovery](docs/installation.md#device-discovery) |
-| Configure sessions and manage jobs       | [QDMI API](docs/api.md)                                   |
-| Transpile and execute Qiskit circuits    | [Qiskit](docs/qiskit.md)                                  |
-| Execute PennyLane QNodes                 | [PennyLane](docs/pennylane.md)                            |
-| Run complete workloads                   | [Examples](docs/examples.md)                              |
-| Build, test, and contribute              | [Development](docs/development.md)                        |
+| Task                                        | Guide                                                     |
+| ------------------------------------------- | --------------------------------------------------------- |
+| Install native or Python packages           | [Installation](docs/installation.md)                      |
+| Select a device and locate the catalogue    | [Device discovery](docs/installation.md#device-discovery) |
+| Locate Python package files and use the CLI | [Python package](docs/python_package.md)                  |
+| Configure sessions and manage jobs          | [QDMI API](docs/api.md)                                   |
+| Transpile and execute Qiskit circuits       | [Qiskit](docs/qiskit.md)                                  |
+| Execute PennyLane QNodes                    | [PennyLane](docs/pennylane.md)                            |
+| Run complete workloads                      | [Examples](docs/examples.md)                              |
+| Build, test, and contribute                 | [Development](docs/development.md)                        |
 
 ## Build and install
 

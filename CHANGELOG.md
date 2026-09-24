@@ -24,6 +24,9 @@ releases may include breaking changes.
 
 ### Added
 
+- 📚 Add task-based documentation navigation, a Python package guide, and MQSC
+  logos for light and dark themes.
+
 - 📚 Add generated Python API references and runnable native QDMI, Qiskit, MQT
   Bench, H₂, and PennyLane QAOA examples with offline validation. ([#24])
   ([**@marcelwa**])

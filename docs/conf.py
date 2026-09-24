@@ -63,6 +63,7 @@ nitpick_ignore = [("py:class", "mqt.core.plugins.qiskit.backend.ParametersType")
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
     "_build",
+    "_static/README.md",
     "**.ipynb_checkpoints",
     "**.jupyter_cache",
     "**.jupyter_execute",
@@ -71,11 +72,22 @@ exclude_patterns = [
 ]
 
 html_theme = "furo"
+html_static_path = ["_static"]
 html_theme_options = {
+    "light_logo": "logo-mqsc-light.svg",
+    "dark_logo": "logo-mqsc-dark.svg",
     "source_repository": "https://github.com/munich-quantum-software/ibm-qdmi-device/",
     "source_branch": "main",
     "source_directory": "docs/",
     "navigation_with_keys": True,
+    "footer_icons": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/munich-quantum-software/ibm-qdmi-device/",
+            "html": "GitHub",
+            "class": "",
+        },
+    ],
 }
 
 intersphinx_mapping = {
@@ -94,6 +106,13 @@ myst_enable_extensions = [
 ]
 myst_heading_anchors = 3
 myst_substitutions = {"version": version}
+
+modindex_common_prefix = ["ibm.qdmi."]
+add_module_names = False
+toc_object_entries_show_parents = "hide"
+python_use_unqualified_type_names = True
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
 
 nb_execution_mode = "off"
 nb_execution_raise_on_error = True

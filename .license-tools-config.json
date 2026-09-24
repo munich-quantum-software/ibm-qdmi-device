@@ -18,6 +18,7 @@
     ".proto": "SLASH_STYLE"
   },
   "exclude": [
+    "^docs/_static/logo-mqsc-(light|dark)\\.svg$",
     "^\\.[^/]+",
     "/\\.[^/]+",
     ".*\\.qasm",
