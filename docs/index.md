@@ -43,6 +43,7 @@ supported properties, and job behavior, start with the [usage guide](api.md).
 installation
 examples
 qiskit
+offloading
 pennylane
 Usage guide <api>
 python_package

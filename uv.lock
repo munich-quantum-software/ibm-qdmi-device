@@ -896,6 +896,7 @@ pennylane = [
 ]
 qiskit = [
     { name = "mqt-core", extra = ["qiskit"] },
+    { name = "qiskit-algorithms" },
 ]
 
 [package.dev-dependencies]
@@ -925,6 +926,7 @@ dev = [
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
     { name = "pyyaml" },
+    { name = "qiskit-algorithms" },
     { name = "scikit-build-core" },
 ]
 docs = [
@@ -956,6 +958,7 @@ test = [
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
     { name = "pyyaml" },
+    { name = "qiskit-algorithms" },
 ]
 typecheck = [
     { name = "breathe" },
@@ -984,6 +987,7 @@ typecheck = [
 requires-dist = [
     { name = "mqt-core", extras = ["pennylane", "qiskit"], marker = "extra == 'pennylane'", specifier = "~=4.0.0" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = "~=4.0.0" },
+    { name = "qiskit-algorithms", marker = "extra == 'qiskit'", specifier = ">=0.4" },
 ]
 provides-extras = ["pennylane", "qiskit"]
 
@@ -1014,6 +1018,7 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "qiskit-algorithms", specifier = ">=0.4" },
     { name = "scikit-build-core", specifier = ">=1.0.3" },
 ]
 docs = [
@@ -1044,6 +1049,7 @@ test = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "qiskit-algorithms", specifier = ">=0.4" },
 ]
 typecheck = [
     { name = "breathe", specifier = ">=4.36,<5" },
