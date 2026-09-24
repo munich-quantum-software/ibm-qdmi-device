@@ -2,7 +2,8 @@
 
 Run the [examples](examples.md) and their offline checks with
 `uvx nox -s examples`. This session installs the optional example dependencies
-and checks both local simulation and the loopback IBM service.
+and checks both local simulation and the loopback IBM service. The example group
+includes CMake and Ninja for its installed-package consumer.
 
 The documentation session generates the Python API from `python/ibm/` and the
 native API with Doxygen. Edit declarations and docstrings to update those
@@ -22,6 +23,9 @@ installed-package builds. Do not run two Nox package builds concurrently in the
 same checkout. Ordinary tests are offline with respect to quantum backends;
 dependency installation may download packages. Live metadata and quantum checks
 require separate opt-ins described below.
+
+Test and documentation sessions let `uv run` sync their dependency groups and
+build the package. Scikit-build-core manages isolated build dependencies.
 
 ## Native checks
 
