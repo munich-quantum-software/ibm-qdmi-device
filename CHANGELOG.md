@@ -30,6 +30,11 @@ releases may include breaking changes.
 
 ### Added
 
+- 👷 Allow maintainers to opt same-repository PRs into bounded IBM hardware
+  checks with the `live-qpu-tests` label. Reuse successful offline checks and
+  the exact candidate wheel on label addition; ignore unrelated label changes.
+  ([#31]) ([**@marcelwa**])
+
 - 📚 Add task-based navigation, Python package and dependency guides, API links,
   and MQSC branding. Align community support, security reporting, and
   contribution guidance. ([#26]) ([**@marcelwa**])
@@ -141,6 +146,7 @@ releases may include breaking changes.
 [#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
 [#29]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/29
 [#30]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/30
+[#31]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/31
 [#32]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/32
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5

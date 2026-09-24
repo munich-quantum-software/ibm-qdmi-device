@@ -257,7 +257,7 @@ optin = "optin"
 
 
 [tool.ty.environment]
-extra-paths = [ "test/python" ]
+extra-paths = [ "test/python", "test/ci" ]
 
 [tool.ty.terminal]
 # Error if ty emits any warning-level diagnostics.
