@@ -31,7 +31,8 @@ releases may include breaking changes.
 ### Added
 
 - 👷 Build and repair Windows ARM wheels in CI and releases. Skip optional
-  Python framework tests on this platform; retain native ARM tests.
+  Python framework tests on this platform; retain native ARM tests. ([#35])
+  ([**@marcelwa**])
 
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component, with central pytest markers and test selection. Collect native
@@ -161,4 +162,5 @@ releases may include breaking changes.
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
 [#33]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/33
+[#35]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/35
 [**@marcelwa**]: https://github.com/marcelwa
