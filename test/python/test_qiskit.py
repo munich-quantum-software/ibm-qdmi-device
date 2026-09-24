@@ -253,12 +253,16 @@ def test_status_cancellation_and_retrieval(runtime: RuntimeProxy) -> None:
     assert len(runtime.snapshot()["submissions"]) == 2
 
 
-def test_session_overrides_and_existing_device(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("use_environment", [False, True])
+def test_session_overrides_and_existing_device(
+    runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch, *, use_environment: bool
+) -> None:
     """Explicit values override environment defaults; an open device is exclusive."""
-    monkeypatch.setenv("IBM_QUANTUM_API_KEY", "wrong-key")
-    monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", "wrong-crn")
-    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "wrong-backend")
-    backend = open_backend(runtime)
+    monkeypatch.setenv("IBM_QUANTUM_API_KEY", "synthetic-key" if use_environment else "wrong-key")
+    monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", CRN if use_environment else "wrong-crn")
+    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "ibm_test" if use_environment else "wrong-backend")
+    url = runtime.snapshot()["url"]
+    backend = IBMBackend(base_url=url, auth_url=url + "/auth") if use_environment else open_backend(runtime)
     assert backend.device.name() == "ibm_test"
     adapted = IBMBackend(device=backend.device)
     assert adapted.device is backend.device

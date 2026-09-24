@@ -35,9 +35,33 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ibm import qdmi
+from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name] -- shared adapter precedence
 
 if TYPE_CHECKING:
     from offline_service import Service
+
+
+@pytest.mark.parametrize("device_id", ["ibm.default", "ibm.berlin", "ibm.aachen", "site.ibm"])
+@pytest.mark.parametrize("override", [None, "", "explicit"])
+def test_session_precedence(device_id: str, override: str | None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only omitted values use the environment; concrete IDs keep their backend."""
+    monkeypatch.setenv("IBM_QUANTUM_API_KEY", "environment-key")
+    monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", "environment-crn")
+    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "environment-backend")
+    parameters = session_parameters(
+        device_id,
+        backend_name=override,
+        api_key=override,
+        instance_crn=override,
+        base_url="http://127.0.0.1/api",
+        auth_url="http://127.0.0.1/auth",
+    )
+    assert parameters["token"] == ("environment-key" if override is None else override)
+    assert parameters["custom2"] == ("environment-crn" if override is None else override)
+    expected_backend = "environment-backend" if override is None and device_id == "ibm.default" else override
+    assert parameters["custom1"] == expected_backend
+    assert parameters["base_url"] == "http://127.0.0.1/api"
+    assert parameters["auth_url"] == "http://127.0.0.1/auth"
 
 
 @pytest.mark.parametrize("device_id", ["ibm.default", "ibm.berlin", "ibm.aachen"])
