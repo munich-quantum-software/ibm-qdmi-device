@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Allow one hour per backend for hardware validation, including queue time,
+  without increasing the QPU execution budget. ([#32]) ([**@marcelwa**])
+
 - 🐛 Find generated native coverage reports when uploading to Codecov. ([#27])
   ([**@marcelwa**])
 
@@ -138,6 +141,7 @@ releases may include breaking changes.
 [#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
 [#29]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/29
 [#30]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/30
+[#32]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/32
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
