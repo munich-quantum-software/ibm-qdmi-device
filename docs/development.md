@@ -162,10 +162,10 @@ does not wait for their results on the merged commit. Manual
 gh workflow run ci.yml --ref main
 ```
 
-Maintainers can add `run-hardware-tests` to a same-repository PR to enable the
-same hardware checks before merging. Adding or removing a label triggers CI.
-While the label remains, new commits and reopened PRs also enable hardware
-checks. Each eligible run uses the budget below; remove the label to stop future
+Maintainers can add `live-qpu-tests` to a same-repository PR to enable the same
+hardware checks before merging. Adding or removing a label triggers CI. While
+the label remains, new commits and reopened PRs also enable hardware checks.
+Each eligible run uses the budget below; remove the label to stop future
 hardware runs. Removing it does not cancel jobs already submitted to IBM. Fork
 PRs, unlabeled PRs, merge queues, and dispatches from other branches run offline
 only. Do not use `pull_request_target` to expose secrets to fork code.
@@ -174,9 +174,9 @@ Before enabling PR hardware checks, add `refs/pull/*/merge` as a deployment
 branch rule for the `ibm-quantum` environment, retaining `main`. GitHub
 documents this pattern in its
 [deployment branch rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
-Create the `run-hardware-tests` repository label. Apply it only after reviewing
-the PR code and authorizing IBM access on Berlin and Aachen within the budget
-below. The label opts subsequent PR updates into that budget too. Environment
+Create the `live-qpu-tests` repository label. Apply it only after reviewing the
+PR code and authorizing IBM access on Berlin and Aachen within the budget below.
+The label opts subsequent PR updates into that budget too. Environment
 protection rules still apply; a blocked hardware job cannot pass `🚦 Check`.
 
 On `main`, change detection cannot skip a prerequisite. PRs retain their normal

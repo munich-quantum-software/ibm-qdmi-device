@@ -95,7 +95,7 @@ def skip_list(expression: str, context: dict[str, str | list[str]]) -> set[str]:
 @pytest.mark.parametrize("result", ["success", "failure", "cancelled", "skipped"])
 @pytest.mark.parametrize("gate", ["offline-checks-pass", "candidate-wheel"])
 @pytest.mark.parametrize("same_repo", [True, False])
-@pytest.mark.parametrize("labels", [[], ["bug"], ["run-hardware-tests"], ["bug", "RUN-HARDWARE-TESTS"]])
+@pytest.mark.parametrize("labels", [[], ["bug"], ["live-qpu-tests"], ["bug", "LIVE-QPU-TESTS"]])
 def test_hardware_eligibility(
     event: str, ref: str, result: str, gate: str, labels: list[str], *, same_repo: bool
 ) -> None:
@@ -112,7 +112,7 @@ def test_hardware_eligibility(
     }
     context[f"needs.{gate}.result"] = result
     eligible = (ref == "refs/heads/main" and event in {"push", "workflow_dispatch"}) or (
-        event == "pull_request" and same_repo and "run-hardware-tests" in [label.casefold() for label in labels]
+        event == "pull_request" and same_repo and "live-qpu-tests" in [label.casefold() for label in labels]
     )
     assert bool(evaluate(jobs["hardware"]["if"], context)) == (eligible and result == "success")
     final = jobs["required-checks-pass"]

@@ -90,7 +90,7 @@ categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
 before fixing them. Quantum checks require the separate `quantum` marker and
 `--run-quantum` opt-in. Run them only after the offline CI gates on merged
-`main` or same-repository PRs labeled `run-hardware-tests`. Applying that label
+`main` or same-repository PRs labeled `live-qpu-tests`. Applying that label
 requires human authorization and also opts subsequent PR updates into hardware
 checks. Fork PRs remain offline. The authorized CI budget is one job each on
 Berlin and Aachen, 128 shots per job, and at most 60 seconds of QPU execution

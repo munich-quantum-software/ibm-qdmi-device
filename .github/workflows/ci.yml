@@ -249,7 +249,7 @@ jobs:
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
       (github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'run-hardware-tests'))) &&
+      contains(github.event.pull_request.labels.*.name, 'live-qpu-tests'))) &&
       needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -298,6 +298,6 @@ jobs:
               (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
               (github.event_name == 'pull_request' &&
               github.event.pull_request.head.repo.full_name == github.repository &&
-              contains(github.event.pull_request.labels.*.name, 'run-hardware-tests'))) && 'hardware' || ''
+              contains(github.event.pull_request.labels.*.name, 'live-qpu-tests'))) && 'hardware' || ''
             }}
           jobs: ${{ toJSON(needs) }}
