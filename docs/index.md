@@ -53,6 +53,7 @@ CHANGELOG
 :maxdepth: 1
 :caption: Developer Guide
 
+dependencies
 development
 contributing
 support

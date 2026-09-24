@@ -34,6 +34,16 @@ uv venv
 uv pip install .
 ```
 
+Select an optional framework integration from the same checkout:
+
+```console
+uv pip install '.[qiskit]'
+uv pip install '.[pennylane]'
+```
+
+The `pennylane` extra also installs Qiskit for circuit serialization. See the
+[dependency overview](dependencies.md) for native libraries and Python extras.
+
 The `ibm-qdmi` distribution installs the `ibm.qdmi` namespace. Its `data/`
 directory contains the native runtime and development components. The package
 includes typing metadata and exposes `ibm.qdmi.__version__`. See the

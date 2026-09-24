@@ -9,16 +9,17 @@ Importing the package does not load a device or contact IBM.
 
 Use the exported `pathlib.Path` constants to locate installed files:
 
-| Constant                | Installed resource          |
-| :---------------------- | :-------------------------- |
-| `IBM_QDMI_LIBRARY_PATH` | Native shared library       |
-| `IBM_QDMI_CATALOG_PATH` | QDMI device catalogue       |
-| `IBM_QDMI_INCLUDE_DIR`  | Public headers              |
-| `IBM_QDMI_CMAKE_DIR`    | CMake package configuration |
+| Constant                                   | Installed resource          |
+| :----------------------------------------- | :-------------------------- |
+| {py:data}`~ibm.qdmi.IBM_QDMI_LIBRARY_PATH` | Native shared library       |
+| {py:data}`~ibm.qdmi.IBM_QDMI_CATALOG_PATH` | QDMI device catalogue       |
+| {py:data}`~ibm.qdmi.IBM_QDMI_INCLUDE_DIR`  | Public headers              |
+| {py:data}`~ibm.qdmi.IBM_QDMI_CMAKE_DIR`    | CMake package configuration |
 
-The package also exports `IBM_QDMI_DEVICE_ID`, `IBM_QDMI_PREFIX`, and
-`__version__`. The generated {doc}`Python API <python-api/ibm/qdmi/index>`
-documents these exports and the optional framework adapters.
+The package also exports {py:data}`~ibm.qdmi.IBM_QDMI_DEVICE_ID`,
+{py:data}`~ibm.qdmi.IBM_QDMI_PREFIX`, and `__version__`. The generated
+{doc}`Python API <python-api/ibm/qdmi/index>` documents these exports and the
+optional framework adapters.
 
 ```python
 from ibm.qdmi import IBM_QDMI_CATALOG_PATH, IBM_QDMI_LIBRARY_PATH

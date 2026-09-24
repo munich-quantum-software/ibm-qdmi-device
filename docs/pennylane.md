@@ -1,9 +1,10 @@
 # PennyLane integration
 
 From a source checkout, install the optional adapter with
-`uv pip install '.[pennylane]'`. The `IBMDevice` class reuses MQT Core's
-PennyLane preprocessing, job orchestration, and sample decoding. It exports
-`ibm.default`, `ibm.berlin`, and `ibm.aachen` as PennyLane device names.
+`uv pip install '.[pennylane]'`. The {py:class}`~ibm.qdmi.pennylane.IBMDevice`
+class reuses MQT Core's PennyLane preprocessing, job orchestration, and sample
+decoding. It exports `ibm.default`, `ibm.berlin`, and `ibm.aachen` as PennyLane
+device names.
 
 ## Configure a device
 
