@@ -31,8 +31,8 @@ releases may include breaking changes.
 ### Added
 
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
-  during documentation builds. Preserve standalone native API links. ([#37])
-  ([**@marcelwa**])
+  during documentation builds, including sampling and VQE offloaders. Preserve
+  standalone native API links. ([#37]) ([**@marcelwa**])
 
 - ✨ Add Slurm sampling and VQE offloaders with local simulator execution and
   `ibm-sampler` and `ibm-estimator` workers. ([#36]) ([**@marcelwa**])
