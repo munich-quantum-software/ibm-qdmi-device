@@ -30,6 +30,9 @@ releases may include breaking changes.
 
 ### Added
 
+- 🧪 Add full H₂ QSCI and seven MQT Bench showcases with simulator tutorials and
+  offline validation.
+
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
   during documentation builds. Preserve standalone native API links. ([#37])
   ([**@marcelwa**])

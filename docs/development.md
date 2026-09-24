@@ -303,6 +303,14 @@ version and a Ninja compilation database. Check every line of each changed file
 with clang-format and clang-tidy, including native tests. Do not restrict checks
 to changed lines.
 
+## Chemistry showcase
+
+Run `uvx nox -s chemistry` on Linux or macOS to test the full H₂ QSCI workflow
+with PySCF and Python 3.13. Windows skips this session. The portable `examples`
+session covers all seven MQT Bench families and QSCI primitive integration;
+Linux CI also runs the chemistry session. See [runnable examples](examples.md)
+for dependencies, parameters, and simulator commands.
+
 ## Documentation
 
 Install Doxygen 1.16.1 on `PATH`, then run:

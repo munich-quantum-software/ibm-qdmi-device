@@ -102,18 +102,24 @@ build = [
   "build>=1.2.2",
   "scikit-build-core>=1.0.3",
 ]
+chemistry = [
+  { include-group = "examples" },
+  "qiskit-nature[pyscf]>=0.7.2; sys_platform!='win32'",
+]
 examples = [
   { include-group = "test" },
   "cmake>=3.24",
   "mqt-bench>=2.2.2",
   "mqt-core[pennylane,qiskit]~=4.0.0",
   "ninja>=1.5",
+  "qiskit-algorithms>=0.4",
 ]
 typecheck = [
   { include-group = "test" },
   { include-group = "docs" },
   { include-group = "examples" },
   "nox>=2026.8.10",
+  "qiskit-nature>=0.7.2",
 ]
 
 
@@ -168,6 +174,9 @@ cache-keys = [
   { file = "CMakeLists.txt" },
   { file = "cmake/**/*" },
 ]
+
+[tool.uv.dependency-groups]
+chemistry = { requires-python = ">=3.11,<3.14" }
 
 
 [tool.cibuildwheel]

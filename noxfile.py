@@ -28,6 +28,7 @@ import argparse
 import contextlib
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -130,6 +131,18 @@ def examples(session: nox.Session) -> None:
         dependency_groups=["examples"],
         extra_command=["python", "test/examples/build_native.py"],
         pytest_run_args=["test/examples", "-n", "0"],
+    )
+
+
+@nox.session(python="3.13", reuse_venv=True, default=False)
+def chemistry(session: nox.Session) -> None:
+    """Exercise the complete H2 chemistry workflow on the local simulator."""
+    if sys.platform == "win32":
+        session.skip("PySCF requires Linux or macOS.")
+    _run_tests(
+        session,
+        dependency_groups=["chemistry"],
+        pytest_run_args=["test/chemistry", "-n", "0"],
     )
 
 
