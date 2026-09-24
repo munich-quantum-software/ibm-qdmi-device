@@ -386,8 +386,8 @@ TEST(Metadata, ConvertsUnitsAndPreservesDirectedTuples) {
   EXPECT_EQ(operation.arity, 2);
   EXPECT_EQ(operation.parameters, 0);
   EXPECT_EQ(operation.sites, (std::vector<ibm::Sites>{{0, 1}}));
-  EXPECT_EQ(operation.calibrations.front().second.duration, 35556);
-  EXPECT_DOUBLE_EQ(*operation.calibrations.front().second.fidelity, 0.98);
+  EXPECT_EQ(operation.calibrations.at({0, 1}).duration, 35556);
+  EXPECT_DOUBLE_EQ(*operation.calibrations.at({0, 1}).fidelity, 0.98);
 }
 TEST(Metadata, MissingAndInvalidCalibrationIsNotZero) {
   auto data = fixture();
@@ -446,8 +446,8 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
   EXPECT_EQ(measurement.parameters, 0);
   EXPECT_EQ(measurement.sites, (std::vector<ibm::Sites>{{0}}));
   ASSERT_EQ(measurement.calibrations.size(), 1);
-  EXPECT_EQ(measurement.calibrations[0].second.duration, 1500000);
-  EXPECT_DOUBLE_EQ(*measurement.calibrations[0].second.fidelity, 0.97);
+  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1500000);
+  EXPECT_DOUBLE_EQ(*measurement.calibrations.at({0}).fidelity, 0.97);
   EXPECT_EQ(metadata.operations[4].name, "reset");
   EXPECT_EQ(metadata.operations[4].sites, measurement.sites);
   metadata =
@@ -474,6 +474,65 @@ TEST(Metadata, MergesRepeatedMeasurementCalibration) {
       ibm::parseMetadata(data["configuration"], data["properties"]);
   const auto& measurement = metadata.operations[3];
   ASSERT_EQ(measurement.calibrations.size(), 1);
-  EXPECT_EQ(measurement.calibrations[0].second.duration, 1500000);
-  EXPECT_DOUBLE_EQ(*measurement.calibrations[0].second.fidelity, 0.97);
+  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1500000);
+  EXPECT_DOUBLE_EQ(*measurement.calibrations.at({0}).fidelity, 0.97);
+}
+
+TEST(Metadata, PreservesTupleOrderAndFiltersFaultyCalibrations) {
+  auto data = fixture();
+  data["configuration"]["gates"][2]["coupling_map"] = {{1, 0}, {0, 1}};
+  auto reverse = data["properties"]["gates"][0];
+  reverse["qubits"] = {1, 0};
+  data["properties"]["gates"].push_back(reverse);
+  auto metadata = ibm::parseMetadata(data["configuration"], data["properties"]);
+  EXPECT_EQ(metadata.operations[2].sites,
+            (std::vector<ibm::Sites>{{1, 0}, {0, 1}}));
+  EXPECT_EQ(metadata.operations[2].calibrations.size(), 2);
+  data["properties"]["gates"][0]["parameters"].push_back(
+      {{"name", "operational"}, {"value", false}});
+  metadata = ibm::parseMetadata(data["configuration"], data["properties"]);
+  EXPECT_EQ(metadata.operations[2].sites, (std::vector<ibm::Sites>{{1, 0}}));
+  ASSERT_EQ(metadata.operations[2].calibrations.size(), 1);
+  EXPECT_TRUE(metadata.operations[2].calibrations.contains({1, 0}));
+}
+TEST(Metadata, RejectsRepeatedGateCalibration) {
+  for (const auto measurement : {false, true}) {
+    auto data = fixture();
+    if (measurement) {
+      data["configuration"]["supported_instructions"] = {"measure"};
+      data["properties"]["qubits"][0].push_back(
+          {{"name", "readout_error"}, {"value", 0.03}});
+      data["properties"]["gates"][0]["gate"] = "measure";
+      data["properties"]["gates"][0]["qubits"] = {0};
+    }
+    const auto duplicate = data["properties"]["gates"][0];
+    data["properties"]["gates"].push_back(duplicate);
+    expectFailure(
+        [&] {
+          static_cast<void>(
+              ibm::parseMetadata(data["configuration"], data["properties"]));
+        },
+        QDMI_ERROR_FATAL);
+  }
+}
+TEST(Metadata, InvalidErrorsPreserveEarlierCalibration) {
+  for (const auto& invalid :
+       {nlohmann::json{}, nlohmann::json("invalid"), nlohmann::json(-0.1),
+        nlohmann::json(1.1),
+        nlohmann::json(std::numeric_limits<double>::infinity())}) {
+    auto data = fixture();
+    data["configuration"]["supported_instructions"] = {"measure"};
+    data["properties"]["qubits"][0].push_back(
+        {{"name", "readout_error"}, {"value", 0.03}});
+    data["properties"]["qubits"][0].push_back(
+        {{"name", "readout_error"}, {"value", invalid}});
+    data["properties"]["gates"][0]["parameters"].push_back(
+        {{"name", "gate_error"}, {"value", invalid}});
+    const auto metadata =
+        ibm::parseMetadata(data["configuration"], data["properties"]);
+    EXPECT_DOUBLE_EQ(*metadata.operations[2].calibrations.at({0, 1}).fidelity,
+                     0.98);
+    EXPECT_DOUBLE_EQ(*metadata.operations[3].calibrations.at({0}).fidelity,
+                     0.97);
+  }
 }
