@@ -24,7 +24,7 @@ Consumers use `find_package(ibm-qdmi-device 0.1 REQUIRED CONFIG)` and link
 prefix. Headers use the `ibm_qdmi/` include directory.
 
 The exported target carries `QDMI_DEVICE_ID`, `QDMI_DEVICE_PREFIX`, and
-`QDMI_MANIFEST_NAME` properties. See [API status](api.md) for the supported
+`QDMI_MANIFEST_NAME` properties. See the [usage guide](api.md) for the supported
 interface and a query example.
 
 ## Python package
@@ -34,9 +34,20 @@ uv venv
 uv pip install .
 ```
 
+Select an optional framework integration from the same checkout:
+
+```console
+uv pip install '.[qiskit]'
+uv pip install '.[pennylane]'
+```
+
+The `pennylane` extra also installs Qiskit for circuit serialization. See the
+[dependency overview](dependencies.md) for native libraries and Python extras.
+
 The `ibm-qdmi` distribution installs the `ibm.qdmi` namespace. Its `data/`
 directory contains the native runtime and development components. The package
-includes typing metadata and exposes `ibm.qdmi.__version__`.
+includes typing metadata and exposes `ibm.qdmi.__version__`. See the
+[Python package guide](python_package.md) for installed paths and CLI options.
 
 ## Device discovery
 
@@ -50,9 +61,9 @@ MQT Core users can set `MQT_CORE_QDMI_CONFIG_FILE` to the catalogue path before
 importing its driver. The driver resolves the library relative to that file.
 Move the catalogue and library together when relocating a native installation.
 
-`ibm-qdmi --catalog_path` prints the installed catalogue path. The information
-CLI also accepts `--include_dir`, `--cmake_dir`, `--lib_path`, and `--version`.
-`python -m ibm.qdmi` provides the same interface. These commands do not load a
-device or contact IBM.
+`ibm-qdmi --catalog_path` prints the installed catalogue path without loading a
+device or contacting IBM. See the
+[information CLI](python_package.md#command-line-interface) for the remaining
+options and the equivalent `python -m ibm.qdmi` interface.
 
 See [development](development.md) for wheel and source-distribution checks.

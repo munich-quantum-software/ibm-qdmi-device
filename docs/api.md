@@ -1,4 +1,7 @@
-# API status
+<!-- rumdl-disable MD041 -->
+(api-status)=
+
+# Usage guide
 
 ## Native interface
 
@@ -272,10 +275,6 @@ rejection follows the normal submission error contract and is never retried.
 
 ## Python package
 
-`ibm.qdmi.__version__` reports the installed distribution version. The package
-exports `IBM_QDMI_DEVICE_ID` and `IBM_QDMI_PREFIX`, together with the
-`pathlib.Path` constants `IBM_QDMI_LIBRARY_PATH`, `IBM_QDMI_CATALOG_PATH`,
-`IBM_QDMI_INCLUDE_DIR`, and `IBM_QDMI_CMAKE_DIR`. Importing it does not load a
-device. See [installation](installation.md#device-discovery) for catalogue and
-information CLI usage. The optional [Qiskit integration](qiskit.md) exposes
-`ibm.qdmi.qiskit.IBMBackend` through MQT Core's shared adapter.
+See the [Python package guide](python_package.md) for installed paths, package
+metadata, and the information CLI. The optional [Qiskit integration](qiskit.md)
+exposes `ibm.qdmi.qiskit.IBMBackend` through MQT Core's shared adapter.

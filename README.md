@@ -1,76 +1,74 @@
+<!-- rumdl-disable MD033 MD041 -->
+<p align="center">
+  <a href="https://mq.sc/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/_static/logo-mqsc-dark.svg">
+      <img src="docs/_static/logo-mqsc-light.svg" alt="MQSC Logo" width="40%">
+    </picture>
+  </a>
+</p>
+
 # IBM QDMI Device
 
-[![CI](https://img.shields.io/github/actions/workflow/status/munich-quantum-software/ibm-qdmi-device/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/munich-quantum-software/ibm-qdmi-device/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache--2.0_WITH_LLVM--exception-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache--2.0_w%2F_LLVM--exception-blue?logo=apache&style=flat-square)](LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue?logo=cplusplus&style=flat-square)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-3.24%2B-blue?logo=cmake&style=flat-square)](https://cmake.org/)
-![OS](https://img.shields.io/badge/os-linux%20%7C%20macos%20%7C%20windows-blue?style=flat-square)
-[![pre-commit.ci](https://results.pre-commit.ci/badge/github/munich-quantum-software/ibm-qdmi-device/main.svg)](https://results.pre-commit.ci/latest/github/munich-quantum-software/ibm-qdmi-device/main)
+[![CI](https://img.shields.io/github/actions/workflow/status/munich-quantum-software/ibm-qdmi-device/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/munich-quantum-software/ibm-qdmi-device/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/munich-quantum-software/ibm-qdmi-device?style=flat-square&logo=codecov)](https://codecov.io/gh/munich-quantum-software/ibm-qdmi-device)
 
-IBM quantum execution through the
-[Quantum Device Management Interface (QDMI)](https://github.com/Munich-Quantum-Software-Stack/QDMI).
+**IBM QDMI Device** connects IBM Quantum Platform to the
+[Quantum Device Management Interface (QDMI)](https://github.com/Munich-Quantum-Software-Stack/QDMI),
+a vendor-neutral C API for quantum hardware. The C++20 library handles API-key
+authentication, calibration queries, and the job lifecycle. It submits OpenQASM
+3 circuits and returns ordered shots and histograms. Optional Qiskit and
+PennyLane integrations use the same native interface.
 
-The native library authenticates with IBM Quantum Platform and exposes backend,
-site, and operation metadata through QDMI. It submits native OpenQASM 3
-circuits, manages jobs, and returns ordered shots and histograms. Live metadata
-validation has passed; quantum execution has not yet been validated on hardware.
-See [API status](docs/api.md) for the supported interface and configuration. The
-optional [Qiskit integration](docs/qiskit.md) supports transpilation, execution,
-ordered memory, and sampler and estimator primitives.
+Live metadata validation has passed; quantum execution has not yet been
+validated on hardware. Examples default to local simulation.
 
-Start with [installation](docs/installation.md), then follow the
-[runnable examples](docs/examples.md) for native QDMI jobs, Bell sampling, MQT
-Bench circuits, H₂ energy estimation, and PennyLane QAOA. Examples default to
-local simulation and require an explicit IBM device selection for hardware.
+<p align="center">
+  <a href="https://ibm-qdmi-device.readthedocs.io/en/latest/">
+    <img width="30%" src="https://img.shields.io/badge/documentation-blue?style=for-the-badge&logo=read%20the%20docs" alt="Documentation">
+  </a>
+</p>
+<!-- rumdl-enable MD033 MD041 -->
 
-## Where to start
+## Installation
 
-| Task                                     | Guide                                                     |
-| ---------------------------------------- | --------------------------------------------------------- |
-| Install native or Python packages        | [Installation](docs/installation.md)                      |
-| Select a device and locate the catalogue | [Device discovery](docs/installation.md#device-discovery) |
-| Configure sessions and manage jobs       | [QDMI API](docs/api.md)                                   |
-| Transpile and execute Qiskit circuits    | [Qiskit](docs/qiskit.md)                                  |
-| Execute PennyLane QNodes                 | [PennyLane](docs/pennylane.md)                            |
-| Run complete workloads                   | [Examples](docs/examples.md)                              |
-| Build, test, and contribute              | [Development](docs/development.md)                        |
-
-## Build and install
-
-A C++20 compiler, CMake 3.24 or newer, and Git are required. CMake downloads the
-pinned QDMI headers, CPR/curl, JSON dependencies, and GoogleTest when tests are
-enabled. Linux builds also require OpenSSL development headers.
-
-```console
-cmake -S . -B build/native -DCMAKE_BUILD_TYPE=Release
-cmake --build build/native --config Release
-ctest --test-dir build/native -C Release --output-on-failure
-```
-
-To install the Python package from this checkout with Python 3.11 or newer:
+Install from a source checkout with Python 3.11 or newer, a C++20 compiler,
+CMake 3.24 or newer, and Git. Linux builds also require OpenSSL development
+headers.
 
 ```console
 uv venv
-uv pip install .
+uv pip install .          # core library and Python entry points
+uv pip install '.[qiskit]'  # adds the Qiskit backend (IBMBackend)
 ```
 
-See [installation](docs/installation.md) for native installation and package
-contents, and [development](docs/development.md) for validation commands.
+For C++ projects, follow the
+[native installation guide](https://ibm-qdmi-device.readthedocs.io/en/latest/installation.html#native-package)
+for CMake build and installation commands.
 
-## Project layout
+## Where to Start
 
-- `src/` and `include/`: native implementation and public IBM constants.
-- `cmake/`: native build and installation configuration.
-- `python/ibm/qdmi/`: Python package, installed paths, and information CLI.
-- `test/`: native unit tests and Python tests using a loopback IBM service.
-- `examples/`: runnable native and framework workloads.
-- `docs/`: Sphinx and Doxygen documentation sources.
-- `.github/`: CI, packaging, and repository automation.
+| I want to…                                   | Guide                                                                                    |
+| :------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)       |
+| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html) |
+| Walk through end-to-end workloads            | [Examples](https://ibm-qdmi-device.readthedocs.io/en/latest/examples.html)               |
+| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                 |
+| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)   |
+| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)       |
 
-See [contributing](docs/contributing.md), [support](docs/support.md), and
-[security](docs/security.md). Agent instructions are in [AGENTS.md](AGENTS.md).
+## Contributing
+
+Contributions are welcome, including bug reports, documentation improvements,
+and new features. See the
+[Contributing Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)
+for the development workflow, coding standards, and pull request process.
 
 ## License
 
-Licensed under [Apache-2.0 WITH LLVM-exception](LICENSE).
+The core C++ library and Python package are licensed under the
+**Apache License 2.0 with LLVM exception**. See [LICENSE](LICENSE) for the
+license text.

@@ -10,6 +10,8 @@ body:
         ⚠ Before submitting:
         1. Search [existing issues](https://github.com/munich-quantum-software/ibm-qdmi-device/search?q=is%3Aissue&type=issues) to avoid duplicates
         2. For questions or discussions, please use our [issue tracker](https://github.com/munich-quantum-software/ibm-qdmi-device/issues)
+        3. Report vulnerabilities privately through our [security policy](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/.github/SECURITY.md)
+        4. Remove credentials, instance and job identifiers, and private backend metadata from reports and logs
 
   - type: textarea
     attributes:

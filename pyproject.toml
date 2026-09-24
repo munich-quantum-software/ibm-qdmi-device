@@ -61,6 +61,7 @@ pennylane = [ "mqt-core[pennylane,qiskit]~=4.0.0" ]
 qiskit = [ "mqt-core[qiskit]~=4.0.0" ]
 
 [project.urls]
+Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
 Homepage = "https://github.com/munich-quantum-software/ibm-qdmi-device"
 Issues = "https://github.com/munich-quantum-software/ibm-qdmi-device/issues"
 
