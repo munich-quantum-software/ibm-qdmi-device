@@ -132,12 +132,16 @@ def test_catalogue_entrypoints(
     assert not runtime.snapshot()["submissions"]
 
 
-def test_session_overrides_and_existing_device(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("use_environment", [False, True])
+def test_session_overrides_and_existing_device(
+    runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch, *, use_environment: bool
+) -> None:
     """Explicit connection values take precedence and an open device is exclusive."""
-    monkeypatch.setenv("IBM_QUANTUM_API_KEY", "wrong-key")
-    monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", "wrong-crn")
-    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "wrong-backend")
-    original = open_device(runtime)
+    monkeypatch.setenv("IBM_QUANTUM_API_KEY", "synthetic-key" if use_environment else "wrong-key")
+    monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", CRN if use_environment else "wrong-crn")
+    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "ibm_test" if use_environment else "wrong-backend")
+    url = runtime.snapshot()["url"]
+    original = IBMDevice(wires=2, base_url=url, auth_url=url + "/auth") if use_environment else open_device(runtime)
     adapted = IBMDevice(device=original.qdmi_device, wires=["a", "b"])
     assert adapted.qdmi_device is original.qdmi_device
     with pytest.raises(PennyLaneConfigurationError, match="exclusive"):

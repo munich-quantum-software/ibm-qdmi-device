@@ -83,6 +83,9 @@ releases may include breaking changes.
 
 ### Changed
 
+- ♻️ Share connection defaults between the Qiskit and PennyLane adapters while
+  preserving explicit overrides and catalogue backend selection.
+
 - ⚡ Allow independent session and job requests to progress concurrently while
   preserving shared IAM refresh, per-job result caches, and wait deadlines.
   ([#23]) ([**@marcelwa**])
