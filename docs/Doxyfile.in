@@ -21,6 +21,10 @@ OUTPUT_DIRECTORY       = _build/doxygen
 INPUT                  = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi" \
                          "@IBM_QDMI_UPSTREAM_HEADERS@" \
                          "@PROJECT_SOURCE_DIR@/include/ibm-qdmi-device"
+EXCLUDE                = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi/constants.h"
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED            = "IBM_QDMI_EXPORT=" "QDMI_EXPORT="
 FILE_PATTERNS          = *.h *.hpp
 RECURSIVE              = NO
 EXTRACT_ALL            = YES
@@ -33,7 +37,7 @@ GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 GENERATE_TREEVIEW      = YES
 DISABLE_INDEX          = NO
-GENERATE_XML           = NO
+GENERATE_XML           = YES
 GENERATE_LATEX         = NO
 GENERATE_MAN           = NO
 GENERATE_RTF           = NO

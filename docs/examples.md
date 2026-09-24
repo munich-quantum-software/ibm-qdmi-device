@@ -1,3 +1,10 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+  display_name: Python 3
+---
+
 # Runnable examples
 
 The examples use finite shots and default to MQT Core's local QDMI simulator.
@@ -15,6 +22,46 @@ uv run --group examples python -m examples.pennylane_qaoa
 Each command prints JSON. Use `--shots` to select a positive shot count; the
 default is 128. `native_job` also accepts `--timeout` in seconds, defaults to
 60, and attempts cancellation if its wait or result retrieval fails.
+
+## Execute in the documentation
+
+These cells call the same example functions on MQT Core's local simulator. They
+always select `sim`, require no IBM credentials, and submit no hardware jobs.
+The build caches successful execution and fails if a cell raises an error.
+
+<!-- MyST code-cell directives execute as notebook cells. -->
+<!-- rumdl-disable MD040 -->
+
+```{code-cell} python
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parent))
+
+from examples.common import open_backend
+from examples.native_job import run
+from examples.qiskit_workloads import estimate_h2, sample_bell
+
+backend = open_backend("sim", None)
+counts = run(backend.device, shots=128, qubits=1)
+assert counts == {"1": 128}
+counts
+```
+
+```{code-cell} python
+counts = sample_bell(backend, shots=128)
+assert set(counts) <= {"00", "11"}
+assert sum(counts.values()) == 128
+counts
+```
+
+```{code-cell} python
+energy = estimate_h2(backend, shots=128)
+assert -2.0 < energy < -1.0
+energy
+```
+
+<!-- rumdl-enable MD040 -->
 
 ## Native QDMI jobs
 
@@ -92,6 +139,6 @@ count does not bound the total execution time or cost of a workload. Estimator
 workloads can submit several circuits. Configure native execution limits through
 the device API as needed.
 
-The documentation build never executes these programs. The `examples` Nox
-session checks local simulation and the IBM library against a synthetic loopback
-service, without IBM credentials or live access.
+The documentation executes only the simulator cells above. The `examples` Nox
+session also checks the IBM library against a synthetic loopback service,
+without IBM credentials or live access.

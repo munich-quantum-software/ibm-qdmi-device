@@ -1,3 +1,10 @@
+---
+file_format: mystnb
+kernelspec:
+  name: python3
+  display_name: Python 3
+---
+
 # Offload Qiskit workloads
 
 Install the `qiskit` extra to use `ibm.qdmi.offloader`, `ibm-sampler`, and
@@ -8,23 +15,50 @@ VQE with L-BFGS-B and returns the complete Qiskit `VQEResult`.
 
 Use `local=True, simulator=True` to run without Slurm or IBM access:
 
-```python
-from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
-from qiskit.quantum_info import SparsePauliOp
+The documentation executes these local simulator cells and displays their
+results. Slurm and hardware examples below remain unexecuted.
 
-from ibm.qdmi.offloader import estimate, sample
+<!-- rumdl-disable MD040 -->
+
+```{code-cell} python
+from qiskit import QuantumCircuit
+
+from ibm.qdmi.offloader import sample
 
 circuit = QuantumCircuit(2)
 circuit.h(0)
 circuit.cx(0, 1)
 circuit.measure_all()
 counts = sample(circuit, shots=128, local=True, simulator=True)
+assert sum(counts.values()) == 128
+assert set(counts) <= {"00", "11"}
+counts
+```
 
+The estimator offloader returns a full VQE result. This short run demonstrates
+the API; three optimizer iterations do not guarantee convergence to the ground
+state of the Pauli-Z observable.
+
+```{code-cell} python
+import math
+
+from qiskit.circuit import Parameter
+from qiskit.quantum_info import SparsePauliOp
+from qiskit_algorithms.utils import algorithm_globals
+
+from ibm.qdmi.offloader import estimate
+
+algorithm_globals.random_seed = 7
 ansatz = QuantumCircuit(1)
 ansatz.ry(Parameter("theta"), 0)
 result = estimate(ansatz, SparsePauliOp("Z"), maxiter=3, local=True, simulator=True)
+energy = float(result.eigenvalue.real)
+assert math.isfinite(energy) and -1.0 <= energy <= 1.0
+assert result.optimal_parameters is not None
+{"energy": energy, "optimizer_evaluations": result.optimizer_evals}
 ```
+
+<!-- rumdl-enable MD040 -->
 
 The simulator uses MQT Core's DDSIM device. Sampling preserves joint classical
 register order. VQE transpiles the parameterized ansatz and applies its layout
