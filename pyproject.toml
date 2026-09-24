@@ -173,7 +173,9 @@ cache-keys = [
 
 [tool.cibuildwheel]
 build = "cp3*"
-skip = [ "*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64" ]
+skip = [ "*-musllinux_*", "cp3??t-*", "cp315-*" ]
+# Optional framework dependencies do not provide Windows ARM wheels.
+test-skip = [ "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
 test-command = 'pytest -m "not integration and not ci"'
