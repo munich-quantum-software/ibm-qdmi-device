@@ -125,7 +125,7 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     jobs = workflow["jobs"]
     hardware = jobs["hardware"]
     assert hardware["environment"] == "ibm-quantum"
-    assert hardware["timeout-minutes"] == 40
+    assert hardware["timeout-minutes"] == 130
     assert hardware["concurrency"]["cancel-in-progress"] is False
     assert set(hardware["needs"]) == {"offline-checks-pass", "candidate-wheel"}
     steps = hardware["steps"]

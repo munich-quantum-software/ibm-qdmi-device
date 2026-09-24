@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Allow one hour per backend for hardware validation, including queue time,
+  without increasing the QPU execution budget.
+
 - 🐛 Find generated native coverage reports when uploading to Codecov. ([#27])
   ([**@marcelwa**])
 
