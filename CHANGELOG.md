@@ -87,6 +87,10 @@ releases may include breaking changes.
   fidelity validation. Preserve tuple order and measurement precedence. ([#29])
   ([**@marcelwa**])
 
+- ♻️ Share connection defaults between the Qiskit and PennyLane adapters while
+  preserving explicit overrides and catalogue backend selection. ([#28])
+  ([**@marcelwa**])
+
 - ⚡ Allow independent session and job requests to progress concurrently while
   preserving shared IAM refresh, per-job result caches, and wait deadlines.
   ([#23]) ([**@marcelwa**])
@@ -133,4 +137,5 @@ releases may include breaking changes.
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
+[#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
 [**@marcelwa**]: https://github.com/marcelwa
