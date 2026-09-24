@@ -163,12 +163,30 @@ gh workflow run ci.yml --ref main
 ```
 
 Maintainers can add `live-qpu-tests` to a same-repository PR to enable the same
-hardware checks before merging. Adding or removing a label triggers CI. While
-the label remains, new commits and reopened PRs also enable hardware checks.
-Each eligible run uses the budget below; remove the label to stop future
-hardware runs. Removing it does not cancel jobs already submitted to IBM. Fork
-PRs, unlabeled PRs, merge queues, and dispatches from other branches run offline
-only. Do not use `pull_request_target` to expose secrets to fork code.
+hardware checks before merging. Adding this label reuses successful offline
+checks and the retained candidate wheel for the exact PR merge commit. It does
+not rebuild or rerun offline tests. Other label additions schedule no jobs and
+do not replace `🚦 Check`; label removal starts no workflow. Label events do not
+cancel an existing CI run.
+
+If offline CI is still running, let it finish and rerun the label workflow. If
+the artifact expired or the merge commit changed, run fresh offline CI first.
+The candidate expires after seven days. Reuse requires successful offline and
+candidate jobs from this PR's CI run; partial reruns use the candidate job's own
+attempt. Hardware success from that source run is reused too. Pending or failed
+source hardware must be handled in that run; the label workflow never
+automatically retries it.
+
+Reapplying `live-qpu-tests` or manually rerunning its workflow is a new paid
+attempt when the original offline run skipped hardware. Do so only within an
+authorized budget; results from separate label runs are not reused.
+
+While the label remains, new commits and reopened PRs run fresh offline checks
+before hardware execution. Each eligible run uses the budget below; remove the
+label to stop future hardware runs. Removing it does not cancel jobs already
+submitted to IBM. Fork PRs, unlabeled PRs, merge queues, and dispatches from
+other branches run offline only. Do not use `pull_request_target` to expose
+secrets to fork code.
 
 Before enabling PR hardware checks, add `refs/pull/*/merge` as a deployment
 branch rule for the `ibm-quantum` environment, retaining `main`. GitHub
@@ -186,10 +204,12 @@ cancelled, or unexpectedly skipped prerequisite prevents hardware execution. The
 independent metadata workflow remains available without quantum jobs.
 
 The pipeline builds a Linux wheel from its sdist, tests that installed wheel
-without secrets, and passes the exact wheel to the hardware job. Dependencies
-come from `uv.lock`. Only the final test step receives the existing
-`ibm-quantum` environment secrets. The native library derives the API region
-from the instance CRN; the workflow supplies no endpoint override.
+without secrets, and passes the exact wheel to the hardware job. Artifact names
+include the merge commit and build attempt; label runs download only the
+validated artifact ID from its source CI run. Dependencies come from `uv.lock`.
+Only the final test step receives the existing `ibm-quantum` environment
+secrets. The native library derives the API region from the instance CRN; the
+workflow supplies no endpoint override.
 
 Berlin and Aachen run sequentially through the public `IBMBackend`. Each backend
 receives exactly one job with 128 shots and the native 60-second QPU execution
