@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Allow one hour per backend for hardware validation, including queue time,
+  without increasing the QPU execution budget. ([#32]) ([**@marcelwa**])
+
 - 🐛 Find generated native coverage reports when uploading to Codecov. ([#27])
   ([**@marcelwa**])
 
@@ -30,6 +33,11 @@ releases may include breaking changes.
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component. Collect native transport and in-process CLI coverage offline,
   without additional QPU submissions. ([#33]) ([**@marcelwa**])
+
+- 👷 Allow maintainers to opt same-repository PRs into bounded IBM hardware
+  checks with the `live-qpu-tests` label. Reuse successful offline checks and
+  the exact candidate wheel on label addition; ignore unrelated label changes.
+  ([#31]) ([**@marcelwa**])
 
 - 📚 Add task-based navigation, Python package and dependency guides, API links,
   and MQSC branding. Align community support, security reporting, and
@@ -142,6 +150,8 @@ releases may include breaking changes.
 [#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
 [#29]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/29
 [#30]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/30
+[#31]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/31
+[#32]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/32
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8

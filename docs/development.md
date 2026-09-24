@@ -150,11 +150,12 @@ gh workflow run live-metadata.yml --ref main -f backend=both
 ```
 
 The workflow checks out the dispatch commit and permits only `refs/heads/main`.
-The `ibm-quantum` environment is restricted to `main`. Its `IBM_QUANTUM_API_KEY`
-and `IBM_QUANTUM_INSTANCE_CRN` secrets are available only to the live step,
-after build and installation. The library derives the region from the CRN; this
-workflow has no endpoint override. Runs are serialized and have a 15-minute
-timeout, with no schedules or automatic retries.
+The `ibm-quantum` environment permits `main` and opted-in PR runs described
+below. Its `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` secrets are
+available only to the live step, after build and installation. The library
+derives the region from the CRN; this workflow has no endpoint override. Runs
+are serialized and have a 15-minute timeout, with no schedules or automatic
+retries.
 
 For an explicitly authorized local run from merged `main`, supply the same two
 environment variables through a secure credential source, then run:
@@ -197,18 +198,54 @@ does not wait for their results on the merged commit. Manual
 gh workflow run ci.yml --ref main
 ```
 
-PRs, merge queues, and dispatches from other branches run offline only. On
-`main`, change detection cannot skip a prerequisite. The final `🚦 Check`
-requires both the offline aggregate and successful hardware validation. A
-failed, cancelled, or unexpectedly skipped prerequisite prevents hardware
-execution. The independent metadata workflow remains available without quantum
-jobs.
+Maintainers can add `live-qpu-tests` to a same-repository PR to enable the same
+hardware checks before merging. Adding this label reuses successful offline
+checks and the retained candidate wheel for the exact PR merge commit. It does
+not rebuild or rerun offline tests. Other label additions schedule no jobs and
+do not replace `🚦 Check`; label removal starts no workflow. Label events do not
+cancel an existing CI run.
+
+If offline CI is still running, let it finish and rerun the label workflow. If
+the artifact expired or the merge commit changed, run fresh offline CI first.
+The candidate expires after seven days. Reuse requires successful offline and
+candidate jobs from this PR's CI run; partial reruns use the candidate job's own
+attempt. Hardware success from that source run is reused too. Pending or failed
+source hardware must be handled in that run; the label workflow never
+automatically retries it.
+
+Reapplying `live-qpu-tests` or manually rerunning its workflow is a new paid
+attempt when the original offline run skipped hardware. Do so only within an
+authorized budget; results from separate label runs are not reused.
+
+While the label remains, new commits and reopened PRs run fresh offline checks
+before hardware execution. Each eligible run uses the budget below; remove the
+label to stop future hardware runs. Removing it does not cancel jobs already
+submitted to IBM. Fork PRs, unlabeled PRs, merge queues, and dispatches from
+other branches run offline only. Do not use `pull_request_target` to expose
+secrets to fork code.
+
+Before enabling PR hardware checks, add `refs/pull/*/merge` as a deployment
+branch rule for the `ibm-quantum` environment, retaining `main`. GitHub
+documents this pattern in its
+[deployment branch rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
+Create the `live-qpu-tests` repository label. Apply it only after reviewing the
+PR code and authorizing IBM access on Berlin and Aachen within the budget below.
+The label opts subsequent PR updates into that budget too. Environment
+protection rules still apply; a blocked hardware job cannot pass `🚦 Check`.
+
+On `main`, change detection cannot skip a prerequisite. PRs retain their normal
+change detection. The final `🚦 Check` requires the offline aggregate and, for
+eligible main or labeled PR runs, successful hardware validation. A failed,
+cancelled, or unexpectedly skipped prerequisite prevents hardware execution. The
+independent metadata workflow remains available without quantum jobs.
 
 The pipeline builds a Linux wheel from its sdist, tests that installed wheel
-without secrets, and passes the exact wheel to the hardware job. Dependencies
-come from `uv.lock`. Only the final test step receives the existing
-`ibm-quantum` environment secrets. The native library derives the API region
-from the instance CRN; the workflow supplies no endpoint override.
+without secrets, and passes the exact wheel to the hardware job. Artifact names
+include the merge commit and build attempt; label runs download only the
+validated artifact ID from its source CI run. Dependencies come from `uv.lock`.
+Only the final test step receives the existing `ibm-quantum` environment
+secrets. The native library derives the API region from the instance CRN; the
+workflow supplies no endpoint override.
 
 Berlin and Aachen run sequentially through the public `IBMBackend`. Each backend
 receives exactly one job with 128 shots and the native 60-second QPU execution
@@ -218,11 +255,13 @@ combined `100`/`111`, and at least 10% for each outcome. A fresh session
 retrieves the same job and compares its results without another submission.
 Sampler and estimator checks run offline and do not add hardware jobs.
 
-Each backend may wait up to 15 minutes. The original public job must also report
-completion before result collection, so it cannot start an unlimited second
-wait. Failures and timeouts trigger a cancellation attempt before handles are
-released; cancellation can race with completion. Freeing a handle alone does not
-cancel a remote job. The job timeout is 40 minutes. Runs are serialized without
+Each backend may wait up to one hour, including time in IBM's queue. This wait
+does not increase the 60-second QPU execution cap. The original public job must
+also report completion before result collection, so it cannot start an unlimited
+second wait. Failures and timeouts trigger a cancellation attempt before handles
+are released; cancellation can race with completion. Freeing a handle alone does
+not cancel a remote job. The workflow job timeout is 130 minutes, allowing both
+sequential waits plus installation and cleanup. Runs are serialized without
 automatic cancellation or retries. Rerunning the workflow is another paid run;
 do so only within an authorized budget. Do not make development-time hardware
 submissions.
@@ -272,21 +311,21 @@ HTML, and builds Sphinx with warnings treated as errors. HTML output is in
 ## Automation
 
 CI builds and tests without backend credentials, then permits the bounded
-hardware checks described above on merged `main`. Its offline aggregate includes
-change detection, native tests on Linux, macOS, and Windows (MSVC and ClangCL),
-installation tests, sanitizers, coverage, clang-tidy, Python type and
-source-distribution checks, Python/Qiskit tests, sdist and wheel builds, and the
-installed Linux candidate. PR checks may skip jobs deselected by change
-detection; failures, cancellations, and unexpected skips block the aggregate.
-Pushes to `main` run every Actions prerequisite. Pre-commit.ci runs the hook
-checks on pull requests; its configuration skips `ty`, which the Python Actions
-job runs together with `check-sdist`. The local lint and documentation Nox
-sessions run the same checks during development.
+hardware checks described above on merged `main` and labeled internal PRs. Its
+offline aggregate includes change detection, native tests on Linux, macOS, and
+Windows (MSVC and ClangCL), installation tests, sanitizers, coverage,
+clang-tidy, Python type and source-distribution checks, Python/Qiskit tests,
+sdist and wheel builds, and the installed Linux candidate. PR checks may skip
+jobs deselected by change detection; failures, cancellations, and unexpected
+skips block the aggregate. Pushes to `main` run every Actions prerequisite.
+Pre-commit.ci runs the hook checks on pull requests; its configuration skips
+`ty`, which the Python Actions job runs together with `check-sdist`. The local
+lint and documentation Nox sessions run the same checks during development.
 
 The `main` ruleset requires `🚦 Check` from GitHub Actions,
 `pre-commit.ci - pr`, and the Read the Docs preview check. These checks guard
 pull-request merges. Hardware execution uses the Actions prerequisites on the
-merged commit.
+tested commit, including the PR merge commit for labeled internal PRs.
 
 Read the Docs builds public pull-request previews and the `latest` documentation
 from `main` using `.readthedocs.yaml`. It installs Doxygen 1.16.1 and OpenSSL
