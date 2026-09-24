@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Find generated native coverage reports when uploading to Codecov.
+
 - 🐛 Accept IBM measurement calibration repeated in per-qubit readout and gate
   metadata so public backends can initialize for quantum execution. ([#25])
   ([**@marcelwa**])
