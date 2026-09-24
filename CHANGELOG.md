@@ -84,7 +84,8 @@ releases may include breaking changes.
 ### Changed
 
 - ♻️ Index native calibrations by directed site tuple and share gate and readout
-  fidelity validation. Preserve tuple order and measurement precedence.
+  fidelity validation. Preserve tuple order and measurement precedence. ([#29])
+  ([**@marcelwa**])
 
 - ⚡ Allow independent session and job requests to progress concurrently while
   preserving shared IAM refresh, per-job result caches, and wait deadlines.
@@ -128,6 +129,7 @@ releases may include breaking changes.
 [#25]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/25
 [#26]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/26
 [#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
+[#29]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/29
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
