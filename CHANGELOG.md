@@ -27,6 +27,9 @@ releases may include breaking changes.
 
 ### Added
 
+- 👷 Allow maintainers to opt same-repository PRs into bounded IBM hardware
+  checks with the `run-hardware-tests` label.
+
 - 📚 Add task-based navigation, Python package and dependency guides, API links,
   and MQSC branding. Align community support, security reporting, and
   contribution guidance. ([#26]) ([**@marcelwa**])

@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
   merge_group:
   workflow_dispatch:
 concurrency:
@@ -244,8 +245,11 @@ jobs:
     name: IBM quantum execution
     needs: [offline-checks-pass, candidate-wheel]
     if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      ((github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'run-hardware-tests'))) &&
       needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -290,7 +294,10 @@ jobs:
         with:
           allowed-skips: >-
             ${{
-              (github.ref != 'refs/heads/main' ||
-              (github.event_name != 'push' && github.event_name != 'workflow_dispatch')) && 'hardware' || ''
+              !((github.ref == 'refs/heads/main' &&
+              (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
+              (github.event_name == 'pull_request' &&
+              github.event.pull_request.head.repo.full_name == github.repository &&
+              contains(github.event.pull_request.labels.*.name, 'run-hardware-tests'))) && 'hardware' || ''
             }}
           jobs: ${{ toJSON(needs) }}

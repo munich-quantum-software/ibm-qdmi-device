@@ -30,18 +30,25 @@ import yaml
 WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
 
 
-def evaluate(expression: str, context: dict[str, str]) -> bool | str:
+def evaluate(expression: str, context: dict[str, str | list[str]]) -> bool | str | list[str]:
     """Evaluate the workflow's boolean/string subset without executing code.
 
     Returns:
         The expression value.
     """
-    expression = re.sub(r"(?:github|needs)\.[\w.-]+", lambda match: repr(context[match[0]]), expression)
+    expression = re.sub(r"(?:github|needs)\.[\w.*-]+", lambda match: repr(context[match[0]]), expression)
     expression = expression.replace("&&", " and ").replace("||", " or ")
+    expression = re.sub(r"!(?!=)", " not ", expression)
 
-    def visit(node: ast.AST) -> bool | str:
+    def visit(node: ast.AST) -> bool | str | list[str]:
         if isinstance(node, ast.Constant) and isinstance(node.value, (bool, str)):
             return node.value
+        if isinstance(node, ast.List):
+            values = [visit(value) for value in node.elts]
+            assert all(isinstance(value, str) for value in values)
+            return [str(value) for value in values]
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            return not visit(node.operand)
         if isinstance(node, ast.BoolOp):
             result = visit(node.values[0])
             for value in node.values[1:]:
@@ -54,6 +61,11 @@ def evaluate(expression: str, context: dict[str, str]) -> bool | str:
             if isinstance(node.ops[0], ast.NotEq):
                 return left != right
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if node.func.id == "contains" and len(node.args) == 2:
+                values, needle = visit(node.args[0]), visit(node.args[1])
+                assert isinstance(values, list)
+                assert isinstance(needle, str)
+                return needle.casefold() in [value.casefold() for value in values]
             if node.func.id == "fromJSON" and len(node.args) == 1:
                 argument = visit(node.args[0])
                 assert isinstance(argument, str)
@@ -68,7 +80,7 @@ def evaluate(expression: str, context: dict[str, str]) -> bool | str:
     return visit(ast.parse("(" + expression.strip() + ")", mode="eval").body)
 
 
-def skip_list(expression: str, context: dict[str, str]) -> set[str]:
+def skip_list(expression: str, context: dict[str, str | list[str]]) -> set[str]:
     """Expand the aggregate's conditional skip list.
 
     Returns:
@@ -82,17 +94,26 @@ def skip_list(expression: str, context: dict[str, str]) -> set[str]:
 @pytest.mark.parametrize("ref", ["refs/heads/main", "refs/heads/feature", "refs/pull/13/merge"])
 @pytest.mark.parametrize("result", ["success", "failure", "cancelled", "skipped"])
 @pytest.mark.parametrize("gate", ["offline-checks-pass", "candidate-wheel"])
-def test_hardware_eligibility(event: str, ref: str, result: str, gate: str) -> None:
-    """PRs, merge queues, non-main dispatches, and failed gates cannot spend."""
+@pytest.mark.parametrize("same_repo", [True, False])
+@pytest.mark.parametrize("labels", [[], ["bug"], ["run-hardware-tests"], ["bug", "RUN-HARDWARE-TESTS"]])
+def test_hardware_eligibility(
+    event: str, ref: str, result: str, gate: str, labels: list[str], *, same_repo: bool
+) -> None:
+    """Only main runs and labeled internal PRs can spend after offline success."""
     jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
-    context = {
+    context: dict[str, str | list[str]] = {
         "github.ref": ref,
         "github.event_name": event,
+        "github.repository": "owner/device",
+        "github.event.pull_request.head.repo.full_name": "owner/device" if same_repo else "fork/device",
+        "github.event.pull_request.labels.*.name": labels,
         "needs.offline-checks-pass.result": "success",
         "needs.candidate-wheel.result": "success",
     }
     context[f"needs.{gate}.result"] = result
-    eligible = ref == "refs/heads/main" and event in {"push", "workflow_dispatch"}
+    eligible = (ref == "refs/heads/main" and event in {"push", "workflow_dispatch"}) or (
+        event == "pull_request" and same_repo and "run-hardware-tests" in [label.casefold() for label in labels]
+    )
     assert bool(evaluate(jobs["hardware"]["if"], context)) == (eligible and result == "success")
     final = jobs["required-checks-pass"]
     assert final["name"] == "🚦 Check"
@@ -108,7 +129,7 @@ def test_main_requires_every_offline_job() -> None:
     expected = set(jobs) - {"offline-checks-pass", "hardware", "required-checks-pass"}
     assert set(gate["needs"]) == expected
     assert gate["if"] == "always()"
-    context = {"github.ref": "refs/heads/main"}
+    context: dict[str, str | list[str]] = {"github.ref": "refs/heads/main"}
     for key in ("run-cpp-tests", "run-cpp-linter", "run-python-linter", "run-python-tests", "run-cd"):
         context[f"needs.change-detection.outputs.{key}"] = "false"
     for name in expected:
@@ -121,7 +142,9 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     """Only the last hardware step gets secrets, after installing the candidate."""
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow.get("on", workflow.get(True))) == {"push", "pull_request", "merge_group", "workflow_dispatch"}
+    triggers = workflow.get("on", workflow.get(True))
+    assert set(triggers) == {"push", "pull_request", "merge_group", "workflow_dispatch"}
+    assert set(triggers["pull_request"]["types"]) == {"opened", "reopened", "synchronize", "labeled", "unlabeled"}
     jobs = workflow["jobs"]
     hardware = jobs["hardware"]
     assert hardware["environment"] == "ibm-quantum"
