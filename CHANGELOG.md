@@ -28,7 +28,7 @@ releases may include breaking changes.
 ### Added
 
 - 👷 Allow maintainers to opt same-repository PRs into bounded IBM hardware
-  checks with the `run-hardware-tests` label.
+  checks with the `run-hardware-tests` label. ([#31]) ([**@marcelwa**])
 
 - 📚 Add task-based navigation, Python package and dependency guides, API links,
   and MQSC branding. Align community support, security reporting, and
@@ -137,6 +137,7 @@ releases may include breaking changes.
 [#26]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/26
 [#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
 [#29]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/29
+[#31]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/31
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
