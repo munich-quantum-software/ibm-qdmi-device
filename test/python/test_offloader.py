@@ -23,25 +23,86 @@ from __future__ import annotations
 import base64
 import math
 import pickle  # ruff:ignore[suspicious-pickle-import]
+import runpy
 import shutil
 import subprocess
+import sys
 import sysconfig
+from functools import partial
 from typing import TYPE_CHECKING
 
 import pytest
+from offline_service import CRN
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qpy
 from qiskit.circuit import Parameter
+from qiskit.primitives import BackendEstimatorV2, BackendSamplerV2, DataBin, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_algorithms import VQEResult
 from qiskit_service import open_backend
 
-from ibm.qdmi import estimator, offloader, sampler
+from ibm.qdmi import (
+    _backends,  # ruff: ignore[import-private-name] -- exercise shared primitive construction
+    estimator,
+    offloader,
+    sampler,
+)
+from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
     from types import ModuleType
 
     from qiskit_service import RuntimeProxy
+
+
+@pytest.mark.parametrize(
+    ("builder", "primitive_type"),
+    [(_backends.build_sampler, BackendSamplerV2), (_backends.build_estimator, BackendEstimatorV2)],
+)
+def test_ibm_primitive_selection(
+    runtime: RuntimeProxy,
+    monkeypatch: pytest.MonkeyPatch,
+    builder: Callable[..., BackendSamplerV2 | BackendEstimatorV2],
+    primitive_type: type[BackendSamplerV2 | BackendEstimatorV2],
+) -> None:
+    """Builders open the selected IBM backend and expose its native primitives."""
+    url = runtime.snapshot()["url"]
+    monkeypatch.setattr(
+        _backends,
+        "IBMBackend",
+        partial(IBMBackend, api_key="synthetic-key", instance_crn=CRN, base_url=url, auth_url=f"{url}/auth"),
+    )
+    primitive = builder(simulator=False, backend_name="ibm_test")
+    assert isinstance(primitive, primitive_type)
+    assert isinstance(primitive.backend, IBMBackend)
+    assert primitive.backend.name == "ibm_test"
+    assert not runtime.snapshot()["submissions"]
+
+
+def test_missing_optional_dependency(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Both APIs explain a missing extra before opening a backend or writing inputs."""
+    monkeypatch.setitem(sys.modules, "qiskit", None)
+    monkeypatch.setenv("IBM_JOBS_DIR", str(tmp_path))
+    module = runpy.run_path(str(offloader.__file__))
+    for function, args in (("sample", (None,)), ("estimate", (None, None))):
+        with pytest.raises(ImportError, match=r"ibm-qdmi\[qiskit\]") as error:
+            module[function](*args)
+        assert error.value.__cause__ is module["_IMPORT_ERROR"]
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize(
+    ("result", "message"),
+    [
+        (PrimitiveResult([]), "no pubs"),
+        (PrimitiveResult([SamplerPubResult(DataBin())]), "Could not extract measurement counts"),
+    ],
+)
+def test_invalid_sampler_result(result: PrimitiveResult[SamplerPubResult], message: str) -> None:
+    """Empty results and missing measurement registers cannot produce fabricated counts."""
+    with pytest.raises(RuntimeError, match=message):
+        offloader.extract_counts(result)
 
 
 def test_local_sample_registers() -> None:
