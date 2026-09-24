@@ -252,7 +252,7 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'live-qpu-tests'))) &&
       needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 130
     environment: ibm-quantum
     concurrency:
       group: ibm-quantum-execution

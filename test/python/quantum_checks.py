@@ -49,7 +49,7 @@ def valid_results(memory: object, counts: object) -> bool:
     return counts.get("100", 0) + counts.get("111", 0) >= 96 and min(counts.get("100", 0), counts.get("111", 0)) >= 13
 
 
-def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int = 900) -> str | None:
+def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int = 3600) -> str | None:
     """Submit once, wait with a deadline, and retrieve through a fresh session.
 
     Args:
