@@ -173,9 +173,9 @@ build = "cp3*"
 skip = [ "*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
-test-command = "pytest test/python --durations=10"
+test-command = "pytest test/integration -n 0 && pytest test/python --durations=10"
 test-groups = [ "test" ]
-test-sources = [ "test/python", "test/fixtures" ]
+test-sources = [ "pyproject.toml", "test/conftest.py", "test/python", "test/integration", "test/fixtures" ]
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel"

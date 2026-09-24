@@ -26,9 +26,11 @@ from multiprocessing import get_context
 from multiprocessing.managers import BaseManager
 from typing import TYPE_CHECKING, Any, Protocol
 
-from offline_service import serve
+from offline_service import CRN, serve
 from qiskit import qasm3
 from qiskit.providers.basic_provider import BasicSimulator
+
+from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -256,3 +258,18 @@ def remote_runtime() -> Iterator[RuntimeProxy]:
             yield proxy
         finally:
             proxy.close()
+
+
+def open_backend(runtime: RuntimeProxy) -> IBMBackend:
+    """Open a fresh installed QDMI device against the synthetic endpoints.
+
+    Returns:
+        The public IBM backend.
+    """
+    return IBMBackend(
+        api_key="synthetic-key",
+        instance_crn=CRN,
+        backend_name="ibm_test",
+        base_url=runtime.snapshot()["url"],
+        auth_url=runtime.snapshot()["url"] + "/auth",
+    )

@@ -138,7 +138,7 @@ def service() -> Iterator[Service]:
 
 
 @pytest.fixture
-def native(monkeypatch: pytest.MonkeyPatch) -> Iterator[Native]:
+def native(monkeypatch: pytest.MonkeyPatch, pytestconfig: pytest.Config) -> Iterator[Native]:
     """Own the installed library lifecycle for an offline test.
 
     Yields:
@@ -146,5 +146,5 @@ def native(monkeypatch: pytest.MonkeyPatch) -> Iterator[Native]:
     """
     for name in ("IBM_QUANTUM_API_KEY", "IBM_QUANTUM_INSTANCE_CRN", "IBM_QUANTUM_BACKEND"):
         monkeypatch.delenv(name, raising=False)
-    with load_native() as api:
+    with load_native(pytestconfig.getoption("native_library")) as api:
         yield api

@@ -41,7 +41,6 @@ def run_live_tests(
     """
     source = Path(__file__).parent
     for name in (
-        "conftest.py",
         "test_live_metadata.py",
         "test_quantum.py",
         "quantum_checks.py",
@@ -50,6 +49,7 @@ def run_live_tests(
         "offline_service.py",
     ):
         shutil.copyfile(source / name, tmp_path / name)
+    shutil.copyfile(source.parent / "conftest.py", tmp_path / "conftest.py")
     (tmp_path / "pyproject.toml").write_text('[tool.pytest]\nfilterwarnings = ["error"]\n', encoding="utf-8")
     # The guard replaces the test's environment and loader before any test body.
     # Even a regression in opt-in handling cannot reach the real native client.

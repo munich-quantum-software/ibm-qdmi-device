@@ -39,8 +39,12 @@ jobs:
         run: cmake --build build/coverage --config Debug
       - name: Test native package
         run: ctest --test-dir build/coverage -C Debug --output-on-failure --timeout 600
+      - name: Test offline transport with native instrumentation
+        run: >-
+          uvx nox -s native_tests --
+          --native-library="${{ github.workspace }}/build/coverage/src/libibm-qdmi-device.so"
       - name: Test Python package
-        run: uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
+        run: uvx nox -s tests-3.14 -- test/python -m "not live and not quantum" --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage

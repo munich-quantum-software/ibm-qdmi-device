@@ -19,7 +19,6 @@
 
 from __future__ import annotations
 
-import gc
 import math
 import os
 import subprocess
@@ -34,26 +33,13 @@ from offline_service import CRN
 from pennylane import numpy as pnp
 from qiskit import QuantumCircuit, qasm3
 from qiskit.quantum_info import Operator as QiskitOperator
-from qiskit_service import remote_runtime
 
 from ibm.qdmi.pennylane import IBMDevice
 
 if TYPE_CHECKING:
-    from collections.abc import Hashable, Iterator, Sequence
+    from collections.abc import Hashable, Sequence
 
     from qiskit_service import RuntimeProxy
-
-
-@pytest.fixture
-def runtime() -> Iterator[RuntimeProxy]:
-    """Host the real C ABI's synthetic REST peer in a separate process.
-
-    Yields:
-        The synthetic runtime and its recorded requests.
-    """
-    with remote_runtime() as proxy:
-        yield proxy
-        gc.collect()
 
 
 def open_device(runtime: RuntimeProxy, wires: int | Sequence[Hashable] = 2) -> IBMDevice:

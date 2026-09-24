@@ -148,3 +148,18 @@ def test_credentials_artifact_and_budget_boundary() -> None:
         for step in job.get("steps", []):
             if "uses" in step:
                 assert re.fullmatch(r"[\w/-]+@[a-f0-9]{40}", step["uses"])
+
+
+def test_coverage_is_offline() -> None:
+    """Coverage runs synthetic tests without hardware opt-ins or credentials."""
+    coverage = yaml.safe_load((WORKFLOW.parent / "cpp-coverage.yml").read_text(encoding="utf-8"))
+    jobs = coverage["jobs"]
+    assert all("environment" not in job for job in jobs.values())
+    serialized = json.dumps(coverage)
+    assert "secrets." not in serialized
+    assert "--run-live" not in serialized
+    assert "--run-quantum" not in serialized
+    steps = jobs["coverage"]["steps"]
+    transport = next(step for step in steps if "--native-library=" in step.get("run", ""))
+    assert "nox -s native_tests" in transport["run"]
+    assert "build/coverage/src/" in transport["run"]

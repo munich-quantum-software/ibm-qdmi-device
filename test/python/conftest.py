@@ -15,56 +15,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Explicit opt-in and redacted diagnostics for live checks."""
+"""Shared offline framework fixtures."""
 
 from __future__ import annotations
 
+import gc
+from typing import TYPE_CHECKING
+
 import pytest
-from metadata_checks import BACKENDS
+from qiskit_service import RuntimeProxy, remote_runtime
 
-pytest_plugins = ["offline_service"]
-
-
-def pytest_addoption(parser: pytest.Parser) -> None:
-    """Register the live test controls without reading credentials."""
-    parser.addoption("--run-live", action="store_true", help="Authorize metadata-only IBM requests")
-    parser.addoption("--run-quantum", action="store_true", help="Authorize bounded IBM quantum execution")
-    parser.addoption("--ibm-backend", default="both", help="both, ibm_berlin, or ibm_aachen")
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_configure(config: pytest.Config) -> None:
-    """Validate selection and restrict diagnostics for an explicit live run.
+@pytest.fixture
+def runtime() -> Iterator[RuntimeProxy]:
+    """Attach the synthetic runtime and release any Python job cycles.
 
-    Raises:
-        UsageError: A live run selected an unsupported backend.
+    Yields:
+        The loopback service and its recorded submissions.
     """
-    config.addinivalue_line("markers", "live: explicitly authorized IBM metadata requests (disabled by default)")
-    config.addinivalue_line("markers", "quantum: explicitly authorized IBM quantum jobs (disabled by default)")
-    if config.getoption("run_live") or config.getoption("run_quantum"):
-        if config.getoption("ibm_backend") not in {"both", *BACKENDS}:
-            msg = "live checks: invalid backend selection"
-            raise pytest.UsageError(msg)
-        config.option.numprocesses = 0
-        config.option.dist = "no"
-        config.option.tx = []
-        config.option.tbstyle = "line"
-        config.option.showlocals = False
-        config.option.fulltrace = False
-        config.option.showcapture = "no"
-        config.option.log_cli_level = "CRITICAL"
-
-
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Skip live tests unless the invocation explicitly enables them."""
-    for item in items:
-        for marker, option in (("live", "run_live"), ("quantum", "run_quantum")):
-            if item.get_closest_marker(marker) is None:
-                continue
-            if not config.getoption(option):
-                item.add_marker(pytest.mark.skip(reason=f"{marker} access is opt-in"))
-            elif isinstance(item, pytest.Function) and config.getoption("ibm_backend") not in {
-                "both",
-                item.callspec.params["backend"],
-            }:
-                item.add_marker(pytest.mark.skip(reason="backend not selected"))
+    with remote_runtime() as proxy:
+        yield proxy
+        gc.collect()
