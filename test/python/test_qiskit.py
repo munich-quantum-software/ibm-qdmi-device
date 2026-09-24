@@ -106,6 +106,33 @@ def test_metadata_target_and_transpilation(runtime: RuntimeProxy) -> None:
     assert runtime.snapshot()["submissions"][0]["params"]["support_qiskit"] is False
 
 
+def test_repeated_measurement_calibration_opens_backend(runtime: RuntimeProxy) -> None:
+    """IBM's qubit and gate readout records describe one target calibration."""
+    runtime.set_properties({
+        "qubits": [
+            [
+                {"name": "readout_error", "value": 0.02},
+                {"name": "readout_length", "value": 1.5, "unit": "us"},
+            ]
+            for _ in range(5)
+        ],
+        "gates": [
+            {
+                "gate": "measure",
+                "qubits": [site],
+                "parameters": [
+                    {"name": "gate_error", "value": 0.02},
+                    {"name": "gate_length", "value": 1.5, "unit": "us"},
+                ],
+            }
+            for site in range(5)
+        ],
+    })
+    backend = open_backend(runtime)
+    assert backend.target["measure"][4,].duration == pytest.approx(1.5e-6)
+    assert backend.target["measure"][4,].error == pytest.approx(0.02)
+
+
 def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> None:
     """Register names, declaration order, memory, and experiments survive a batch."""
     backend = open_backend(runtime)

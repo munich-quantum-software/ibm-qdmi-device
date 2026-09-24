@@ -199,6 +199,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
   }
   std::set<std::size_t> faultySites;
+  std::set<Sites> readoutCalibrations;
   if (properties.contains("qubits") && !properties["qubits"].is_null()) {
     const auto& qubits = properties["qubits"];
     if (!qubits.is_array() || qubits.size() > count) {
@@ -229,8 +230,10 @@ Metadata parseMetadata(const nlohmann::json& configuration,
       }
       const auto measurement =
           std::ranges::find(result.operations, "measure", &Operation::name);
-      if (measurement != result.operations.end()) {
+      if (measurement != result.operations.end() &&
+          (readout.duration || readout.fidelity)) {
         measurement->calibrations.emplace_back(Sites{i}, readout);
+        readoutCalibrations.insert(Sites{i});
       }
     }
   }
@@ -279,10 +282,25 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           }
         }
       }
-      if (std::ranges::any_of(operation->calibrations, [&](const auto& entry) {
+      const auto existing =
+          std::ranges::find_if(operation->calibrations, [&](const auto& entry) {
             return entry.first == sites;
-          })) {
-        throw Failure{QDMI_ERROR_FATAL};
+          });
+      if (existing != operation->calibrations.end()) {
+        // IBM repeats readout calibration as qubit properties and as a
+        // measurement gate. Keep the readout values and fill missing fields.
+        if (name != "measure" || readoutCalibrations.erase(sites) == 0) {
+          throw Failure{QDMI_ERROR_FATAL};
+        }
+        existing->second.operational =
+            existing->second.operational && calibration.operational;
+        if (!existing->second.duration) {
+          existing->second.duration = calibration.duration;
+        }
+        if (!existing->second.fidelity) {
+          existing->second.fidelity = calibration.fidelity;
+        }
+        continue;
       }
       operation->calibrations.emplace_back(sites, calibration);
     }
