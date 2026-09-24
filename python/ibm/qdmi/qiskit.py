@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import math
-import os
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -35,7 +34,7 @@ except ImportError as error:
 from qiskit.circuit import Barrier, ControlFlowOp, QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
-from ._catalogue import register_device
+from ._catalogue import register_device, session_parameters
 from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
@@ -89,17 +88,17 @@ class IBMBackend(QDMIBackend):
             return
 
         resolved_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
-        selected_backend = backend_name
-        if resolved_id == IBM_QDMI_DEVICE_ID and selected_backend is None:
-            selected_backend = os.environ.get("IBM_QUANTUM_BACKEND")
         register_device(resolved_id)
         device = open_device(
             resolved_id,
-            token=api_key if api_key is not None else os.environ.get("IBM_QUANTUM_API_KEY"),
-            custom2=instance_crn if instance_crn is not None else os.environ.get("IBM_QUANTUM_INSTANCE_CRN"),
-            custom1=selected_backend,
-            base_url=base_url,
-            auth_url=auth_url,
+            **session_parameters(
+                resolved_id,
+                backend_name=backend_name,
+                api_key=api_key,
+                instance_crn=instance_crn,
+                base_url=base_url,
+                auth_url=auth_url,
+            ),
         )
         super().__init__(device=device, provider=provider, device_id=resolved_id)
 

@@ -15,15 +15,45 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Register packaged catalogue entries without replacing driver configuration."""
+"""Resolve IBM catalogue entries and shared session overrides."""
 
 from __future__ import annotations
 
 import json
+import os
+from typing import TYPE_CHECKING
 
 from mqt.core.qdmi import driver
 
-from . import IBM_QDMI_CATALOG_PATH, IBM_QDMI_LIBRARY_PATH, IBM_QDMI_PREFIX
+from . import IBM_QDMI_CATALOG_PATH, IBM_QDMI_DEVICE_ID, IBM_QDMI_LIBRARY_PATH, IBM_QDMI_PREFIX
+
+if TYPE_CHECKING:
+    from mqt.core.typing import QDMISessionParameters
+
+
+def session_parameters(
+    device_id: str,
+    *,
+    backend_name: str | None,
+    api_key: str | None,
+    instance_crn: str | None,
+    base_url: str | None,
+    auth_url: str | None,
+) -> QDMISessionParameters:
+    """Map explicit connection values and environment defaults to QDMI.
+
+    Returns:
+        Session overrides, preserving catalogue backends for concrete IDs.
+    """
+    if device_id == IBM_QDMI_DEVICE_ID and backend_name is None:
+        backend_name = os.environ.get("IBM_QUANTUM_BACKEND")
+    return {
+        "token": api_key if api_key is not None else os.environ.get("IBM_QUANTUM_API_KEY"),
+        "custom2": instance_crn if instance_crn is not None else os.environ.get("IBM_QUANTUM_INSTANCE_CRN"),
+        "custom1": backend_name,
+        "base_url": base_url,
+        "auth_url": auth_url,
+    }
 
 
 def register_device(device_id: str) -> None:

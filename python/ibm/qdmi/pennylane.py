@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import math
-import os
 from functools import partial
 from typing import TYPE_CHECKING, ClassVar
 
@@ -41,7 +40,7 @@ from pennylane.devices.preprocess import decompose
 from pennylane.transforms.core import BoundTransform
 
 from . import IBM_QDMI_DEVICE_ID
-from ._catalogue import register_device
+from ._catalogue import register_device, session_parameters
 from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
@@ -49,7 +48,7 @@ if TYPE_CHECKING:
 
     from mqt.core.plugins.pennylane.converter import _ConvertedProgram
     from mqt.core.qdmi import Device
-    from mqt.core.typing import QDMIJobParameters, QDMISessionParameters
+    from mqt.core.typing import QDMIJobParameters
     from pennylane.devices import ExecutionConfig
     from pennylane.operation import Operator
     from pennylane.tape import QuantumScript
@@ -181,16 +180,15 @@ class IBMDevice(QDMIDevice):
             super().__init__(device=device, wires=wires, job_parameters=job_parameters)
         else:
             selected_id = self.qdmi_device_id if device_id is None else device_id
-            if selected_id == IBM_QDMI_DEVICE_ID and backend_name is None:
-                backend_name = os.environ.get("IBM_QUANTUM_BACKEND")
             register_device(selected_id)
-            session: QDMISessionParameters = {
-                "token": api_key if api_key is not None else os.environ.get("IBM_QUANTUM_API_KEY"),
-                "custom2": instance_crn if instance_crn is not None else os.environ.get("IBM_QUANTUM_INSTANCE_CRN"),
-                "custom1": backend_name,
-                "base_url": base_url,
-                "auth_url": auth_url,
-            }
+            session = session_parameters(
+                selected_id,
+                backend_name=backend_name,
+                api_key=api_key,
+                instance_crn=instance_crn,
+                base_url=base_url,
+                auth_url=auth_url,
+            )
             super().__init__(selected_id, wires=wires, session_parameters=session, job_parameters=job_parameters)
         self._converter = _IBMProgramConverter(self.qdmi_device, self.wires, self._program_format)
 

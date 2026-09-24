@@ -86,6 +86,14 @@ releases may include breaking changes.
 - 🔧 Let uv manage Nox test and documentation environments. Declare the native
   example's build tools in its dependency group. ([#30]) ([**@marcelwa**])
 
+- ♻️ Index native calibrations by directed site tuple and share gate and readout
+  fidelity validation. Preserve tuple order and measurement precedence. ([#29])
+  ([**@marcelwa**])
+
+- ♻️ Share connection defaults between the Qiskit and PennyLane adapters while
+  preserving explicit overrides and catalogue backend selection. ([#28])
+  ([**@marcelwa**])
+
 - ⚡ Allow independent session and job requests to progress concurrently while
   preserving shared IAM refresh, per-job result caches, and wait deadlines.
   ([#23]) ([**@marcelwa**])
@@ -128,8 +136,10 @@ releases may include breaking changes.
 [#25]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/25
 [#26]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/26
 [#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
+[#29]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/29
 [#30]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/30
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
+[#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
 [**@marcelwa**]: https://github.com/marcelwa

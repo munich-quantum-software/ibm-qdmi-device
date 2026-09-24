@@ -651,10 +651,7 @@ int IBM_QDMI_device_session_query_operation_property(
     }
     case QDMI_OPERATION_PROPERTY_DURATION:
     case QDMI_OPERATION_PROPERTY_FIDELITY: {
-      const auto calibration =
-          std::ranges::find_if(data.calibrations, [&](const auto& entry) {
-            return entry.first == selected;
-          });
+      const auto calibration = data.calibrations.find(selected);
       require(calibration != data.calibrations.end(), QDMI_ERROR_NOTSUPPORTED);
       if (property == QDMI_OPERATION_PROPERTY_DURATION) {
         return copyOptional(calibration->second.duration, size, value, sizeRet);
