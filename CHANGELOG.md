@@ -27,6 +27,10 @@ releases may include breaking changes.
 
 ### Added
 
+- 🧪 Organize native unit, loopback integration, and Python adapter tests by
+  component. Collect native transport and in-process CLI coverage offline,
+  without additional QPU submissions. ([**@marcelwa**])
+
 - 📚 Add task-based navigation, Python package and dependency guides, API links,
   and MQSC branding. Align community support, security reporting, and
   contribution guidance. ([#26]) ([**@marcelwa**])
