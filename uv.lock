@@ -831,6 +831,7 @@ pennylane = [
 ]
 qiskit = [
     { name = "mqt-core", extra = ["qiskit"] },
+    { name = "qiskit-algorithms" },
 ]
 
 [package.dev-dependencies]
@@ -847,6 +848,7 @@ dev = [
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
     { name = "pyyaml" },
+    { name = "qiskit-algorithms" },
     { name = "scikit-build-core" },
 ]
 docs = [
@@ -868,6 +870,7 @@ examples = [
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
     { name = "pyyaml" },
+    { name = "qiskit-algorithms" },
 ]
 test = [
     { name = "mqt-core", extra = ["pennylane", "qiskit"] },
@@ -876,6 +879,7 @@ test = [
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
     { name = "pyyaml" },
+    { name = "qiskit-algorithms" },
 ]
 typecheck = [
     { name = "cmake" },
@@ -890,6 +894,7 @@ typecheck = [
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
     { name = "pyyaml" },
+    { name = "qiskit-algorithms" },
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sphinx-autoapi" },
@@ -901,6 +906,7 @@ typecheck = [
 requires-dist = [
     { name = "mqt-core", extras = ["pennylane", "qiskit"], marker = "extra == 'pennylane'", specifier = "~=4.0.0" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = "~=4.0.0" },
+    { name = "qiskit-algorithms", marker = "extra == 'qiskit'", specifier = ">=0.4" },
 ]
 provides-extras = ["pennylane", "qiskit"]
 
@@ -918,6 +924,7 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "qiskit-algorithms", specifier = ">=0.4" },
     { name = "scikit-build-core", specifier = ">=1.0.3" },
 ]
 docs = [
@@ -938,6 +945,7 @@ examples = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "qiskit-algorithms", specifier = ">=0.4" },
 ]
 test = [
     { name = "mqt-core", extras = ["pennylane", "qiskit"], specifier = "~=4.0.0" },
@@ -946,6 +954,7 @@ test = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "qiskit-algorithms", specifier = ">=0.4" },
 ]
 typecheck = [
     { name = "cmake", specifier = ">=3.24" },
@@ -960,6 +969,7 @@ typecheck = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "qiskit-algorithms", specifier = ">=0.4" },
     { name = "sphinx", specifier = ">=9" },
     { name = "sphinx-autoapi", specifier = ">=3.6.1" },
     { name = "sphinx-copybutton", specifier = ">=0.5.2" },
@@ -2151,6 +2161,22 @@ wheels = [
 [package.optional-dependencies]
 qasm3-import = [
     { name = "qiskit-qasm3-import" },
+]
+
+[[package]]
+name = "qiskit-algorithms"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "qiskit" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e5/86/d0f8ccae25281d49ebb0e2b59076c2d815389c16a4f7a379936f21065e94/qiskit_algorithms-0.4.0.tar.gz", hash = "sha256:b945e807c9b94ba2e0d2e02898b1f1e1a33efd3b4a6dc5a45bb787c6832d4093", size = 259556, upload-time = "2025-08-29T18:32:24.076Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/23/ab868be0ea11e0054ac4962d27f80cc064e007f8e34b7b61808a25227cca/qiskit_algorithms-0.4.0-py3-none-any.whl", hash = "sha256:c8bfc119e270c7cd7d6013e62193914381bd71fd4cdc847c07b50c749fd0114d", size = 327840, upload-time = "2025-08-29T18:32:22.659Z" },
 ]
 
 [[package]]

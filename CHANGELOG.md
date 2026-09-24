@@ -30,6 +30,9 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add Slurm sampling and VQE offloaders with local simulator execution and
+  `ibm-sampler` and `ibm-estimator` workers.
+
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component, with central pytest markers and test selection. Collect native
   transport and in-process CLI coverage offline, without additional QPU
