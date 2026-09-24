@@ -21,10 +21,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace ibm {
@@ -39,12 +39,13 @@ struct Site {
   std::optional<std::uint64_t> t1;
   std::optional<std::uint64_t> t2;
 };
+// NOLINTNEXTLINE(bugprone-exception-escape): MSVC map moves allocate.
 struct Operation {
   std::string name;
   std::optional<std::size_t> arity;
   std::optional<std::size_t> parameters;
   std::vector<Sites> sites;
-  std::vector<std::pair<Sites, Calibration>> calibrations;
+  std::map<Sites, Calibration> calibrations;
 };
 struct Metadata {
   std::string name;

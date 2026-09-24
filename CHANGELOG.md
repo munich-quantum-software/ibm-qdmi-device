@@ -83,6 +83,9 @@ releases may include breaking changes.
 
 ### Changed
 
+- ♻️ Index native calibrations by directed site tuple and share gate and readout
+  fidelity validation. Preserve tuple order and measurement precedence.
+
 - ⚡ Allow independent session and job requests to progress concurrently while
   preserving shared IAM refresh, per-job result caches, and wait deadlines.
   ([#23]) ([**@marcelwa**])

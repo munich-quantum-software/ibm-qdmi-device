@@ -98,6 +98,16 @@ std::optional<std::uint64_t> duration(const nlohmann::json& parameter) {
   }
   return static_cast<std::uint64_t>(rounded);
 }
+std::optional<double> fidelity(const nlohmann::json& parameter) {
+  if (!parameter.contains("value") || !parameter["value"].is_number()) {
+    return std::nullopt;
+  }
+  const auto error = parameter["value"].get<double>();
+  if (!std::isfinite(error) || error < 0 || error > 1) {
+    return std::nullopt;
+  }
+  return 1 - error;
+}
 void addSites(Operation& operation, const Sites& sites) {
   if (operation.arity && *operation.arity != sites.size()) {
     throw Failure{QDMI_ERROR_FATAL};
@@ -220,11 +230,9 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           faultySites.insert(i);
         } else if (name == "readout_length") {
           readout.duration = duration(parameter);
-        } else if (name == "readout_error" && parameter.contains("value") &&
-                   parameter["value"].is_number()) {
-          const auto error = parameter["value"].get<double>();
-          if (std::isfinite(error) && error >= 0 && error <= 1) {
-            readout.fidelity = 1 - error;
+        } else if (name == "readout_error") {
+          if (const auto value = fidelity(parameter)) {
+            readout.fidelity = value;
           }
         }
       }
@@ -232,7 +240,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           std::ranges::find(result.operations, "measure", &Operation::name);
       if (measurement != result.operations.end() &&
           (readout.duration || readout.fidelity)) {
-        measurement->calibrations.emplace_back(Sites{i}, readout);
+        measurement->calibrations.emplace(Sites{i}, readout);
         readoutCalibrations.insert(Sites{i});
       }
     }
@@ -273,20 +281,15 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           calibration.operational = operational(parameter);
         } else if (parameterName == "gate_length") {
           calibration.duration = duration(parameter);
-        } else if (parameterName == "gate_error" &&
-                   parameter.contains("value") &&
-                   parameter["value"].is_number()) {
-          const auto error = parameter["value"].get<double>();
-          if (std::isfinite(error) && error >= 0 && error <= 1) {
-            calibration.fidelity = 1 - error;
+        } else if (parameterName == "gate_error") {
+          if (const auto value = fidelity(parameter)) {
+            calibration.fidelity = value;
           }
         }
       }
-      const auto existing =
-          std::ranges::find_if(operation->calibrations, [&](const auto& entry) {
-            return entry.first == sites;
-          });
-      if (existing != operation->calibrations.end()) {
+      const auto [existing, inserted] =
+          operation->calibrations.emplace(sites, calibration);
+      if (!inserted) {
         // IBM repeats readout calibration as qubit properties and as a
         // measurement gate. Keep the readout values and fill missing fields.
         if (name != "measure" || readoutCalibrations.erase(sites) == 0) {
@@ -300,20 +303,17 @@ Metadata parseMetadata(const nlohmann::json& configuration,
         if (!existing->second.fidelity) {
           existing->second.fidelity = calibration.fidelity;
         }
-        continue;
       }
-      operation->calibrations.emplace_back(sites, calibration);
     }
   }
   for (auto& operation : result.operations) {
     const auto faulty = [&](const Sites& sites) {
+      const auto calibration = operation.calibrations.find(sites);
       return std::ranges::any_of(
                  sites,
                  [&](const auto site) { return faultySites.contains(site); }) ||
-             std::ranges::any_of(
-                 operation.calibrations, [&](const auto& entry) {
-                   return entry.first == sites && !entry.second.operational;
-                 });
+             (calibration != operation.calibrations.end() &&
+              !calibration->second.operational);
     };
     std::erase_if(operation.sites, faulty);
     std::erase_if(operation.calibrations, [&](const auto& entry) {
