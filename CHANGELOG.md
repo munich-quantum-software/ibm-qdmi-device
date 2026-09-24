@@ -31,7 +31,8 @@ releases may include breaking changes.
 ### Added
 
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
-  during documentation builds. Preserve standalone native API links.
+  during documentation builds. Preserve standalone native API links. ([#37])
+  ([**@marcelwa**])
 
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component, with central pytest markers and test selection. Collect native
@@ -162,3 +163,5 @@ releases may include breaking changes.
 [#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
 [#33]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/33
 [**@marcelwa**]: https://github.com/marcelwa
+
+[#37]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/37
