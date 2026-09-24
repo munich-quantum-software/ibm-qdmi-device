@@ -134,7 +134,9 @@ Install the resulting wheel into a fresh environment with
 `uv pip install --python <environment-python> <wheel-path>`, install the test
 dependency group, and run `pytest -m integration -n 0`, then
 `pytest -m "not integration and not ci"`, using that interpreter. CI also builds
-and tests platform wheels with cibuildwheel.
+and tests platform wheels with cibuildwheel. Windows ARM wheels are built and
+repaired, but their Python tests are skipped because optional framework
+dependencies lack compatible wheels. Native Windows ARM tests run separately.
 
 The Linux wheel containers install OpenSSL development files before building.
 macOS wheels use Apple's native TLS backend and disable optional curl libraries

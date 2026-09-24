@@ -58,7 +58,7 @@ email = "lukas@mq.sc"
 
 [project.optional-dependencies]
 pennylane = [ "mqt-core[pennylane,qiskit]~=4.0.0" ]
-qiskit = [ "mqt-core[qiskit]~=4.0.0" ]
+qiskit = [ "mqt-core[qiskit]~=4.0.0", "qiskit-algorithms>=0.4" ]
 
 [project.urls]
 Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
@@ -66,6 +66,8 @@ Homepage = "https://github.com/munich-quantum-software/ibm-qdmi-device"
 Issues = "https://github.com/munich-quantum-software/ibm-qdmi-device/issues"
 
 [project.scripts]
+ibm-estimator = "ibm.qdmi.estimator:main"
+ibm-sampler = "ibm.qdmi.sampler:main"
 ibm-qdmi = "ibm.qdmi.__main__:main"
 
 [project.entry-points."pennylane.plugins"]
@@ -87,6 +89,7 @@ test = [
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8",
   "pyyaml>=6.0.2",
+  "qiskit-algorithms>=0.4",
 ]
 docs = [
   # Breathe 5 cannot disambiguate headers through qualified file paths.
@@ -172,7 +175,9 @@ cache-keys = [
 
 [tool.cibuildwheel]
 build = "cp3*"
-skip = [ "*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64" ]
+skip = [ "*-musllinux_*", "cp3??t-*", "cp315-*" ]
+# Optional framework dependencies do not provide Windows ARM wheels.
+test-skip = [ "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
 test-command = 'pytest -m "not integration and not ci"'
@@ -208,6 +213,9 @@ unsafe-fixes = true
 show-fixes = true
 
 [tool.ruff.lint.per-file-ignores]
+"python/ibm/qdmi/sampler.py" = [ "T201" ]
+"python/ibm/qdmi/estimator.py" = [ "T201" ]
+"python/ibm/qdmi/offloader.py" = [ "PLW0717" ]
 "python/ibm/qdmi/__main__.py" = [ "T20" ]
 "docs/**" = [ "INP001", "T20" ]
 "test/**" = [ "INP001", "T20" ]

@@ -101,6 +101,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "mqt-core": ("https://mqt.readthedocs.io/projects/core/en/stable", None),
     "qiskit": ("https://docs.quantum.ibm.com/api/qiskit", None),
+    "qiskit-algorithms": ("https://qiskit-community.github.io/qiskit-algorithms", None),
     "pennylane": ("https://docs.pennylane.ai/en/stable", None),
 }
 
