@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Find generated native coverage reports when uploading to Codecov. ([#27])
+  ([**@marcelwa**])
+
 - 🐛 Accept IBM measurement calibration repeated in per-qubit readout and gate
   metadata so public backends can initialize for quantum execution. ([#25])
   ([**@marcelwa**])
@@ -120,6 +123,7 @@ releases may include breaking changes.
 [#24]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/24
 [#25]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/25
 [#26]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/26
+[#27]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/27
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
