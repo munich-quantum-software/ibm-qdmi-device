@@ -25,7 +25,7 @@ releases may include breaking changes.
 ### Added
 
 - 📚 Add task-based documentation navigation, a Python package guide, and MQSC
-  logos for light and dark themes.
+  logos for light and dark themes. ([#26]) ([**@marcelwa**])
 
 - 📚 Add generated Python API references and runnable native QDMI, Qiskit, MQT
   Bench, H₂, and PennyLane QAOA examples with offline validation. ([#24])
@@ -119,6 +119,7 @@ releases may include breaking changes.
 [#23]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/23
 [#24]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/24
 [#25]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/25
+[#26]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/26
 [#3]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/3
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
