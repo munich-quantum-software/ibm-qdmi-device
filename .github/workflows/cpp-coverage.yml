@@ -55,7 +55,7 @@ jobs:
           fail_ci_if_error: true
           flags: cpp
           use_oidc: true
-          directory: build/coverage
+          exclude: python-coverage
           plugins: gcov
       - name: Upload Python coverage
         if: vars.CODECOV_ENABLED == 'true'
