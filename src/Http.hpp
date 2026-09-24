@@ -44,6 +44,17 @@ using Transport = std::function<Response(const Request&)>;
 /// Validate an HTTPS endpoint, or an HTTP loopback endpoint for offline tests.
 bool validEndpoint(const std::string& url);
 Response send(const Request& request);
+namespace internal {
+/// Internal dependencies shared by the device and hermetic native tests.
+struct Hooks {
+  Transport transport = send;
+  std::function<std::chrono::steady_clock::time_point()> now =
+      std::chrono::steady_clock::now;
+  std::function<void(std::chrono::steady_clock::time_point)> sleepUntil;
+};
+/// Replace hooks only while no device calls are running; restore after testing.
+Hooks& hooks();
+} // namespace internal
 /// An internal status-only exception; never carries server text or credentials.
 struct Failure {
   int status;

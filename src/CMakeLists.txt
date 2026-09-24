@@ -28,10 +28,16 @@ if(BUILD_IBM_QDMI_DOCS)
   configure_file("${PROJECT_SOURCE_DIR}/docs/Doxyfile.in" "${PROJECT_BINARY_DIR}/Doxyfile" @ONLY)
 endif()
 
-add_library(ibm-qdmi-core STATIC Auth.cpp Http.cpp Job.cpp Metadata.cpp Program.cpp)
+add_library(ibm-qdmi-core OBJECT Auth.cpp Device.cpp Http.cpp Job.cpp Metadata.cpp Program.cpp)
+add_library(ibm::qdmi_device_internals ALIAS ibm-qdmi-core)
 target_compile_features(ibm-qdmi-core PUBLIC cxx_std_20)
-target_include_directories(ibm-qdmi-core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
-                                                "${CMAKE_CURRENT_BINARY_DIR}/include")
+target_include_directories(
+  ibm-qdmi-core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/include"
+                       "${CMAKE_CURRENT_BINARY_DIR}/include")
+target_compile_definitions(
+  ibm-qdmi-core
+  PRIVATE IBM_QDMI_device_EXPORTS
+  INTERFACE $<$<PLATFORM_ID:Windows>:IBM_QDMI_STATIC_DEFINE>)
 target_link_libraries(
   ibm-qdmi-core
   PUBLIC cpr::cpr nlohmann_json::nlohmann_json
@@ -39,7 +45,7 @@ target_link_libraries(
 set_target_properties(ibm-qdmi-core PROPERTIES CXX_VISIBILITY_PRESET hidden
                                                VISIBILITY_INLINES_HIDDEN ON)
 
-add_library(${QDMI_TARGET_NAME} SHARED Device.cpp)
+add_library(${QDMI_TARGET_NAME} SHARED)
 add_library(ibm-qdmi-device::ibm-qdmi-device ALIAS ${QDMI_TARGET_NAME})
 target_compile_features(${QDMI_TARGET_NAME} PRIVATE cxx_std_20)
 target_compile_definitions(${QDMI_TARGET_NAME} PRIVATE IBM_QDMI_device_EXPORTS)
@@ -70,8 +76,7 @@ target_sources(
                              "${PROJECT_SOURCE_DIR}/include/ibm-qdmi-device/constants.h")
 
 if(IBM_QDMI_ENABLE_COVERAGE)
-  target_link_libraries(ibm-qdmi-core PRIVATE qdmi::qdmi_coverage_flags)
-  target_link_libraries(${QDMI_TARGET_NAME} PRIVATE qdmi::qdmi_coverage_flags)
+  target_link_libraries(ibm-qdmi-core PUBLIC qdmi::qdmi_coverage_flags)
 endif()
 
 set(IBM_QDMI_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/cmake/${QDMI_TARGET_NAME}")

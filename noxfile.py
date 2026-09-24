@@ -103,6 +103,12 @@ def tests(session: nox.Session) -> None:
     _run_tests(session)
 
 
+@nox.session(python="3.14", reuse_venv=True)
+def native_tests(session: nox.Session) -> None:
+    """Test the native transport in a process independent of framework drivers."""
+    _run_tests(session, pytest_run_args=("-m", "integration", "-n", "0"))
+
+
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, venv_backend="uv", default=True)
 def minimums(session: nox.Session) -> None:
     """Test the minimum versions of dependencies."""

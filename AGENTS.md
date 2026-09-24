@@ -13,7 +13,9 @@ commands. Keep this file focused on repository-specific guardrails.
   information CLI. The catalogue template lives in `cmake/` and installs beside
   the library. The optional Qiskit backend reuses MQT Core's backend, job, and
   primitives.
-- `test/` contains native packaging checks and pytest tests.
+- `test/unit/` contains hermetic GoogleTest cases. `test/integration/` checks
+  the shared library and loopback transport. `test/python/` tests Python
+  modules.
 - `cmake/`, `CMakeLists.txt`, and `pyproject.toml` define builds. Keep generated
   output in `build/` and `docs/_build/`, never in commits.
 - The project uses Apache-2.0 WITH LLVM-exception. SPANK is out of scope.
@@ -58,10 +60,11 @@ Keep framework imports and package information commands free of live access.
 
 ## Build and Validation
 
-Run offline tests by default. Separate native, wheel, documentation, and
-installed-consumer build directories under `build/`. Do not run package builds
-concurrently in the same build directory. For dependency-only setup, use
-`uv sync --locked --only-group dev`.
+Run offline tests by default. Collect coverage without IBM credentials or QPU
+submissions; never spend hardware time to improve coverage. Separate native,
+wheel, documentation, and installed-consumer build directories under `build/`.
+Do not run package builds concurrently in the same build directory. For
+dependency-only setup, use `uv sync --locked --only-group dev`.
 
 - Run `uvx nox -s lint` after each completed batch of changes. Inspect formatter
   changes, keep only relevant changes, and rerun the check.

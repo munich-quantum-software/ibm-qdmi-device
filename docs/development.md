@@ -35,11 +35,25 @@ cmake --build build/native --config Release
 ctest --test-dir build/native -C Release --output-on-failure
 ```
 
-Use `Debug` in both configuration and build commands for a debug build. The
-native check compiles QDMI headers as C and C++ and links the shared library. It
-also exercises session configuration, IAM refresh, metadata parsing, and error
-mapping using synthetic responses. Job tests cover submission, cancellation,
-retrieval, deadlines, and result decoding without contacting IBM.
+Use `Debug` in both configuration and build commands for a debug build.
+`test/unit/` groups GoogleTest cases by native component. The shared `HttpStub`
+scripts requests and advances time without sockets or delays. Device fixtures
+exercise the public C API through the same internal object target as the shared
+library. `test/integration/` checks exported C and C++ interfaces, installation,
+and real HTTP transport against an ephemeral loopback server.
+
+```console
+ctest --test-dir build/native/test/unit -C Release --output-on-failure
+uvx nox -s native_tests
+```
+
+Run native ABI integration and Python framework tests in separate processes.
+Each ABI test owns initialization and finalization; MQT Core retains its driver
+library across framework tests. The `native_tests` Nox session selects the
+`integration` marker in a separate process. Ordinary tests exclude that marker;
+wheel tests also exclude repository tooling marked `ci`. The native integration
+suite retains transport, authentication, concurrency, job lifecycle, and
+result-cache regressions.
 
 Test installation, relocation, and an installed-package consumer:
 
@@ -51,25 +65,54 @@ Enable Linux sanitizer checks in a separate build with
 `-DIBM_QDMI_SANITIZERS="address;undefined" -DCMAKE_BUILD_TYPE=Debug`. Enable
 native coverage with `-DIBM_QDMI_ENABLE_COVERAGE=ON`.
 
+Coverage uses synthetic data only. QPU time is expensive: never submit hardware
+jobs to increase coverage. The coverage workflow receives no IBM credentials and
+never enables live or quantum tests. Hardware validation remains separately
+budgeted and explicitly authorized.
+
+To include loopback transport in a Linux native coverage build:
+
+```console
+cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_ENABLE_COVERAGE=ON
+cmake --build build/coverage --config Debug
+ctest --test-dir build/coverage -C Debug --output-on-failure
+uvx nox -s native_tests -- --native-library="$PWD/build/coverage/src/libibm-qdmi-device.so"
+uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
+```
+
+The explicit library path selects the instrumented build for ABI integration.
+Ordinary integration tests load the installed wheel. Python coverage measures
+Python code separately; it cannot measure native calls inside an uninstrumented
+wheel. CLI tests run in process for coverage and retain subprocess smoke checks.
+
 ## Python checks
 
 The Python package derives its version from the `project()` declaration in
 `CMakeLists.txt`. Update that version for both native and Python releases.
 
 ```console
-uvx nox -s tests-3.14 -- test/python/test_package.py
+uvx nox -s tests-3.14 -- test/python/test_init.py
 uvx nox -s tests minimums
 ```
 
-Nox tests Python 3.11 through 3.14. The minimums sessions resolve minimum direct
-dependencies and restore `uv.lock` afterward. Tests inspect installed package
-metadata, headers, CMake exports, and shared-library loading. Backend discovery
-checks open all three installed catalogue entries through MQT Core after copying
-the native artifacts to a fresh directory. Backend integration tests run the
-installed C ABI against an ephemeral loopback HTTP server. They verify
-authentication headers, error recovery, session isolation, and property queries
-without contacting IBM. The synthetic fixture in `test/fixtures/` models IBM API
-version `2026-04-15`; no recorded account data is used.
+Nox tests Python 3.11 through 3.14. The `tests` and `minimums` sessions use the
+default selection in `[tool.pytest]`; CI also runs `native_tests`. Registered
+markers, discovery paths, strict validation, and duration reporting live in
+`pyproject.toml`. Select offline ABI tests with `pytest -m integration -n 0`,
+repository tooling with `pytest -m ci`, or package tests with
+`pytest -m "not integration and not ci"`. The `live` and `quantum` markers still
+require their explicit opt-in flags; selecting a marker never grants access.
+Python tests follow module boundaries: initialization, CLI, capabilities,
+serializers, Qiskit backend, sampler, estimator, and PennyLane. The minimums
+sessions resolve minimum direct dependencies and restore `uv.lock` afterward.
+Tests inspect installed package metadata, headers, CMake exports, and
+shared-library loading. Backend discovery checks open all three installed
+catalogue entries through MQT Core after copying the native artifacts to a fresh
+directory. Backend integration tests run the installed C ABI against an
+ephemeral loopback HTTP server. They verify authentication headers, error
+recovery, session isolation, and property queries without contacting IBM. The
+synthetic fixture in `test/fixtures/` models IBM API version `2026-04-15`; no
+recorded account data is used.
 
 Qiskit tests use the released MQT Core driver and installed native library. A
 separate local process hosts the synthetic server because native session
@@ -78,7 +121,7 @@ Qiskit's basic simulator. It checks layouts, registers, batches, cancellation,
 retrieval, sampler broadcasting, and estimator precision without IBM access:
 
 ```console
-uvx nox -s tests-3.14 -- test/python/test_qiskit.py
+uvx nox -s tests-3.14 -- test/python/test_qiskit_backend.py
 ```
 
 Build an sdist and a wheel from that sdist:
@@ -89,8 +132,9 @@ uv run --only-group build python -m build --outdir build/dist
 
 Install the resulting wheel into a fresh environment with
 `uv pip install --python <environment-python> <wheel-path>`, install the test
-dependency group, and run `pytest test/python` using that interpreter. CI also
-builds and tests platform wheels with cibuildwheel.
+dependency group, and run `pytest -m integration -n 0`, then
+`pytest -m "not integration and not ci"`, using that interpreter. CI also builds
+and tests platform wheels with cibuildwheel.
 
 The Linux wheel containers install OpenSSL development files before building.
 macOS wheels use Apple's native TLS backend and disable optional curl libraries

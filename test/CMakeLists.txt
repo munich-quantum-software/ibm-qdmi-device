@@ -15,47 +15,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-add_executable(ibm-qdmi-package-tests headers.c test_package.cpp)
-
-foreach(property QDMI_DEVICE_ID QDMI_DEVICE_PREFIX QDMI_MANIFEST_NAME)
-  get_target_property(value ibm-qdmi-device::ibm-qdmi-device ${property})
-  if(NOT value)
-    message(FATAL_ERROR "Missing exported device property ${property}")
-  endif()
-endforeach()
-get_target_property(device_id ibm-qdmi-device::ibm-qdmi-device QDMI_DEVICE_ID)
-get_target_property(device_prefix ibm-qdmi-device::ibm-qdmi-device QDMI_DEVICE_PREFIX)
-if(NOT device_id STREQUAL "ibm.default" OR NOT device_prefix STREQUAL "IBM")
-  message(FATAL_ERROR "Unexpected QDMI device identity")
-endif()
-add_test(
-  NAME Package.Catalogue
-  COMMAND ${CMAKE_COMMAND} "-DIBM_QDMI_LIBRARY=$<TARGET_FILE:ibm-qdmi-device::ibm-qdmi-device>" -P
-          "${CMAKE_CURRENT_SOURCE_DIR}/catalogue.cmake")
-target_compile_features(ibm-qdmi-package-tests PRIVATE cxx_std_20)
-target_link_libraries(ibm-qdmi-package-tests PRIVATE ibm-qdmi-device::ibm-qdmi-device
-                                                     GTest::gtest_main)
-if(WIN32)
-  add_custom_command(
-    TARGET ibm-qdmi-package-tests
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ibm-qdmi-device::ibm-qdmi-device>
-            $<TARGET_FILE_DIR:ibm-qdmi-package-tests>)
-endif()
-gtest_discover_tests(ibm-qdmi-package-tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60)
-
-add_executable(ibm-qdmi-native-example "${PROJECT_SOURCE_DIR}/examples/native/execute.c")
-target_compile_features(ibm-qdmi-native-example PRIVATE c_std_17)
-target_link_libraries(ibm-qdmi-native-example PRIVATE ibm-qdmi-device::ibm-qdmi-device)
+add_subdirectory(integration)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
-  add_executable(ibm-qdmi-backend-tests test_backend.cpp test_jobs.cpp)
-  target_link_libraries(ibm-qdmi-backend-tests PRIVATE ibm-qdmi-core GTest::gtest_main)
-  target_compile_definitions(
-    ibm-qdmi-backend-tests
-    PRIVATE IBM_QDMI_FIXTURE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/backend.json")
-  if(IBM_QDMI_ENABLE_COVERAGE)
-    target_link_libraries(ibm-qdmi-backend-tests PRIVATE qdmi::qdmi_coverage_flags)
-  endif()
-  gtest_discover_tests(ibm-qdmi-backend-tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 60)
+  add_subdirectory(unit)
 endif()

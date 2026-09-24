@@ -30,6 +30,11 @@ releases may include breaking changes.
 
 ### Added
 
+- 🧪 Organize native unit, loopback integration, and Python adapter tests by
+  component, with central pytest markers and test selection. Collect native
+  transport and in-process CLI coverage offline, without additional QPU
+  submissions. ([#33]) ([**@marcelwa**])
+
 - 👷 Allow maintainers to opt same-repository PRs into bounded IBM hardware
   checks with the `live-qpu-tests` label. Reuse successful offline checks and
   the exact candidate wheel on label addition; ignore unrelated label changes.
@@ -152,4 +157,5 @@ releases may include breaking changes.
 [#5]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/5
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
+[#33]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/33
 [**@marcelwa**]: https://github.com/marcelwa

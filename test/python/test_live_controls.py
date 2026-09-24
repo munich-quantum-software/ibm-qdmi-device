@@ -41,7 +41,6 @@ def run_live_tests(
     """
     source = Path(__file__).parent
     for name in (
-        "conftest.py",
         "test_live_metadata.py",
         "test_quantum.py",
         "quantum_checks.py",
@@ -50,7 +49,8 @@ def run_live_tests(
         "offline_service.py",
     ):
         shutil.copyfile(source / name, tmp_path / name)
-    (tmp_path / "pyproject.toml").write_text('[tool.pytest]\nfilterwarnings = ["error"]\n', encoding="utf-8")
+    shutil.copyfile(source.parent / "conftest.py", tmp_path / "conftest.py")
+    shutil.copyfile(source.parents[1] / "pyproject.toml", tmp_path / "pyproject.toml")
     # The guard replaces the test's environment and loader before any test body.
     # Even a regression in opt-in handling cannot reach the real native client.
     (tmp_path / "guard.py").write_text(
@@ -81,7 +81,7 @@ def pytest_collection_modifyitems(config, items):
         encoding="utf-8",
     )
     return subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed interpreter and local synthetic test files
-        [sys.executable, "-m", "pytest", "-p", "guard", "-n", "0", *arguments],
+        [sys.executable, "-m", "pytest", "-o", "addopts=", "-o", "testpaths=.", "-p", "guard", "-n", "0", *arguments],
         cwd=tmp_path,
         check=False,
         capture_output=True,
@@ -90,13 +90,16 @@ def pytest_collection_modifyitems(config, items):
     )
 
 
-def test_default_skips_before_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(("arguments", "skipped"), [([], 4), (["-m", "live"], 2), (["-m", "quantum"], 2)])
+def test_default_skips_before_credentials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], skipped: int
+) -> None:
     """Ordinary and wheel test invocations cannot activate live credentials."""
     monkeypatch.setenv("IBM_QUANTUM_API_KEY", "synthetic-private-value")
     monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", "synthetic-private-value")
-    result = run_live_tests(tmp_path, [])
+    result = run_live_tests(tmp_path, arguments)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "4 skipped" in result.stdout
+    assert f"{skipped} skipped" in result.stdout
 
 
 @pytest.mark.parametrize("selection", ["both", "ibm_berlin", "ibm_aachen"])

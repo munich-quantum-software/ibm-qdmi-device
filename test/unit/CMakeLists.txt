@@ -15,27 +15,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Shared offline framework fixtures."""
-
-from __future__ import annotations
-
-import gc
-from typing import TYPE_CHECKING
-
-import pytest
-from qiskit_service import RuntimeProxy, remote_runtime
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-
-@pytest.fixture
-def runtime() -> Iterator[RuntimeProxy]:
-    """Attach the synthetic runtime and release any Python job cycles.
-
-    Yields:
-        The loopback service and its recorded submissions.
-    """
-    with remote_runtime() as proxy:
-        yield proxy
-        gc.collect()
+add_executable(
+  unit_tests
+  http_stub.cpp
+  test_http_client.cpp
+  test_ibm_api_config.cpp
+  test_ibm_auth.cpp
+  test_ibm_device.cpp
+  test_jobs.cpp
+  test_metadata.cpp
+  test_program.cpp)
+target_link_libraries(unit_tests PRIVATE ibm::qdmi_device_internals GTest::gtest_main)
+target_compile_definitions(
+  unit_tests PRIVATE IBM_QDMI_FIXTURE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/backend.json")
+gtest_discover_tests(unit_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit DISCOVERY_TIMEOUT 60)

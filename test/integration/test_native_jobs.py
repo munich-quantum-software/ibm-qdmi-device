@@ -28,6 +28,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 if TYPE_CHECKING:
     from native_support import Native
     from offline_service import Service
@@ -121,110 +123,6 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
     assert submissions[0]["params"]["pubs"][0] == [PROGRAM.decode(), None, 3]
 
 
-def test_job_retains_session_and_validates_handles(native: Native, job_service: Service) -> None:
-    """Freeing a session leaves its jobs usable and never cancels remotely."""
-    job = ctypes.c_void_p()
-    with native.session(job_service.parameters) as session:
-        assert native.create_job(session, ctypes.byref(job)) == -10
-        assert native.init(session) == 0
-        assert native.create_job(session, None) == -7
-        assert native.create_job(session, ctypes.byref(job)) == 0
-    try:
-        configure(native, job)
-        assert native.submit(job) == 0
-        assert native.wait(job, 1) == 0
-        assert native.finalize() == -1
-        assert native.job_check(job, None) == -7
-        assert native.submit(ctypes.c_void_p(1)) == -7
-        assert native.results(job, -1, 0, None, None) == -7
-    finally:
-        native.job_free(job)
-    assert native.submit(job) == -7
-    native.job_free(job)
-    assert all(not path.endswith("/cancel") for path, _, _ in job_service.requests)
-
-
-def test_configuration_validation(native: Native, job_service: Service) -> None:
-    """Reject invalid values without changing valid configuration."""
-    with native.session(job_service.parameters) as session:
-        assert native.init(session) == 0
-        with native.job(session) as job:
-            nonnull = ctypes.c_size_t(1)
-            for parameter in (0, 1, 2, 999999995, 999999996):
-                assert native.job_set(job, parameter, 0, ctypes.byref(nonnull)) == -7
-            assert native.job_set(job, 999999995, 0, None) == 0
-            assert native.job_set(job, 999999996, 0, None) == 0
-            assert native.job_set(job, 999999997, 0, None) == -9
-            assert native.job_set(job, -1, 0, None) == -7
-            for value in (0, 10801):
-                seconds = ctypes.c_uint64(value)
-                assert native.job_set(job, 999999995, 8, ctypes.byref(seconds)) == -7
-            seconds = ctypes.c_uint64(42)
-            assert native.job_set(job, 999999995, 1, ctypes.byref(seconds)) == -7
-            assert native.job_set(job, 999999995, 8, ctypes.byref(seconds)) == 0
-            zero = ctypes.c_size_t(0)
-            assert native.job_set(job, 2, ctypes.sizeof(zero), ctypes.byref(zero)) == -7
-            fmt = ctypes.c_int(0)
-            assert native.job_set(job, 0, ctypes.sizeof(fmt), ctypes.byref(fmt)) == -9
-            configure(native, job)
-            assert native.job_set(job, 1, len(PROGRAM), PROGRAM) == -7
-            assert native.submit(job) == 0
-    submitted = next(json.loads(body) for path, _, body in job_service.requests if path == "/v1/jobs")
-    assert submitted["cost"] == 42
-
-
-@pytest.mark.parametrize("options", [{}, {"enable": True}, {"enable": False, "sequence_type": "XY4"}])
-def test_dynamical_decoupling_parameters(native: Native, job_service: Service, options: dict[str, object]) -> None:
-    """Replace job options through the C ABI and fill omitted IBM defaults."""
-    initial = b'{"enable":true,"sequence_type":"XpXm","skip_reset_qubits":true}'
-    encoded = json.dumps(options).encode()
-    with native.session(job_service.parameters) as session:
-        assert native.init(session) == 0
-        with native.job(session) as job:
-            configure(native, job)
-            assert native.job_set(job, 999999996, len(initial) + 1, initial) == 0
-            assert native.job_set(job, 999999996, len(encoded) + 1, encoded) == 0
-            assert native.job_set(job, 999999996, 0, None) == 0
-            assert native.submit(job) == 0
-            assert native.job_set(job, 999999996, 0, None) == -10
-            assert native.job_set(job, 999999996, len(encoded) + 1, encoded) == -10
-            assert native.submit(job) == -10
-    submissions = [json.loads(body) for path, _, body in job_service.requests if path == "/v1/jobs"]
-    assert len(submissions) == 1
-    expected = {
-        "enable": False,
-        "sequence_type": "XX",
-        "extra_slack_distribution": "middle",
-        "scheduling_method": "alap",
-        "skip_reset_qubits": False,
-    } | options
-    assert submissions[0]["params"]["options"]["dynamical_decoupling"] == expected
-    assert submissions[0]["params"]["options"]["twirling"] == {"enable_gates": False, "enable_measure": False}
-    assert submissions[0]["cost"] == 60
-
-
-def test_dynamical_decoupling_rejects_invalid_input(native: Native, job_service: Service) -> None:
-    """Invalid JSON and buffers leave the last valid job options unchanged."""
-    options = b'{"enable":true,"sequence_type":"XY4"}'
-    with native.session(job_service.parameters) as session:
-        assert native.init(session) == 0
-        with native.job(session) as job:
-            configure(native, job)
-            assert native.job_set(job, 999999996, len(options) + 1, options) == 0
-            count = len(job_service.requests)
-            for invalid in (b"{", b"[]", b"null", b'{"unknown":true}', b'{"enable":1}', b'{"sequence_type":"ZZ"}'):
-                assert native.job_set(job, 999999996, len(invalid) + 1, invalid) == -7
-            assert native.job_set(job, 999999996, 0, options) == -7
-            assert native.job_set(job, 999999996, len(options), options) == -7
-            embedded_null = b"{}\0{}\0"
-            assert native.job_set(job, 999999996, len(embedded_null), embedded_null) == -7
-            assert len(job_service.requests) == count
-            assert native.submit(job) == 0
-    submitted = next(json.loads(body) for path, _, body in job_service.requests if path == "/v1/jobs")
-    assert submitted["params"]["options"]["dynamical_decoupling"]["enable"] is True
-    assert submitted["params"]["options"]["dynamical_decoupling"]["sequence_type"] == "XY4"
-
-
 @pytest.mark.parametrize("failure", [401, 403, 500])
 def test_failed_submission_is_not_retried(native: Native, job_service: Service, failure: int) -> None:
     """HTTP failure freezes a handle and cannot submit a duplicate job."""
@@ -237,26 +135,6 @@ def test_failed_submission_is_not_retried(native: Native, job_service: Service, 
             assert native.submit(job) == -10
             assert native.wait(job, 1) == -1
     assert sum(path == "/v1/jobs" for path, _, _ in job_service.requests) == 1
-
-
-def test_wait_timeout_and_cancellation(native: Native, job_service: Service) -> None:
-    """Timeout leaves the job queued; cancellation is an explicit request."""
-    job_service.data["synthetic-job"]["state"]["status"] = "Queued"
-    job_service.errors["cancel"] = 204
-    with native.session(job_service.parameters) as session:
-        assert native.init(session) == 0
-        with native.job(session) as job:
-            configure(native, job)
-            assert native.wait(job, 1) == -10
-            assert native.submit(job) == 0
-            assert native.results(job, 0, 0, None, None) == -7
-            started = time.monotonic()
-            assert native.wait(job, 1) == -11
-            assert time.monotonic() - started < 2
-            assert all(not path.endswith("/cancel") for path, _, _ in job_service.requests)
-            assert native.cancel(job) == 0
-            assert native.wait(job, 1) == 0
-            assert native.results(job, 0, 0, None, None) == -7
 
 
 def test_request_timeout_does_not_retry_submission(native: Native, job_service: Service) -> None:

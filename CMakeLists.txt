@@ -40,7 +40,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(QDMI_PREFIX IBM)
 set(QDMI_TARGET_NAME ibm-qdmi-device)
 
-option(BUILD_IBM_QDMI_TESTS "Build offline packaging tests" ${PROJECT_IS_TOP_LEVEL})
+option(BUILD_IBM_QDMI_TESTS "Build offline native tests" ${PROJECT_IS_TOP_LEVEL})
 option(USE_INSTALLED_IBM_QDMI_DEVICE "Build tests against an installed package" OFF)
 option(IBM_QDMI_ENABLE_COVERAGE "Enable native coverage reporting" OFF)
 option(BUILD_IBM_QDMI_DOCS "Configure the native API documentation" OFF)

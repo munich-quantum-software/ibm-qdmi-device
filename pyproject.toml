@@ -173,9 +173,9 @@ build = "cp3*"
 skip = [ "*-musllinux_*", "cp3??t-*", "cp315-*", "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
-test-command = "pytest test/python --durations=10"
+test-command = 'pytest -m "not integration and not ci"'
 test-groups = [ "test" ]
-test-sources = [ "test/python", "test/fixtures" ]
+test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel"
@@ -268,6 +268,9 @@ error-on-warning = true
 addopts = [
   "-ra",
   "--numprocesses=auto", # Automatically use all available CPU cores for parallel testing
+  "--durations=10",
+  "-m",
+  "not integration",
 ]
 filterwarnings = [
   "error",
@@ -275,10 +278,16 @@ filterwarnings = [
   "ignore:'return' in a 'finally' block:SyntaxWarning:.*autograd[/\\\\]wrap_util",
 ]
 log_level = "INFO"
+markers = [
+  "integration: offline native ABI and loopback transport tests (run in a separate process)",
+  "ci: repository workflow and tooling tests",
+  "live: IBM metadata requests (requires --run-live)",
+  "quantum: IBM QPU execution (requires --run-quantum)",
+]
 minversion = "9.0"
 pythonpath = [ ".", "test/python" ]
 strict = true
-testpaths = [ "test/python", "test/ci" ]
+testpaths = [ "test/python", "test/integration", "test/ci" ]
 
 
 [tool.coverage]

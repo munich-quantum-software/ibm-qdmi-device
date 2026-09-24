@@ -52,8 +52,9 @@ Configuration resolve(Configuration configuration);
 std::chrono::milliseconds parseRequestTimeout(std::string_view value);
 class Auth {
 public:
-  explicit Auth(Configuration configuration, Transport transport = send,
-                Clock clock = std::chrono::steady_clock::now);
+  explicit Auth(Configuration configuration,
+                Transport transport = internal::hooks().transport,
+                Clock clock = internal::hooks().now);
   std::string get(const std::string& resource,
                   Deadline deadline = Deadline::max());
   /// GET may refresh and retry once after 401. POST is sent at most once.

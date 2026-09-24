@@ -23,6 +23,7 @@ import ctypes
 import sys
 from contextlib import contextmanager
 from importlib import resources
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ibm import qdmi
@@ -159,14 +160,16 @@ class Native:
 
 
 @contextmanager
-def load_native() -> Iterator[Native]:
+def load_native(library_path: str | None = None) -> Iterator[Native]:
     """Own the installed library lifecycle.
 
     Yields:
         The initialized native interface.
     """
     data = resources.files(qdmi).joinpath("data")
-    if sys.platform == "win32":
+    if library_path is not None:
+        library = Path(library_path)
+    elif sys.platform == "win32":
         library = next(
             path
             for path in data.joinpath("bin").iterdir()
