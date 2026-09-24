@@ -25,6 +25,8 @@ from typing import Any
 import pytest
 import reuse_candidate
 
+pytestmark = pytest.mark.ci
+
 
 @pytest.fixture
 def metadata(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], dict[str, Any]]:

@@ -150,7 +150,7 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.14"
-      - run: uvx nox -s tests minimums examples
+      - run: uvx nox -s tests minimums native_tests examples
   build-sdist:
     name: 🚀 CD
     needs: change-detection
@@ -238,8 +238,8 @@ jobs:
           uv venv build/candidate/venv
           uv export --locked --only-group test --no-emit-project --output-file build/candidate/requirements.txt
           uv pip install --python build/candidate/venv/bin/python -r build/candidate/requirements.txt build/candidate/dist/*.whl
-          build/candidate/venv/bin/python -m pytest test/integration -n 0
-          build/candidate/venv/bin/python -m pytest test/python test/ci
+          build/candidate/venv/bin/python -m pytest -m integration -n 0
+          build/candidate/venv/bin/python -m pytest
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         id: candidate
         with:

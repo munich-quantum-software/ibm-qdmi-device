@@ -40,8 +40,6 @@ def pytest_configure(config: pytest.Config) -> None:
     Raises:
         UsageError: A live run selected an unsupported backend.
     """
-    config.addinivalue_line("markers", "live: explicitly authorized IBM metadata requests (disabled by default)")
-    config.addinivalue_line("markers", "quantum: explicitly authorized IBM quantum jobs (disabled by default)")
     if config.getoption("run_live") or config.getoption("run_quantum"):
         if config.getoption("ibm_backend") not in {"both", *BACKENDS}:
             msg = "live checks: invalid backend selection"

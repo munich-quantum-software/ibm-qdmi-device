@@ -49,9 +49,11 @@ uvx nox -s native_tests
 
 Run native ABI integration and Python framework tests in separate processes.
 Each ABI test owns initialization and finalization; MQT Core retains its driver
-library across framework tests. Nox and wheel tests enforce that separation. The
-native integration suite retains transport, authentication, concurrency,
-job-lifetime, and result-cache regressions.
+library across framework tests. The `native_tests` Nox session selects the
+`integration` marker in a separate process. Ordinary tests exclude that marker;
+wheel tests also exclude repository tooling marked `ci`. The native integration
+suite retains transport, authentication, concurrency, job lifecycle, and
+result-cache regressions.
 
 Test installation, relocation, and an installed-package consumer:
 
@@ -93,18 +95,24 @@ uvx nox -s tests-3.14 -- test/python/test_init.py
 uvx nox -s tests minimums
 ```
 
-Nox tests Python 3.11 through 3.14. Each test session first runs offline ABI
-integration in a separate process. Python tests follow module boundaries:
-initialization, CLI, capabilities, serializers, Qiskit backend, sampler,
-estimator, and PennyLane. The minimums sessions resolve minimum direct
-dependencies and restore `uv.lock` afterward. Tests inspect installed package
-metadata, headers, CMake exports, and shared-library loading. Backend discovery
-checks open all three installed catalogue entries through MQT Core after copying
-the native artifacts to a fresh directory. Backend integration tests run the
-installed C ABI against an ephemeral loopback HTTP server. They verify
-authentication headers, error recovery, session isolation, and property queries
-without contacting IBM. The synthetic fixture in `test/fixtures/` models IBM API
-version `2026-04-15`; no recorded account data is used.
+Nox tests Python 3.11 through 3.14. The `tests` and `minimums` sessions use the
+default selection in `[tool.pytest]`; CI also runs `native_tests`. Registered
+markers, discovery paths, strict validation, and duration reporting live in
+`pyproject.toml`. Select offline ABI tests with `pytest -m integration -n 0`,
+repository tooling with `pytest -m ci`, or package tests with
+`pytest -m "not integration and not ci"`. The `live` and `quantum` markers still
+require their explicit opt-in flags; selecting a marker never grants access.
+Python tests follow module boundaries: initialization, CLI, capabilities,
+serializers, Qiskit backend, sampler, estimator, and PennyLane. The minimums
+sessions resolve minimum direct dependencies and restore `uv.lock` afterward.
+Tests inspect installed package metadata, headers, CMake exports, and
+shared-library loading. Backend discovery checks open all three installed
+catalogue entries through MQT Core after copying the native artifacts to a fresh
+directory. Backend integration tests run the installed C ABI against an
+ephemeral loopback HTTP server. They verify authentication headers, error
+recovery, session isolation, and property queries without contacting IBM. The
+synthetic fixture in `test/fixtures/` models IBM API version `2026-04-15`; no
+recorded account data is used.
 
 Qiskit tests use the released MQT Core driver and installed native library. A
 separate local process hosts the synthetic server because native session
@@ -124,9 +132,9 @@ uv run --only-group build python -m build --outdir build/dist
 
 Install the resulting wheel into a fresh environment with
 `uv pip install --python <environment-python> <wheel-path>`, install the test
-dependency group, and run `pytest test/integration -n 0`, then
-`pytest test/python`, using that interpreter. CI also builds and tests platform
-wheels with cibuildwheel.
+dependency group, and run `pytest -m integration -n 0`, then
+`pytest -m "not integration and not ci"`, using that interpreter. CI also builds
+and tests platform wheels with cibuildwheel.
 
 The Linux wheel containers install OpenSSL development files before building.
 macOS wheels use Apple's native TLS backend and disable optional curl libraries

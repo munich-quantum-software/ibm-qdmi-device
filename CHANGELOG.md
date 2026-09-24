@@ -31,8 +31,9 @@ releases may include breaking changes.
 ### Added
 
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
-  component. Collect native transport and in-process CLI coverage offline,
-  without additional QPU submissions. ([#33]) ([**@marcelwa**])
+  component, with central pytest markers and test selection. Collect native
+  transport and in-process CLI coverage offline, without additional QPU
+  submissions. ([#33]) ([**@marcelwa**])
 
 - 👷 Allow maintainers to opt same-repository PRs into bounded IBM hardware
   checks with the `live-qpu-tests` label. Reuse successful offline checks and

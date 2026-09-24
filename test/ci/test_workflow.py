@@ -27,6 +27,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+pytestmark = pytest.mark.ci
+
 WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
 
 

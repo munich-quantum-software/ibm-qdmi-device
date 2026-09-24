@@ -29,6 +29,8 @@ from metadata_checks import validate_backend
 from native_support import MetadataError, Native
 from offline_service import CRN, Service
 
+pytestmark = pytest.mark.integration
+
 if TYPE_CHECKING:
     import ctypes
     from pathlib import Path
