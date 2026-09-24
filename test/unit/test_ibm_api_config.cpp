@@ -21,14 +21,12 @@
 #include "Http.hpp"
 
 #include <chrono>
-#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
 #include <ios>
-#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -94,6 +92,8 @@ TEST(Configuration, RequestTimeoutHasPortableBounds) {
 }
 
 #ifdef _MSC_VER
+#include <cstddef>
+#include <memory>
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers) -- MSVC environment extensions
 #endif
 

@@ -19,6 +19,7 @@
 
 #include "Http.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
@@ -63,4 +64,13 @@ TEST(Http, MapsFailuresWithoutServerText) {
             {.status = 0, .body = {}, .timedOut = false, .failed = true});
       },
       QDMI_ERROR_FATAL);
+}
+
+TEST(Http, DefaultClockAndSleeperAcceptExpiredDeadline) {
+  const auto before = std::chrono::steady_clock::now();
+  const auto now = ibm::internal::hooks().now();
+  EXPECT_GE(now, before);
+  EXPECT_LE(now, std::chrono::steady_clock::now());
+  EXPECT_NO_THROW(
+      ibm::internal::hooks().sleepUntil(now - std::chrono::milliseconds{1}));
 }
