@@ -102,8 +102,10 @@ build = [
 ]
 examples = [
   { include-group = "test" },
+  "cmake>=3.24",
   "mqt-bench>=2.2.2",
   "mqt-core[pennylane,qiskit]~=4.0.0",
+  "ninja>=1.5",
 ]
 typecheck = [
   { include-group = "test" },
