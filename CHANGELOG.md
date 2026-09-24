@@ -31,7 +31,7 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Add Slurm sampling and VQE offloaders with local simulator execution and
-  `ibm-sampler` and `ibm-estimator` workers.
+  `ibm-sampler` and `ibm-estimator` workers. ([#36]) ([**@marcelwa**])
 
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component, with central pytest markers and test selection. Collect native
@@ -162,3 +162,5 @@ releases may include breaking changes.
 [#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
 [#33]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/33
 [**@marcelwa**]: https://github.com/marcelwa
+
+[#36]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/36
