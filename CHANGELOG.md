@@ -30,6 +30,17 @@ releases may include breaking changes.
 
 ### Added
 
+- 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
+  during documentation builds, including sampling and VQE offloaders. Preserve
+  standalone native API links. ([#37]) ([**@marcelwa**])
+
+- ✨ Add Slurm sampling and VQE offloaders with local simulator execution and
+  `ibm-sampler` and `ibm-estimator` workers. ([#36]) ([**@marcelwa**])
+
+- 👷 Build and repair Windows ARM wheels in CI and releases. Skip optional
+  Python framework tests on this platform; retain native ARM tests. ([#35])
+  ([**@marcelwa**])
+
 - 🧪 Organize native unit, loopback integration, and Python adapter tests by
   component, with central pytest markers and test selection. Collect native
   transport and in-process CLI coverage offline, without additional QPU
@@ -158,4 +169,8 @@ releases may include breaking changes.
 [#8]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/8
 [#28]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/28
 [#33]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/33
+[#35]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/35
 [**@marcelwa**]: https://github.com/marcelwa
+
+[#37]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/37
+[#36]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/36

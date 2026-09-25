@@ -41,6 +41,7 @@ master_doc = "index"
 
 extensions = [
     "autoapi.extension",
+    "breathe",
     "native_api",
     "myst_nb",
     "sphinx_copybutton",
@@ -58,7 +59,13 @@ autoapi_ignore = ["*/__main__.py"]
 autoapi_options = ["members", "imported-members", "undoc-members", "show-inheritance", "show-module-summary"]
 
 # MQT Core uses this type alias in signatures but does not publish it in its inventory.
-nitpick_ignore = [("py:class", "mqt.core.plugins.qiskit.backend.ParametersType")]
+nitpick_ignore = [
+    ("py:class", "mqt.core.plugins.qiskit.backend.ParametersType"),
+    ("cpp:identifier", "size_t"),
+]
+
+# Opaque QDMI handles intentionally have no public struct definitions.
+nitpick_ignore_regex = [("cpp:identifier", r"(?:IBM_)?QDMI_\w+_impl_d")]
 
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
@@ -94,6 +101,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "mqt-core": ("https://mqt.readthedocs.io/projects/core/en/stable", None),
     "qiskit": ("https://docs.quantum.ibm.com/api/qiskit", None),
+    "qiskit-algorithms": ("https://qiskit-community.github.io/qiskit-algorithms", None),
     "pennylane": ("https://docs.pennylane.ai/en/stable", None),
 }
 
@@ -114,7 +122,11 @@ python_use_unqualified_type_names = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 
-nb_execution_mode = "off"
+breathe_projects = {"IBM QDMI Device": "_build/doxygen/xml"}
+breathe_default_project = "IBM QDMI Device"
+
+nb_execution_mode = "cache"
+nb_execution_timeout = 300
 nb_execution_raise_on_error = True
 
 copybutton_prompt_text = r"(?:\(\.?venv\) )?(?:\[.*\] )?\$ "

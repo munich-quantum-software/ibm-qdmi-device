@@ -134,7 +134,9 @@ Install the resulting wheel into a fresh environment with
 `uv pip install --python <environment-python> <wheel-path>`, install the test
 dependency group, and run `pytest -m integration -n 0`, then
 `pytest -m "not integration and not ci"`, using that interpreter. CI also builds
-and tests platform wheels with cibuildwheel.
+and tests platform wheels with cibuildwheel. Windows ARM wheels are built and
+repaired, but their Python tests are skipped because optional framework
+dependencies lack compatible wheels. Native Windows ARM tests run separately.
 
 The Linux wheel containers install OpenSSL development files before building.
 macOS wheels use Apple's native TLS backend and disable optional curl libraries
@@ -312,9 +314,13 @@ uvx nox --non-interactive -s docs
 uvx nox --non-interactive -s docs -- -b linkcheck
 ```
 
-The session builds the package in `build/docs/`, generates standalone Doxygen
-HTML, and builds Sphinx with warnings treated as errors. HTML output is in
-`docs/_build/html/`, with the generated C interface under `cpp/`.
+The session builds the package in `build/docs/`, generates Doxygen XML and HTML,
+and embeds declarations in Sphinx with Breathe. Warnings fail the build. HTML
+output is in `docs/_build/html/`; existing `cpp/` links remain available. The
+example and offloading notebooks run on the local simulator without IBM
+credentials. Successful execution is cached; cell errors fail the build. To
+execute every cell again, pass `-- -D nb_execution_mode=force` to the docs
+session.
 
 ## Automation
 

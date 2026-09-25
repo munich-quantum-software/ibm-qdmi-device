@@ -11,11 +11,8 @@ allocation/configuration/initialization/free, and device, site, and operation
 queries, and the complete job lifecycle. The supported program format is
 OpenQASM 3. Child-device enumeration is unsupported.
 
-<!-- The native API link is generated alongside the Sphinx HTML. -->
-<!-- rumdl-disable MD033 -->
-The <a href="cpp/index.html">generated QDMI declaration reference</a> also
-describes the implemented device functions and upstream client declarations.
-<!-- rumdl-enable MD033 -->
+The [generated QDMI declaration reference](native_api.md) describes the
+implemented device functions, types, and IBM-specific constants.
 
 ## Session configuration
 
