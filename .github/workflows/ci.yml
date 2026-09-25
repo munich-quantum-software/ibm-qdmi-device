@@ -142,7 +142,7 @@ jobs:
     name: 🐍 Test
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -225,7 +225,7 @@ jobs:
   candidate-wheel:
     name: Candidate wheel
     if: github.event.action != 'labeled'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       artifact-id: ${{ steps.candidate.outputs.artifact-id }}
     steps:
@@ -260,7 +260,7 @@ jobs:
     if: >-
       github.event.action == 'labeled' && github.event.label.name == 'live-qpu-tests' &&
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read
@@ -292,7 +292,7 @@ jobs:
       ((github.event.action != 'labeled' &&
       needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success') ||
       (needs.reuse-offline.result == 'success' && needs.reuse-offline.outputs.hardware-needed == 'true'))
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read
