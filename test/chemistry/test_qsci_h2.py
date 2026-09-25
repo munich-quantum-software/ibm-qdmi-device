@@ -44,6 +44,6 @@ def test_h2_exact_selected_subspace() -> None:
 def test_full_h2_workflow() -> None:
     """Run molecular construction, UCCSD VQE, sampling, and QSCI without credentials."""
     backend = QDMIBackend.from_device_id("mqt.ddsim.default")
-    energy = qsci_h2.run(backend, shots=1024, maxiter=2, cutoff=4)
+    energy = qsci_h2.run(backend, shots=1024, maxiter=12, cutoff=4)
     # Finite sampling can retain only the Hartree-Fock determinant.
     assert qsci_h2.EXPECTED_ENERGY - 1e-6 <= energy < -1.0

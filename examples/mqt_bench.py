@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -115,17 +116,17 @@ def _describe_result(key: str, counts: dict[str, int], num_qubits: int, shots: i
         A short human-readable summary for the selected benchmark family.
     """
     if key == "ghz":
-        expected = {"0" * num_qubits: shots // 2, "1" * num_qubits: shots - shots // 2}
+        expected = {"0" * num_qubits: shots / 2, "1" * num_qubits: shots / 2}
         return f"GHZ fidelity={hellinger_fidelity(counts, expected):.7f}"
     if key == "dj":
         expected = {"1" * (num_qubits - 1): shots}
         return f"Deutsch-Jozsa fidelity={hellinger_fidelity(counts, expected):.7f}"
-    if key == "qft":
-        expected = {format(i, f"0{num_qubits}b"): shots / (2**num_qubits) for i in range(2**num_qubits)}
-        return f"QFT fidelity={hellinger_fidelity(counts, expected):.7f}"
-    if key == "graphstate":
-        expected = {format(i, f"0{num_qubits}b"): shots / (2**num_qubits) for i in range(2**num_qubits)}
-        return f"Graph-state fidelity={hellinger_fidelity(counts, expected):.7f}"
+    if key in {"qft", "graphstate"}:
+        # Unobserved outcomes contribute zero to the Hellinger overlap.
+        total = sum(counts.values())
+        fidelity = math.fsum(math.sqrt(count / total) for count in counts.values()) ** 2 * 2.0**-num_qubits
+        title = "QFT" if key == "qft" else "Graph-state"
+        return f"{title} fidelity={fidelity:.7f}"
     if key == "wstate":
         expected = {
             f"{1 << (num_qubits - index - 1):0{num_qubits}b}": shots / num_qubits for index in range(num_qubits)
@@ -136,15 +137,17 @@ def _describe_result(key: str, counts: dict[str, int], num_qubits: int, shots: i
         r = int(np.pi / 4 * np.sqrt(2**actual_qubits))
         theta = 2 * np.arcsin(1 / np.sqrt(2**actual_qubits))
         success_prob = float(np.sin((r + 0.5) * theta) ** 2)
-        expected: dict[str, float] = {"1" * num_qubits: success_prob * shots}
-        if success_prob < 1:
-            remaining_prob = 1 - success_prob
-            remaining_prob_per_bitstring = remaining_prob * shots / (2**actual_qubits - 1)
-            for index in range(2**actual_qubits):
-                bitstring = format(index, f"0{actual_qubits}b")
-                if bitstring != "1" * actual_qubits:
-                    expected["1" + bitstring] = remaining_prob_per_bitstring
-        return f"Grover fidelity={hellinger_fidelity(counts, expected):.7f}"
+        other_prob = (1 - success_prob) / (2**actual_qubits - 1)
+        total = sum(counts.values())
+        fidelity = (
+            math.fsum(
+                math.sqrt(count / total * (success_prob if state == "1" * num_qubits else other_prob))
+                for state, count in counts.items()
+                if state.startswith("1")
+            )
+            ** 2
+        )
+        return f"Grover fidelity={fidelity:.7f}"
     ideal_bitstring = max(counts, key=counts.__getitem__)
     expected = {ideal_bitstring: sum(counts.values())}
     return f"QPE modal outcome={ideal_bitstring}, concentration={hellinger_fidelity(counts, expected):.7f}"
@@ -164,6 +167,9 @@ def run(backend: QDMIBackend, benchmark: str = "ghz", *, shots: int = 1024, num_
         raise ValueError(msg)
     if shots <= 0 or num_qubits < 2:
         msg = "Use positive shots and at least two qubits."
+        raise ValueError(msg)
+    if benchmark == "graphstate" and num_qubits < 3:
+        msg = "Graph-state benchmarks require at least three qubits."
         raise ValueError(msg)
     if backend.num_qubits < num_qubits:
         msg = f"Backend exposes {backend.num_qubits} qubits; requested {num_qubits}."
@@ -199,6 +205,8 @@ def main() -> None:
     num_qubits = options.num_qubits if options.num_qubits is not None else config.default_qubits
     if num_qubits < 2:
         arguments.error("--num-qubits must be at least two")
+    if options.benchmark == "graphstate" and num_qubits < 3:
+        arguments.error("graphstate requires at least three qubits")
     backend = open_backend(options.backend, options.device)
     run(
         backend,

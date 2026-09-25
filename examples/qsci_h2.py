@@ -97,7 +97,8 @@ def optimize_and_sample(
         msg = "Use positive shots and iterations and a backend wide enough for the ansatz."
         raise ValueError(msg)
     mapped = transpile(ansatz, backend, optimization_level=2, seed_transpiler=7)
-    optimizer = SciPyOptimizer(method="L-BFGS-B", options={"maxiter": maxiter, "ftol": 10 * sys.float_info.epsilon})
+    # Avoid numerical gradients whose tiny differences are dominated by shot noise.
+    optimizer = SciPyOptimizer(method="COBYLA", options={"maxiter": maxiter})
     estimator = backend.estimator(default_precision=1 / math.sqrt(shots))
     # VQE applies mapped.layout to this logical observable internally.
     vqe = VQE(estimator, mapped, optimizer, initial_point=np.full(mapped.num_parameters, 0.1))

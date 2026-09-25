@@ -31,7 +31,8 @@ releases may include breaking changes.
 ### Added
 
 - 🧪 Add full H₂ QSCI and seven MQT Bench showcases with simulator tutorials and
-  offline validation. ([#38]) ([**@marcelwa**])
+  offline validation, derivative-free VQE, and bounded-memory distribution
+  checks. ([#38]) ([**@marcelwa**])
 
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
   during documentation builds, including sampling and VQE offloaders. Preserve

@@ -157,10 +157,11 @@ uv run --group examples python -m examples.mqt_bench --benchmark grover
 uv run --group examples python -m examples.mqt_bench --benchmark qpe
 ```
 
-`--benchmark` defaults to `ghz`. `--num-qubits` requires at least two qubits,
-and the selected backend must support the requested width. Deutsch–Jozsa and
-Grover include an ancillary qubit in that width; QPE includes its eigenstate
-qubit. The runner selects each program's correct result register.
+`--benchmark` defaults to `ghz`. `--num-qubits` requires at least two qubits
+(three for `graphstate`), and the selected backend must support the requested
+width. Deutsch–Jozsa and Grover include an ancillary qubit in that width; QPE
+includes its eigenstate qubit. The runner selects each program's correct result
+register.
 
 ### Execute a GHZ benchmark
 
@@ -198,7 +199,7 @@ counts
 3. A Hartree–Fock state initializes a unitary coupled-cluster singles and
    doubles (UCCSD) ansatz.
 4. The variational quantum eigensolver (VQE) optimizes that ansatz using the
-   backend estimator and L-BFGS-B.
+   backend estimator and the derivative-free COBYLA optimizer.
 5. The backend sampler measures the optimized circuit in logical orbital order.
 6. QSCI retains the most frequent states with one alpha and one beta electron.
 7. Classical diagonalization finds the lowest energy in that selected subspace;
@@ -211,7 +212,7 @@ construction instead of a full matrix.
 
 The reference total energy is approximately **−1.101150 hartree**. The runner
 logs the VQE electronic energy, sampled counts, QSCI total energy, and absolute
-difference from that reference. A finite iteration limit does not guarantee VQE
+difference from that reference. A finite evaluation limit does not guarantee VQE
 convergence. Missing determinants can raise the QSCI energy; the cutoff limits
 the selected subspace, and nuclear repulsion is added once.
 
@@ -232,14 +233,15 @@ uv run --python 3.13 --group chemistry python -m examples.qsci_h2 --shots 256 --
 | Option      | Default | Meaning                                                 |
 | ----------- | ------: | ------------------------------------------------------- |
 | `--shots`   |    8192 | Sampler shots and estimator precision `1 / sqrt(shots)` |
-| `--maxiter` |      30 | Maximum L-BFGS-B iterations                             |
+| `--maxiter` |      30 | Maximum COBYLA objective evaluations                    |
 | `--cutoff`  |      10 | Maximum number of valid sampled determinants            |
 
 All three values must be positive. Qiskit rounds the estimator shot count up
 from `1 / precision**2` for each measurement circuit and groups compatible
 observables. Therefore, `--shots` is **not a total VQE shot budget**. Each
-optimizer evaluation can require several circuits, and an iteration can require
-several evaluations. The final sampling call uses the requested shot count.
+optimizer evaluation can require several circuits. COBYLA needs at least five
+evaluations to initialize this three-parameter ansatz; smaller limits are raised
+to five by SciPy. The final sampling call uses the requested shot count.
 
 VQE applies the transpiled layout to the observable internally. Final sampling
 adds measurements before mapping, so QSCI receives logical spin-orbital

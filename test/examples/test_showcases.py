@@ -26,10 +26,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pytest
 from examples import mqt_bench, qsci_h2
+
+# Test distribution diagnostics without submitting a circuit.
+from examples.mqt_bench import _describe_result  # ruff: ignore[import-private-name]
 from mqt.core.plugins.qiskit.backend import QDMIBackend
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Parameter
-from qiskit.quantum_info import Operator, SparsePauliOp
+from qiskit.quantum_info import Operator, SparsePauliOp, hellinger_fidelity
 from qiskit.transpiler import Target
 
 if TYPE_CHECKING:
@@ -61,6 +64,7 @@ def test_all_benchmarks(benchmark: str) -> None:
         ("ghz", 0, 3, "positive shots"),
         ("ghz", 10, 1, "at least two"),
         ("ghz", 10, -1, "Backend exposes"),
+        ("graphstate", 10, 2, "at least three"),
     ],
 )
 def test_benchmark_rejects_invalid_options(benchmark: str, shots: int, num_qubits: int, message: str) -> None:
@@ -101,11 +105,49 @@ def test_qsci_vqe_and_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
     ansatz = QuantumCircuit(2)
     ansatz.x(0)
     ansatz.ry(Parameter("theta"), 1)
-    observable = SparsePauliOp("IZ")  # spellchecker:disable-line
-    energy, counts = qsci_h2.optimize_and_sample(backend, ansatz, observable, shots=64, maxiter=1)
-    assert energy == pytest.approx(-1)
-    assert sum(counts.values()) == 64
+    observable = SparsePauliOp("ZI")  # The objective depends on theta.
+    energy, counts = qsci_h2.optimize_and_sample(backend, ansatz, observable, shots=2048, maxiter=40)
+    assert energy < -0.9
+    assert sum(counts.values()) == 2048
     assert set(counts) <= {"01", "11"}
+    assert counts.get("11", 0) / 2048 > 0.95
+
+
+@pytest.mark.parametrize("state", ["000", "111"])
+def test_ghz_single_shot_fidelity(state: str) -> None:
+    """Either ideal GHZ outcome has the same overlap after one shot."""
+    assert _describe_result("ghz", {state: 1}, 3, 1) == "GHZ fidelity=0.5000000"
+
+
+@pytest.mark.parametrize("benchmark", ["qft", "graphstate", "grover"])
+def test_sparse_benchmark_fidelity(benchmark: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Observed-support formulas match complete ideal distributions."""
+    counts = {"0000": 1, "1000": 2, "1111": 5}
+    if benchmark == "grover":
+        # Two Grover iterations on eight candidates give success probability 121/128.
+        expected = {format(index, "04b"): 1 / 128 for index in range(8, 15)}
+        expected["1111"] = 121 / 128
+    else:
+        expected = {format(index, "04b"): 1 / 16 for index in range(16)}
+    fidelity = hellinger_fidelity(counts, expected)
+    assert _describe_result(benchmark, counts, 4, 8).endswith(f"fidelity={fidelity:.7f}")
+
+    def bounded_range(*args: int) -> range:
+        result = range(*args)
+        assert len(result) <= 1024, "Validation enumerated the full basis"
+        return result
+
+    # A wide result must not allocate its exponentially large ideal support.
+    monkeypatch.setattr(mqt_bench, "range", bounded_range, raising=False)
+    assert "fidelity=" in _describe_result(benchmark, {"1" * 40: 8}, 40, 8)
+
+
+def test_graphstate_cli_rejects_two_qubits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject the invalid graph before opening a backend."""
+    monkeypatch.setattr(sys, "argv", ["showcase", "--benchmark", "graphstate", "--num-qubits", "2"])
+    monkeypatch.setattr(mqt_bench, "open_backend", lambda *_args: pytest.fail("Backend opened for an invalid graph"))
+    with pytest.raises(SystemExit, match="2"):
+        mqt_bench.main()
 
 
 @pytest.mark.parametrize("module", [mqt_bench, qsci_h2])
