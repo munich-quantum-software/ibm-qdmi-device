@@ -8,20 +8,36 @@ kernelspec:
 # Runnable examples
 
 The examples use finite shots and default to MQT Core's local QDMI simulator.
-Run them from a source checkout with the example dependencies installed:
+The showcase includes full
+[Quantum-Selected Configuration Interaction (QSCI)][qsci] for H₂ and seven
+[MQT Bench][mqt-bench] algorithm families. The workloads use the shared Qiskit
+sampler and estimator primitives through QDMI.
+
+The scripts live in the repository, rather than the installed Python package.
+Clone the repository and run commands from its root:
+
+```console
+git clone https://github.com/munich-quantum-software/ibm-qdmi-device.git
+cd ibm-qdmi-device
+```
+
+Install the example dependencies and run the portable examples:
 
 ```console
 uv sync --group examples
 uv run --group examples python -m examples.native_job
 uv run --group examples python -m examples.qiskit_workloads --workload bell
-uv run --group examples python -m examples.qiskit_workloads --workload benchmark
+uv run --group examples python -m examples.mqt_bench --benchmark ghz
 uv run --group examples python -m examples.qiskit_workloads --workload h2
 uv run --group examples python -m examples.pennylane_qaoa
 ```
 
-Each command prints JSON. Use `--shots` to select a positive shot count; the
-default is 128. `native_job` also accepts `--timeout` in seconds, defaults to
-60, and attempts cancellation if its wait or result retrieval fails.
+The basic native, Qiskit, and PennyLane commands print JSON. The showcase
+runners log circuit sizes, execution progress, counts, and validation summaries.
+Use `--shots` to select a positive shot count. Basic examples default to 128;
+the tables below give showcase defaults. `native_job` also accepts `--timeout`
+in seconds, defaults to 60, and attempts cancellation if its wait or result
+retrieval fails.
 
 ## Execute in the documentation
 
@@ -100,10 +116,144 @@ library's environment support.
 The Bell example transpiles a two-qubit circuit to the selected target and runs
 the shared sampler primitive. Counts contain only `00` and `11`.
 
-The benchmark example asks MQT Bench to map a three-qubit GHZ circuit to that
-same target. Counts contain only `000` and `111` on an ideal simulator. Hardware
-noise can produce other outcomes. These programs retain physical layouts and use
-the serializer described in the [Qiskit guide](qiskit.md).
+## MQT Bench showcase
+
+`examples/mqt_bench.py` generates a benchmark at MQT Bench's mapped level using
+the selected backend's target. It runs the resulting circuit through
+`backend.sampler(default_shots=shots)` and reads the benchmark's classical
+register. Mapping and sampling preserve logical measurement order, even when
+hardware routing changes physical qubit positions.
+
+| `--benchmark` | Program                        | Default qubits | Default shots | Distribution check                                     |
+| ------------- | ------------------------------ | -------------: | ------------: | ------------------------------------------------------ |
+| `ghz`         | GHZ entanglement               |              3 |          1024 | Equal all-zero and all-one outcomes                    |
+| `dj`          | Deutsch–Jozsa oracle           |              4 |          1024 | All-one outcome on the query register                  |
+| `qft`         | Quantum Fourier transform      |              3 |          1024 | Uniform computational-basis distribution               |
+| `graphstate`  | Graph-state preparation        |              4 |          1024 | Uniform computational-basis distribution               |
+| `wstate`      | W-state preparation            |              3 |          1024 | Uniform single-excitation outcomes                     |
+| `grover`      | Grover search                  |              7 |          8192 | Marked-state probability after amplitude amplification |
+| `qpe`         | Exact quantum phase estimation |              5 |          8192 | Concentration in the most frequent outcome             |
+
+GHZ and W states demonstrate different forms of multipartite entanglement.
+Deutsch–Jozsa queries an oracle; Grover amplifies a marked search result. The
+Fourier transform and phase estimation are building blocks for quantum
+algorithms. Graph states also support measurement-based quantum computation.
+
+The runner compares measured distributions with ideal probabilities using
+Hellinger fidelity. QPE reports modal concentration; this diagnostic alone
+cannot establish that the dominant phase is correct. These are
+computational-basis checks, not complete state tomography. Finite sampling and
+hardware noise can reduce the reported scores.
+
+Select a family and optionally override its size and shot count:
+
+```console
+uv run --group examples python -m examples.mqt_bench --benchmark ghz --num-qubits 20 --shots 8192
+uv run --group examples python -m examples.mqt_bench --benchmark dj
+uv run --group examples python -m examples.mqt_bench --benchmark qft
+uv run --group examples python -m examples.mqt_bench --benchmark graphstate
+uv run --group examples python -m examples.mqt_bench --benchmark wstate
+uv run --group examples python -m examples.mqt_bench --benchmark grover
+uv run --group examples python -m examples.mqt_bench --benchmark qpe
+```
+
+`--benchmark` defaults to `ghz`. `--num-qubits` requires at least two qubits
+(three for `graphstate`), and the selected backend must support the requested
+width. Deutsch–Jozsa and Grover include an ancillary qubit in that width; QPE
+includes its eigenstate qubit. The runner selects each program's correct result
+register.
+
+### Execute a GHZ benchmark
+
+This cell runs the same public runner on the local simulator. Its twenty-qubit
+GHZ distribution contains only all-zero and all-one strings.
+
+<!-- rumdl-disable MD040 -->
+
+```{code-cell} python
+from examples.mqt_bench import run as run_benchmark
+
+counts = run_benchmark(backend, "ghz", shots=8192, num_qubits=20)
+assert set(counts) <= {"0" * 20, "1" * 20}
+assert sum(counts.values()) == 8192
+counts
+```
+
+<!-- rumdl-enable MD040 -->
+
+### Benchmark source
+
+```{literalinclude} ../examples/mqt_bench.py
+:language: python
+:caption: examples/mqt_bench.py
+:start-at: from __future__
+```
+
+## H₂ QSCI showcase
+
+`examples/qsci_h2.py` follows the complete quantum chemistry workflow:
+
+1. PySCF builds H₂ at a bond length of 1 Å in the STO-3G basis.
+2. Qiskit Nature maps its electronic Hamiltonian to four qubits with
+   Jordan–Wigner encoding.
+3. A Hartree–Fock state initializes a unitary coupled-cluster singles and
+   doubles (UCCSD) ansatz.
+4. The variational quantum eigensolver (VQE) optimizes that ansatz using the
+   backend estimator and the derivative-free COBYLA optimizer.
+5. The backend sampler measures the optimized circuit in logical orbital order.
+6. QSCI retains the most frequent states with one alpha and one beta electron.
+7. Classical diagonalization finds the lowest energy in that selected subspace;
+   nuclear repulsion gives the total energy.
+
+The reduced Hamiltonian comes from the same molecular integrals and logical
+qubit operator used by VQE. For this four-qubit molecule, projecting its
+16-by-16 matrix is inexpensive. Larger molecules require sparse matrix-element
+construction instead of a full matrix.
+
+The reference total energy is approximately **−1.101150 hartree**. The runner
+logs the VQE electronic energy, sampled counts, QSCI total energy, and absolute
+difference from that reference. A finite evaluation limit does not guarantee VQE
+convergence. Missing determinants can raise the QSCI energy; the cutoff limits
+the selected subspace, and nuclear repulsion is added once.
+
+### Chemistry dependencies and execution
+
+[Qiskit Nature][qiskit-nature] and [PySCF][pyscf] provide the molecular model.
+PySCF supports Linux and macOS. On Windows, run this example in a supported
+Linux environment, such as WSL. The portable benchmark and basic examples remain
+available on Windows.
+
+Use Python 3.11–3.13 with the optional `chemistry` dependency group:
+
+```console
+uv run --python 3.13 --group chemistry python -m examples.qsci_h2 --backend sim
+uv run --python 3.13 --group chemistry python -m examples.qsci_h2 --shots 256 --maxiter 5 --cutoff 4
+```
+
+| Option      | Default | Meaning                                                 |
+| ----------- | ------: | ------------------------------------------------------- |
+| `--shots`   |    8192 | Sampler shots and estimator precision `1 / sqrt(shots)` |
+| `--maxiter` |      30 | Maximum COBYLA objective evaluations                    |
+| `--cutoff`  |      10 | Maximum number of valid sampled determinants            |
+
+All three values must be positive. Qiskit rounds the estimator shot count up
+from `1 / precision**2` for each measurement circuit and groups compatible
+observables. Therefore, `--shots` is **not a total VQE shot budget**. Each
+optimizer evaluation can require several circuits. COBYLA needs at least five
+evaluations to initialize this three-parameter ansatz; smaller limits are raised
+to five by SciPy. The final sampling call uses the requested shot count.
+
+VQE applies the transpiled layout to the observable internally. Final sampling
+adds measurements before mapping, so QSCI receives logical spin-orbital
+bitstrings rather than physical hardware indices.
+
+### QSCI source
+
+```{literalinclude} ../examples/qsci_h2.py
+:language: python
+:caption: examples/qsci_h2.py
+:start-at: from __future__
+```
 
 ## H₂ energy estimation
 
@@ -130,7 +280,8 @@ in [Qiskit guide](qiskit.md#select-a-backend), then select both the IBM backend
 and a catalogue device:
 
 ```console
-uv run --group examples python -m examples.qiskit_workloads --backend ibm --device ibm.berlin --workload bell --shots 128
+uv run --group examples python -m examples.mqt_bench --backend ibm --device ibm.berlin --benchmark ghz --shots 128
+uv run --python 3.13 --group chemistry python -m examples.qsci_h2 --backend ibm --device ibm.berlin --shots 256 --maxiter 5 --cutoff 4
 ```
 
 Use `ibm.aachen` for Aachen or `ibm.default` with a configured backend name. The
@@ -139,6 +290,25 @@ count does not bound the total execution time or cost of a workload. Estimator
 workloads can submit several circuits. Configure native execution limits through
 the device API as needed.
 
-The documentation executes only the simulator cells above. The `examples` Nox
-session also checks the IBM library against a synthetic loopback service,
-without IBM credentials or live access.
+## Offline validation
+
+The documentation executes only the simulator cells above. The full chemistry
+workflow runs in a separate session with PySCF, outside the documentation build:
+
+```console
+uvx nox -s examples
+uvx nox -s chemistry
+uvx nox -s docs -- -D nb_execution_mode=force
+```
+
+The `examples` session exercises all seven benchmarks, QSCI post-processing, and
+the VQE/sampler integration. It also checks basic examples against a synthetic
+IBM loopback service. The `chemistry` session builds the molecular Hamiltonian
+and runs the complete H₂ workflow on a local simulator using Python 3.13. Linux
+CI runs both sessions without IBM credentials. On Windows, the chemistry session
+skips because PySCF is unavailable.
+
+[mqt-bench]: https://mqt.readthedocs.io/projects/bench/
+[qiskit-nature]: https://qiskit-community.github.io/qiskit-nature/
+[qsci]: https://arxiv.org/abs/2302.11320
+[pyscf]: https://pyscf.org/user/install.html
