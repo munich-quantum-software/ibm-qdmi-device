@@ -26,6 +26,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <ibm-qdmi-device/constants.h>
 #include <ibm_qdmi/constants.h>
 #include <limits>
 #include <map>
@@ -161,12 +162,56 @@ bool terminal(QDMI_Job_Status status) {
          status == QDMI_JOB_STATUS_FAILED;
 }
 void Job::setProgram(std::string source) {
+  if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
+    const auto params = nlohmann::json::parse(source, nullptr, false);
+    require(params.is_object() && params.contains("schema_version"),
+            QDMI_ERROR_INVALIDARGUMENT);
+    require(params["schema_version"] == "v2.0", QDMI_ERROR_NOTSUPPORTED);
+    require(params.contains("quantum_program") &&
+                params["quantum_program"].is_object(),
+            QDMI_ERROR_INVALIDARGUMENT);
+    const auto& quantumProgram = params["quantum_program"];
+    require(quantumProgram.contains("shots") &&
+                quantumProgram["shots"].is_number_integer() &&
+                quantumProgram["shots"] > 0 &&
+                quantumProgram.contains("circuits") &&
+                quantumProgram["circuits"].is_object() &&
+                quantumProgram.contains("items") &&
+                quantumProgram["items"].is_array() &&
+                !quantumProgram["items"].empty() &&
+                (!params.contains("options") || params["options"].is_object()),
+            QDMI_ERROR_INVALIDARGUMENT);
+    const auto count = quantumProgram["shots"].get<std::uint64_t>();
+    require(count <= std::numeric_limits<std::size_t>::max(),
+            QDMI_ERROR_INVALIDARGUMENT);
+    program = std::move(source);
+    shots = static_cast<std::size_t>(count);
+    return;
+  }
   auto layout = outputRegisters(source, qubits);
   program = std::move(source);
   registers = std::move(layout);
 }
+void Job::setFormat(QDMI_Program_Format value) {
+  require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
+              value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+          QDMI_ERROR_NOTSUPPORTED);
+  require(program.empty() ||
+              value == format.value_or(QDMI_PROGRAM_FORMAT_QASM3),
+          QDMI_ERROR_BADSTATE);
+  require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR || !samplerOptionsSet,
+          QDMI_ERROR_NOTSUPPORTED);
+  format = value;
+}
+void Job::setShots(std::size_t value) {
+  require(format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
+  require(value != 0, QDMI_ERROR_INVALIDARGUMENT);
+  shots = value;
+  samplerOptionsSet = true;
+}
 void Job::setDynamicalDecoupling(const std::string& options) {
   require(configurable(), QDMI_ERROR_BADSTATE);
+  require(format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
   const auto parsed = nlohmann::json::parse(options, nullptr, false);
   require(parsed.is_object(), QDMI_ERROR_INVALIDARGUMENT);
   for (const auto& [key, value] : parsed.items()) {
@@ -185,11 +230,12 @@ void Job::setDynamicalDecoupling(const std::string& options) {
   auto configured = defaultDynamicalDecoupling();
   configured.update(parsed);
   dynamicalDecoupling = std::move(configured);
+  samplerOptionsSet = true;
 }
 void Job::submit() {
   require(configurable() && format.has_value() && !program.empty(),
           QDMI_ERROR_BADSTATE);
-  const nlohmann::json payload{
+  nlohmann::json payload{
       {"program_id", "sampler"},
       {"backend", backend},
       {"cost", maxExecutionTime},
@@ -203,6 +249,10 @@ void Job::submit() {
           {"dynamical_decoupling", dynamicalDecoupling},
           {"twirling",
            {{"enable_gates", false}, {"enable_measure", false}}}}}}}};
+  if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
+    payload["program_id"] = "executor";
+    payload["params"] = nlohmann::json::parse(program);
+  }
   const auto body = payload.dump();
   // Once submission starts, even a lost response must never permit a duplicate.
   attempted = true;
@@ -221,12 +271,21 @@ void Job::retrieve(const std::string& remoteId) {
   const auto data = nlohmann::json::parse(auth->get("/v1/jobs/" + remoteId));
   require(data.at("id") == remoteId && data.at("backend") == backend,
           QDMI_ERROR_INVALIDARGUMENT);
-  require(data.at("program").at("id") == "sampler" &&
+  const auto programId = data.at("program").at("id");
+  require((programId == "sampler" || programId == "executor") &&
               !data.value("private", false),
           QDMI_ERROR_NOTSUPPORTED);
   auto parameters = data.at("params");
   if (parameters.is_string()) {
     parameters = nlohmann::json::parse(parameters.get<std::string>());
+  }
+  if (programId == "executor") {
+    setFormat(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR);
+    setProgram(parameters.dump());
+    id = remoteId;
+    attempted = true;
+    status = parseJobStatus(data);
+    return;
   }
   require(parameters.at("version") == 2 &&
               !parameters.value("support_qiskit", true),
@@ -275,6 +334,7 @@ void Job::cancel() {
   throw Failure{QDMI_ERROR_FATAL};
 }
 const Results& Job::results() {
+  require(format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
   const auto current = check();
   require(current != QDMI_JOB_STATUS_FAILED, QDMI_ERROR_FATAL);
   require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
@@ -290,5 +350,24 @@ const Results& Job::results() {
     cached = decodeResults(data, registers, shots);
   }
   return *cached;
+}
+const std::string& Job::executorResults() {
+  require(format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
+  const auto current = check();
+  require(current != QDMI_JOB_STATUS_FAILED, QDMI_ERROR_FATAL);
+  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
+  if (!cachedExecutor) {
+    const auto response = auth->request("/v1/jobs/" + id + "/results");
+    require(response.failed || response.timedOut || response.status != 204,
+            QDMI_ERROR_BADSTATE);
+    checkResponse(response);
+    auto data = nlohmann::json::parse(response.body);
+    if (data.is_string()) {
+      data = nlohmann::json::parse(data.get<std::string>());
+    }
+    require(data.is_object() && data.value("schema_version", "") == "v2.0");
+    cachedExecutor = data.dump();
+  }
+  return *cachedExecutor;
 }
 } // namespace ibm

@@ -326,7 +326,9 @@ int IBM_QDMI_device_session_query_device_property(
     case QDMI_DEVICE_PROPERTY_LIBRARYVERSION:
       return copyString("1.3.3", size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
-      return copyValue(QDMI_PROGRAM_FORMAT_QASM3, size, value, sizeRet);
+      return copyList(std::vector{QDMI_PROGRAM_FORMAT_QASM3,
+                                  IBM_QDMI_PROGRAM_FORMAT_EXECUTOR},
+                      size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION:
       return copyValue(std::size_t{0}, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_PULSESUPPORT:
@@ -435,8 +437,7 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
       if (value != nullptr) {
         const auto format = readValue<QDMI_Program_Format>(size, value);
         require(validEnum(format, QDMI_PROGRAM_FORMAT_MAX));
-        require(format == QDMI_PROGRAM_FORMAT_QASM3, QDMI_ERROR_NOTSUPPORTED);
-        job.format = format;
+        job.setFormat(format);
       }
       break;
     case QDMI_DEVICE_JOB_PARAMETER_PROGRAM:
@@ -445,10 +446,11 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
       }
       break;
     case QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM:
+      require(job.format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+              QDMI_ERROR_NOTSUPPORTED);
       if (value != nullptr) {
         const auto shots = readValue<std::size_t>(size, value);
-        require(shots != 0);
-        job.shots = shots;
+        job.setShots(shots);
       }
       break;
     case IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME:
@@ -459,6 +461,8 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
       }
       break;
     case IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING:
+      require(job.format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+              QDMI_ERROR_NOTSUPPORTED);
       if (value != nullptr) {
         job.setDynamicalDecoupling(readString(size, value));
       }
@@ -556,6 +560,9 @@ int IBM_QDMI_device_job_get_results(IBM_QDMI_Device_Job handle,
     auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     require(validEnum(result, QDMI_JOB_RESULT_MAX));
+    if (result == IBM_QDMI_JOB_RESULT_EXECUTOR) {
+      return copyString(owned->job.executorResults(), size, value, sizeRet);
+    }
     require(result == QDMI_JOB_RESULT_SHOTS ||
                 result == QDMI_JOB_RESULT_HIST_KEYS ||
                 result == QDMI_JOB_RESULT_HIST_VALUES,

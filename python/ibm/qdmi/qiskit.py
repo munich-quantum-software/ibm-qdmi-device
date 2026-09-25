@@ -44,6 +44,9 @@ if TYPE_CHECKING:
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
     from qiskit.transpiler import Target
+    from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
+
+    from .executor import Executor
 
 __all__ = ["IBMBackend"]
 
@@ -166,6 +169,16 @@ class IBMBackend(QDMIBackend):
         """
         assert ProgramFormat.QASM3 in supported_program_formats
         return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
+
+    def executor(self, *, options: ExecutorOptions | None = None) -> Executor:
+        """Create the optional Executor primitive using this QDMI session.
+
+        Returns:
+            An Executor requiring the ``ibm-qdmi[executor]`` extra.
+        """
+        from .executor import Executor  # ruff: ignore[import-outside-top-level]
+
+        return Executor(self, options=options)
 
     def run(
         self,

@@ -187,3 +187,46 @@ circuit names or metadata. For a batch, `job_id()` identifies its first native
 job. Timeout does not imply cancellation. Call `cancel()` explicitly when
 abandoning pending work. Freeing local handles does not cancel remote jobs. See
 [native job contracts](api.md#jobs-and-results).
+
+## Optional Executor primitive
+
+Install `ibm-qdmi[executor]` to submit IBM `QuantumProgram` objects through the
+same native QDMI session. The existing `sampler()`, `estimator()`, and `run()`
+paths retain their behavior. Executor uses the beta v2.0 schema and the optional
+Qiskit IBM Runtime 0.49 encoder and decoder. Pass IBM's
+[ExecutorOptions](https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime/options-models-executor-options)
+to `backend.executor(options=...)` to configure supported execution options.
+
+```python
+from qiskit_ibm_runtime import QuantumProgram
+
+program = QuantumProgram(shots=128)
+program.append_circuit_item(compiled)
+executor = backend.executor()
+job = executor.run(program)
+result = job.result(timeout=300)
+samples = result[0][compiled.cregs[0].name]
+```
+
+Prepare circuits for the selected backend before adding them. Both circuit items
+with parameter sweeps and Samplomatic samplex items are encoded by IBM's
+library. Executor preserves result dimensions, register names, passthrough data,
+and correction metadata. Apply measurement-twirling corrections explicitly;
+results are not converted into counts. IBM's decoder also honors semantic roles
+present in the returned program result.
+
+`job.status()` returns a QDMI job status. `job.cancel()` cancels the remote job.
+Retrieve a job with `executor.retrieve_job(job.job_id())`, including from a
+fresh backend session. A result timeout raises `TimeoutError` and leaves the
+remote job active; cancel it explicitly when needed.
+
+This path submits independent jobs. Runtime sessions, Runtime batches, and local
+Executor simulation are not provided. Nondefault environment options are
+rejected before submission. The Python adapter uses the native 60-second
+execution cap. Direct C callers can change it through the existing custom job
+parameter. Execution and experimental payload options are encoded by IBM's
+library and validated by the service. Shots come from the program and apply to
+every configuration, not to the program's total workload.
+
+Offline tests verify transport, schemas, and result decoding against synthetic
+responses. They do not establish hardware compatibility or simulate samplex.

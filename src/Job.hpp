@@ -51,7 +51,9 @@ Results decodeResults(const nlohmann::json& data,
 class Job {
 public:
   Job(Auth& auth, std::string backend, std::size_t qubits);
+  void setFormat(QDMI_Program_Format value);
   void setProgram(std::string source);
+  void setShots(std::size_t value);
   /// Validate and replace DD options atomically, filling omitted defaults.
   void setDynamicalDecoupling(const std::string& options);
   void submit();
@@ -59,6 +61,7 @@ public:
   QDMI_Job_Status check(Deadline deadline = Deadline::max());
   void cancel();
   const Results& results();
+  const std::string& executorResults();
   [[nodiscard]] bool configurable() const;
 
   std::string id;
@@ -74,8 +77,10 @@ private:
   std::size_t qubits;
   nlohmann::json dynamicalDecoupling;
   bool attempted = false;
+  bool samplerOptionsSet = false;
   std::vector<Register> registers;
   std::optional<Results> cached;
+  std::optional<std::string> cachedExecutor;
 };
 bool terminal(QDMI_Job_Status status);
 } // namespace ibm

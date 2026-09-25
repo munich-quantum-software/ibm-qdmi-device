@@ -8,8 +8,9 @@
 The library implements IBM-prefixed QDMI 1.3.3 device
 initialization/finalization, session
 allocation/configuration/initialization/free, and device, site, and operation
-queries, and the complete job lifecycle. The supported program format is
-OpenQASM 3. Child-device enumeration is unsupported.
+queries, and the complete job lifecycle. Supported program formats are OpenQASM
+3 and the [Executor extension](api.md#executor-extension). Child-device
+enumeration is unsupported.
 
 The [generated QDMI declaration reference](native_api.md) describes the
 implemented device functions, types, and IBM-specific constants.
@@ -164,13 +165,13 @@ int queryQubitCount(const char *apiKey, const char *crn, const char *backend,
 ## Jobs and results
 
 Configure the program format and a null-terminated program before submission.
-Shots default to 1,024; an explicit shot count must be positive. The custom
-`IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a `uint64_t`
-number of seconds from 1 through 10,800, defaulting to 60. This bounds QPU
-execution time, not queue or wall-clock time. A null parameter value probes
-support without changing configuration.
+OpenQASM shots default to 1,024; an explicit shot count must be positive. The
+custom `IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a
+`uint64_t` number of seconds from 1 through 10,800, defaulting to 60. This
+bounds QPU execution time, not queue or wall-clock time. A null parameter value
+probes support without changing configuration.
 
-Programs must be static, bound OpenQASM 3 with explicit classical declarations
+OpenQASM programs must be static and bound, with explicit classical declarations
 and indexed measurements. A quantum register must span the backend's physical
 qubits; physical `$n` references are also accepted. Use backend-native
 operations and route circuits before submitting them. Classical control flow,
@@ -179,10 +180,10 @@ Static unitary gate declarations support native instructions absent from
 `stdgates.inc`, such as ECR and RZZ. Their local arguments cannot introduce
 classical storage or control flow. The service validates native gate semantics.
 
-Each submission creates one Sampler V2 job with one circuit and classified
-measurements. Twirling is disabled; dynamical decoupling is disabled by default
-and can be configured [per job](#dynamical-decoupling). Submission is never
-automatically retried, including after an authentication failure or a lost
+Each OpenQASM submission creates one Sampler V2 job with one circuit and
+classified measurements. Twirling is disabled; dynamical decoupling is disabled
+by default and can be configured [per job](#dynamical-decoupling). Submission is
+never automatically retried, including after an authentication failure or a lost
 response. A failed submission freezes that handle. An ambiguous response may
 mean IBM accepted the job; inspect the platform before creating a replacement.
 
@@ -198,19 +199,19 @@ request. A finished or canceled job ends waiting successfully; a failed job
 returns `QDMI_ERROR_FATAL`. Cancellation racing with completion returns
 `QDMI_ERROR_INVALIDARGUMENT` and preserves the completed state.
 
-Result queries return comma-separated binary shots, comma-separated histogram
-keys, and a matching `size_t` count array. Strings include their terminating
-null byte. Bits follow classical declaration order, with the highest bit index
-on the left. Leading zeros and shot order are preserved. Results of unfinished
-or canceled jobs return `QDMI_ERROR_INVALIDARGUMENT`. Results not yet available
-after completion return `QDMI_ERROR_BADSTATE`; malformed results fail rather
-than fabricating counts. Completed results are cached. Statevectors and
+Sampler result queries return comma-separated binary shots, comma-separated
+histogram keys, and a matching `size_t` count array. Strings include their
+terminating null byte. Bits follow classical declaration order, with the highest
+bit index on the left. Leading zeros and shot order are preserved. Results of
+unfinished or canceled jobs return `QDMI_ERROR_INVALIDARGUMENT`. Results not yet
+available after completion return `QDMI_ERROR_BADSTATE`; malformed results fail
+rather than fabricating counts. Completed results are cached. Statevectors and
 probabilities are unsupported.
 
 Retrieval by job ID creates a read-only local handle without resubmitting. It
-requires the same backend, retained input parameters, and the supported
-single-circuit Sampler V2 plain-JSON contract. Private jobs and Qiskit-encoded
-results are unsupported. See the
+requires the same backend and retained input parameters. Sampler retrieval
+supports the single-circuit plain-JSON contract. Executor retrieval supports the
+v2.0 extension described below. Private jobs are unsupported. See the
 [IBM jobs API](https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest/tags/jobs).
 
 ### Dynamical decoupling
@@ -275,3 +276,25 @@ rejection follows the normal submission error contract and is never retried.
 See the [Python package guide](python_package.md) for installed paths, package
 metadata, and the information CLI. The optional [Qiskit integration](qiskit.md)
 exposes `ibm.qdmi.qiskit.IBMBackend` through MQT Core's shared adapter.
+
+### Executor extension
+
+`IBM_QDMI_PROGRAM_FORMAT_EXECUTOR` aliases `QDMI_PROGRAM_FORMAT_CUSTOM1`. Set it
+before assigning `PROGRAM`, then provide a null-terminated Executor v2.0
+**params object**, rather than a complete REST job request. It contains
+`schema_version`, `quantum_program`, and optional `options`. The native device
+validates the envelope, positive shot count, and nonempty item list; IBM's
+encoder and service validate circuit and samplex contents.
+
+`quantum_program.shots` supplies `SHOTSNUM`. Setting the separate `SHOTSNUM`
+parameter or the Sampler dynamical-decoupling parameter is unsupported for this
+format. Selecting Executor after setting those parameters is also unsupported. A
+job's format cannot change after its program is assigned. The existing
+maximum-execution-time parameter applies to both formats.
+
+Read `IBM_QDMI_JOB_RESULT_EXECUTOR` (`QDMI_JOB_RESULT_CUSTOM1`) to obtain the
+null-terminated result JSON. Size queries include the terminating null byte. The
+device caches the complete result, including tensor encodings and metadata.
+Standard shots and histogram result queries return `QDMI_ERROR_NOTSUPPORTED` for
+Executor jobs. The custom result is unsupported for Sampler jobs. Job status,
+waiting, cancellation, and retrieval by ID use the existing QDMI API.
