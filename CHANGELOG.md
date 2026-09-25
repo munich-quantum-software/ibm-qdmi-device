@@ -30,6 +30,10 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add optional Executor v2.0 programs through QDMI with native job retrieval
+  and complete results. Expose `IBMBackend.executor()` through the `executor`
+  extra, preserving the existing sampler and estimator paths.
+
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
   during documentation builds, including sampling and VQE offloaders. Preserve
   standalone native API links. ([#37]) ([**@marcelwa**])

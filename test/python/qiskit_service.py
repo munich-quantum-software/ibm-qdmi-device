@@ -55,6 +55,7 @@ class Runtime:
     result_reads: int = 0
     job_reads: int = 0
     inconsistent_state: bool = False
+    executor_result: dict[str, Any] = field(default_factory=dict)
 
     def respond(self, path: str, body: bytes) -> tuple[int, Any]:
         """Handle one synthetic request with independently stored job state.
@@ -71,11 +72,13 @@ class Runtime:
             self.jobs[identifier] = {
                 "id": identifier,
                 "backend": request["backend"],
-                "program": {"id": "sampler"},
+                "program": {"id": request["program_id"]},
                 "params": request["params"],
                 "state": {"status": self.state},
             }
-            self.results[identifier] = self.simulate(request)
+            self.results[identifier] = (
+                self.executor_result if request["program_id"] == "executor" else self.simulate(request)
+            )
             return 200, {"id": identifier, "backend": request["backend"]}
         identifier = path.split("/jobs/")[1].split("/", maxsplit=1)[0]
         if path.endswith("/cancel"):
@@ -175,6 +178,10 @@ class RuntimeServer:
             "configuration": self.runtime.service.data["configuration"],
         }
 
+    def set_executor_result(self, result: dict[str, Any]) -> None:
+        """Supply a synthetic Executor response without simulating samplex."""
+        self.runtime.executor_result = result
+
     def set_state(self, state: str, fail_submission: int) -> None:
         """Configure deterministic failure injection."""
         self.runtime.state = state
@@ -209,6 +216,10 @@ class RuntimeProxy(Protocol):
 
     def snapshot(self) -> dict[str, Any]:
         """Return the synthetic state."""
+        ...
+
+    def set_executor_result(self, result: dict[str, Any]) -> None:
+        """Supply a synthetic Executor response."""
         ...
 
     def set_state(self, state: str, fail_submission: int) -> None:

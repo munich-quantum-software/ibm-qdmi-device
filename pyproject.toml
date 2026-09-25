@@ -57,6 +57,7 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
+executor = [ "mqt-core[qiskit]~=4.0.0", "qiskit-ibm-runtime~=0.49.0" ]
 pennylane = [ "mqt-core[pennylane,qiskit]~=4.0.0" ]
 qiskit = [ "mqt-core[qiskit]~=4.0.0", "qiskit-algorithms>=0.4" ]
 
@@ -90,6 +91,7 @@ test = [
   "pytest-xdist>=3.8",
   "pyyaml>=6.0.2",
   "qiskit-algorithms>=0.4",
+  "qiskit-ibm-runtime~=0.49.0",
 ]
 docs = [
   # Breathe 5 cannot disambiguate headers through qualified file paths.

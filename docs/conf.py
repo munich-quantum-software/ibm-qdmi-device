@@ -61,6 +61,8 @@ autoapi_options = ["members", "imported-members", "undoc-members", "show-inherit
 # MQT Core uses this type alias in signatures but does not publish it in its inventory.
 nitpick_ignore = [
     ("py:class", "mqt.core.plugins.qiskit.backend.ParametersType"),
+    # IBM indexes this as py:pydantic_model, which cannot resolve a class role.
+    ("py:class", "qiskit_ibm_runtime.options_models.executor.ExecutorOptions"),
     ("cpp:identifier", "size_t"),
 ]
 
@@ -101,6 +103,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "mqt-core": ("https://mqt.readthedocs.io/projects/core/en/stable", None),
     "qiskit": ("https://docs.quantum.ibm.com/api/qiskit", None),
+    "qiskit-ibm-runtime": ("https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime", None),
     "qiskit-algorithms": ("https://qiskit-community.github.io/qiskit-algorithms", None),
     "pennylane": ("https://docs.pennylane.ai/en/stable", None),
 }
