@@ -32,7 +32,8 @@ releases may include breaking changes.
 
 - ✨ Add optional Executor v2.0 programs through QDMI with native job retrieval
   and complete results. Expose `IBMBackend.executor()` through the `executor`
-  extra, preserving the existing sampler and estimator paths.
+  extra, preserving the existing sampler and estimator paths. ([#40])
+  ([**@marcelwa**])
 
 - 📚 Embed native declarations in Sphinx and execute cached simulator notebooks
   during documentation builds, including sampling and VQE offloaders. Preserve
@@ -178,3 +179,4 @@ releases may include breaking changes.
 
 [#37]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/37
 [#36]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/36
+[#40]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/40
