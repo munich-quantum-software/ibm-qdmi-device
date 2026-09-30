@@ -174,7 +174,8 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     assert hardware["concurrency"]["cancel-in-progress"] is False
     assert set(call["needs"]) == {"offline-checks-pass", "candidate-wheel"}
     steps = hardware["steps"]
-    assert steps[0]["with"]["ref"] == "${{ github.sha }}"
+    # Checkout defaults to the triggering repository and immutable event SHA.
+    assert steps[0]["with"] == {"persist-credentials": False}
     assert steps[-1]["env"] == {
         "IBM_QUANTUM_API_KEY": "${{ secrets.IBM_QUANTUM_API_KEY }}",
         "IBM_QUANTUM_INSTANCE_CRN": "${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}",
