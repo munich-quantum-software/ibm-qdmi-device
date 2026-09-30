@@ -43,7 +43,6 @@ jobs:
       contents: read
       actions: read
     with:
-      commit: ${{ github.sha }}
       artifact-id: ${{ needs.reuse-offline.outputs.artifact-id }}
       run-id: ${{ needs.reuse-offline.outputs.run-id }}
 

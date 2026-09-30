@@ -270,7 +270,6 @@ jobs:
       contents: read
       actions: read
     with:
-      commit: ${{ github.sha }}
       artifact-id: ${{ needs.candidate-wheel.outputs.artifact-id }}
       run-id: ${{ github.run_id }}
 

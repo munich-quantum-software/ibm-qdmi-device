@@ -166,13 +166,15 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     hardware_workflow = yaml.safe_load((WORKFLOW.parent / "hardware.yml").read_text(encoding="utf-8"))
     hardware = hardware_workflow["jobs"]["hardware"]
     assert call["uses"] == "$/.github/workflows/hardware.yml"
-    assert set(hardware_workflow.get("on", hardware_workflow.get(True))) == {"workflow_call"}
+    hardware_triggers = hardware_workflow.get("on", hardware_workflow.get(True))
+    assert set(hardware_triggers) == {"workflow_call"}
+    assert set(hardware_triggers["workflow_call"]["inputs"]) == {"artifact-id", "run-id"}
     assert hardware["environment"] == "ibm-quantum"
     assert hardware["timeout-minutes"] == 130
     assert hardware["concurrency"]["cancel-in-progress"] is False
     assert set(call["needs"]) == {"offline-checks-pass", "candidate-wheel"}
     steps = hardware["steps"]
-    assert steps[0]["with"]["ref"] == "${{ inputs.commit }}"
+    assert steps[0]["with"]["ref"] == "${{ github.sha }}"
     assert steps[-1]["env"] == {
         "IBM_QUANTUM_API_KEY": "${{ secrets.IBM_QUANTUM_API_KEY }}",
         "IBM_QUANTUM_INSTANCE_CRN": "${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}",
@@ -189,7 +191,6 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     assert call["permissions"] == {"contents": "read", "actions": "read"}
     assert hardware_workflow["permissions"] == {"contents": "read", "actions": "read"}
     assert call["with"] == {
-        "commit": "${{ github.sha }}",
         "artifact-id": "${{ needs.candidate-wheel.outputs.artifact-id }}",
         "run-id": "${{ github.run_id }}",
     }
@@ -251,7 +252,6 @@ def test_label_routes(label: str, reuse: str, hardware_needed: str, *, same_repo
     assert workflow.get("on", workflow.get(True)) == {"pull_request": {"types": ["labeled"]}}
     assert jobs["hardware"]["uses"] == "$/.github/workflows/hardware.yml"
     assert jobs["hardware"]["with"] == {
-        "commit": "${{ github.sha }}",
         "artifact-id": "${{ needs.reuse-offline.outputs.artifact-id }}",
         "run-id": "${{ needs.reuse-offline.outputs.run-id }}",
     }
