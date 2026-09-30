@@ -59,9 +59,17 @@ def evaluate(expression: str, context: dict[str, str | list[str]]) -> bool | str
         if isinstance(node, ast.Compare) and len(node.ops) == 1:
             left, right = visit(node.left), visit(node.comparators[0])
             if isinstance(node.ops[0], ast.Eq):
-                return left == right
+                return (
+                    left.casefold() == right.casefold()
+                    if isinstance(left, str) and isinstance(right, str)
+                    else left == right
+                )
             if isinstance(node.ops[0], ast.NotEq):
-                return left != right
+                return (
+                    left.casefold() != right.casefold()
+                    if isinstance(left, str) and isinstance(right, str)
+                    else left != right
+                )
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id == "contains" and len(node.args) == 2:
                 values, needle = visit(node.args[0]), visit(node.args[1])
@@ -124,19 +132,17 @@ def test_hardware_eligibility(
     )
     assert bool(evaluate(jobs["hardware"]["if"], context)) == (eligible and result == "success")
     final = jobs["required-checks-pass"]
-    assert evaluate(final["name"].strip()[3:-2], context) == "🚦 Check"
+    assert final["name"] == "🚦 Check"
     assert evaluate(final["if"], context)
-    assert set(final["needs"]) == {"offline-checks-pass", "reuse-offline", "hardware"}
-    assert skip_list(final["steps"][0]["with"]["allowed-skips"], context) == (
-        {"reuse-offline"} if eligible else {"reuse-offline", "hardware"}
-    )
+    assert set(final["needs"]) == {"offline-checks-pass", "hardware"}
+    assert skip_list(final["steps"][0]["with"]["allowed-skips"], context) == (set() if eligible else {"hardware"})
 
 
 def test_main_requires_every_offline_job() -> None:
     """Change detection cannot bypass an Actions prerequisite on main."""
     jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
     gate = jobs["offline-checks-pass"]
-    expected = set(jobs) - {"offline-checks-pass", "reuse-offline", "hardware", "required-checks-pass"}
+    expected = set(jobs) - {"offline-checks-pass", "hardware", "required-checks-pass"}
     assert set(gate["needs"]) == expected
     context: dict[str, str | list[str]] = {"github.ref": "refs/heads/main", "github.event.action": ""}
     assert evaluate(gate["if"], context)
@@ -154,15 +160,19 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     assert workflow["permissions"] == {"contents": "read"}
     triggers = workflow.get("on", workflow.get(True))
     assert set(triggers) == {"push", "pull_request", "merge_group", "workflow_dispatch"}
-    assert set(triggers["pull_request"]["types"]) == {"opened", "reopened", "synchronize", "labeled"}
+    assert set(triggers["pull_request"]["types"]) == {"opened", "reopened", "synchronize"}
     jobs = workflow["jobs"]
-    hardware = jobs["hardware"]
+    call = jobs["hardware"]
+    hardware_workflow = yaml.safe_load((WORKFLOW.parent / "hardware.yml").read_text(encoding="utf-8"))
+    hardware = hardware_workflow["jobs"]["hardware"]
+    assert call["uses"] == "$/.github/workflows/hardware.yml"
+    assert set(hardware_workflow.get("on", hardware_workflow.get(True))) == {"workflow_call"}
     assert hardware["environment"] == "ibm-quantum"
     assert hardware["timeout-minutes"] == 130
     assert hardware["concurrency"]["cancel-in-progress"] is False
-    assert set(hardware["needs"]) == {"offline-checks-pass", "candidate-wheel", "reuse-offline"}
+    assert set(call["needs"]) == {"offline-checks-pass", "candidate-wheel"}
     steps = hardware["steps"]
-    assert steps[0]["with"]["ref"] == "${{ github.sha }}"
+    assert steps[0]["with"]["ref"] == "${{ inputs.commit }}"
     assert steps[-1]["env"] == {
         "IBM_QUANTUM_API_KEY": "${{ secrets.IBM_QUANTUM_API_KEY }}",
         "IBM_QUANTUM_INSTANCE_CRN": "${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}",
@@ -172,22 +182,28 @@ def test_credentials_artifact_and_budget_boundary() -> None:
     upload = jobs["candidate-wheel"]["steps"][-1]["with"]
     download = next(step["with"] for step in steps if "actions/download-artifact@" in step.get("uses", ""))
     assert upload["name"] == "hardware-candidate-${{ github.sha }}-${{ github.run_attempt }}"
-    assert download["artifact-ids"] == (
-        "${{ needs.reuse-offline.outputs.artifact-id || needs.candidate-wheel.outputs.artifact-id }}"
-    )
-    assert download["run-id"] == "${{ needs.reuse-offline.outputs.run-id || github.run_id }}"
+    assert download["artifact-ids"] == "${{ inputs.artifact-id }}"
+    assert download["run-id"] == "${{ inputs.run-id }}"
     assert download["github-token"] == "${{ github.token }}"
     assert set(download) == {"artifact-ids", "run-id", "github-token", "path"}
-    assert hardware["permissions"] == {"contents": "read", "actions": "read"}
-    assert jobs["reuse-offline"]["permissions"] == {"contents": "read", "actions": "read"}
+    assert call["permissions"] == {"contents": "read", "actions": "read"}
+    assert hardware_workflow["permissions"] == {"contents": "read", "actions": "read"}
+    assert call["with"] == {
+        "commit": "${{ github.sha }}",
+        "artifact-id": "${{ needs.candidate-wheel.outputs.artifact-id }}",
+        "run-id": "${{ github.run_id }}",
+    }
     assert upload["path"].endswith("/*.whl")
     assert "--run-quantum" not in json.dumps(jobs["candidate-wheel"])
-    for name, job in jobs.items():
-        safe_job = {**job, "steps": job.get("steps", [])[:-1]} if name == "hardware" else job
-        assert "secrets." not in json.dumps(safe_job)
-        for step in job.get("steps", []):
-            if "uses" in step:
-                assert re.fullmatch(r"[\w/-]+@[a-f0-9]{40}", step["uses"])
+    assert "secrets." not in json.dumps(hardware["steps"][:-1])
+    for job in jobs.values():
+        if "uses" in job:
+            assert "steps" not in job
+        else:
+            assert "secrets." not in json.dumps(job)
+    for step in steps:
+        if "uses" in step:
+            assert re.fullmatch(r"[\w/-]+@[a-f0-9]{40}", step["uses"])
 
 
 def test_coverage_is_offline() -> None:
@@ -205,13 +221,13 @@ def test_coverage_is_offline() -> None:
     assert "build/coverage/src/" in transport["run"]
 
 
-@pytest.mark.parametrize("label", ["bug", "live-qpu-tests"])
+@pytest.mark.parametrize("label", ["bug", "live-qpu-tests", "LIVE-QPU-TESTS"])
 @pytest.mark.parametrize("same_repo", [False, True])
 @pytest.mark.parametrize("reuse", ["success", "failure", "cancelled", "skipped"])
 @pytest.mark.parametrize("hardware_needed", ["true", "false"])
 def test_label_routes(label: str, reuse: str, hardware_needed: str, *, same_repo: bool) -> None:
     """Labels never rebuild or override unrelated required checks."""
-    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    workflow = yaml.safe_load((WORKFLOW.parent / "label.yml").read_text(encoding="utf-8"))
     jobs = workflow["jobs"]
     context: dict[str, str | list[str]] = {
         "github.workflow": "CI",
@@ -229,23 +245,23 @@ def test_label_routes(label: str, reuse: str, hardware_needed: str, *, same_repo
         "needs.reuse-offline.result": reuse,
         "needs.reuse-offline.outputs.hardware-needed": hardware_needed,
     }
-    active = same_repo and label == "live-qpu-tests"
+    active = same_repo and label.casefold() == "live-qpu-tests"
     assert bool(evaluate(jobs["reuse-offline"]["if"], context)) == active
-    for job in ("change-detection", "documentation", "candidate-wheel", "offline-checks-pass"):
-        assert not evaluate(jobs[job]["if"], context)
-    # Every other offline job inherits the skipped change-detection dependency.
-    for job in jobs["offline-checks-pass"]["needs"]:
-        if job not in {"change-detection", "documentation", "candidate-wheel"}:
-            assert jobs[job]["needs"] == "change-detection"
-            assert "always()" not in jobs[job]["if"]
-
+    assert set(jobs) == {"reuse-offline", "hardware", "required-checks-pass"}
+    assert workflow.get("on", workflow.get(True)) == {"pull_request": {"types": ["labeled"]}}
+    assert jobs["hardware"]["uses"] == "$/.github/workflows/hardware.yml"
+    assert jobs["hardware"]["with"] == {
+        "commit": "${{ github.sha }}",
+        "artifact-id": "${{ needs.reuse-offline.outputs.artifact-id }}",
+        "run-id": "${{ needs.reuse-offline.outputs.run-id }}",
+    }
     final = jobs["required-checks-pass"]
     assert bool(evaluate(final["if"], context)) == active
     assert evaluate(final["name"].strip()[3:-2], context) == ("🚦 Check" if active else "Ignored label")
+    assert set(final["needs"]) == {"reuse-offline", "hardware"}
+    assert bool(evaluate(jobs["hardware"]["if"], context)) == (reuse == "success" and hardware_needed == "true")
     if active:
-        assert bool(evaluate(jobs["hardware"]["if"], context)) == (reuse == "success" and hardware_needed == "true")
         skips = skip_list(final["steps"][0]["with"]["allowed-skips"], context)
-        assert "offline-checks-pass" in skips
         assert "reuse-offline" not in skips
         assert ("hardware" in skips) == (reuse == "success" and hardware_needed == "false")
         context["cancelled"] = "true"
@@ -254,6 +270,11 @@ def test_label_routes(label: str, reuse: str, hardware_needed: str, *, same_repo
     group = workflow["concurrency"]["group"]
     rendered = re.sub(r"\$\{\{(.*?)\}\}", lambda match: str(evaluate(match[1], context)), group)
     assert rendered == "CI-100"
+    assert workflow["concurrency"]["cancel-in-progress"] is False
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    group = workflow["concurrency"]["group"]
+    assert "github.event.action" not in group
+    assert workflow["concurrency"]["cancel-in-progress"] is True
     context["github.event.action"] = "synchronize"
     rendered = re.sub(r"\$\{\{(.*?)\}\}", lambda match: str(evaluate(match[1], context)), group)
     assert rendered == "CI-feature"

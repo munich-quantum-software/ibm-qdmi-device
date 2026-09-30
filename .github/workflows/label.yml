@@ -1,0 +1,62 @@
+name: PR hardware label
+on:
+  pull_request:
+    types: [labeled]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  reuse-offline:
+    name: Reuse offline checks
+    if: >-
+      github.event.action == 'labeled' && github.event.label.name == 'live-qpu-tests' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-id: ${{ steps.reuse.outputs.artifact-id }}
+      run-id: ${{ steps.reuse.outputs.run-id }}
+      hardware-needed: ${{ steps.reuse.outputs.hardware-needed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Find the validated candidate for this merge commit
+        id: reuse
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python test/ci/reuse_candidate.py
+
+  hardware:
+    name: IBM quantum execution
+    needs: reuse-offline
+    if: >-
+      !cancelled() && needs.reuse-offline.result == 'success' &&
+      needs.reuse-offline.outputs.hardware-needed == 'true'
+    uses: $/.github/workflows/hardware.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      commit: ${{ github.sha }}
+      artifact-id: ${{ needs.reuse-offline.outputs.artifact-id }}
+      run-id: ${{ needs.reuse-offline.outputs.run-id }}
+
+  required-checks-pass:
+    # An ignored label must not publish a skipped required check.
+    name: ${{ (github.event.label.name == 'live-qpu-tests' && github.event.pull_request.head.repo.full_name == github.repository) && '🚦 Check' || 'Ignored label' }}
+    if: always() && (github.event.label.name == 'live-qpu-tests' && github.event.pull_request.head.repo.full_name == github.repository)
+    needs: [reuse-offline, hardware]
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require reused offline checks and eligible hardware execution
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          allowed-skips: >-
+            ${{ needs.reuse-offline.result == 'success' && needs.reuse-offline.outputs.hardware-needed == 'false' && 'hardware' || '' }}
+          jobs: ${{ toJSON(needs) }}

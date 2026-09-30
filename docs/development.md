@@ -211,8 +211,9 @@ gh workflow run ci.yml --ref main
 Maintainers can add `live-qpu-tests` to a same-repository PR to enable the same
 hardware checks before merging. Adding this label reuses successful offline
 checks and the retained candidate wheel for the exact PR merge commit. It does
-not rebuild or rerun offline tests. Other label additions schedule no jobs and
-do not replace `🚦 Check`; label removal starts no workflow. Label events do not
+not rebuild or rerun offline tests. The separate **PR hardware label** workflow
+handles label additions. Other label additions skip all jobs in that workflow
+and do not start CI; label removal starts no workflow. Label events do not
 cancel an existing CI run.
 
 If offline CI is still running, let it finish and rerun the label workflow. If

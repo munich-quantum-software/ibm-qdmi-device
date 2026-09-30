@@ -83,16 +83,16 @@ def find_candidate(event: dict[str, Any], merge_sha: str, run_id: int) -> dict[s
         msg = "Only the live-qpu-tests label on a same-repository PR can reuse a candidate."
         raise RuntimeError(msg)
 
-    current = get_json(f"actions/runs/{run_id}")
+    source = get_json("actions/workflows/ci.yml")
     head_sha = pr["head"]["sha"]
     runs = items(
-        f"actions/workflows/{current['workflow_id']}/runs?event=pull_request&head_sha={head_sha}",
+        f"actions/workflows/{source['id']}/runs?event=pull_request&head_sha={head_sha}",
         "workflow_runs",
     )
     for run in runs:
         if (
             run["id"] == run_id
-            or run["workflow_id"] != current["workflow_id"]
+            or run["workflow_id"] != source["id"]
             or run["event"] != "pull_request"
             or run["head_sha"] != head_sha
             or run["head_repository"]["full_name"] != repository
@@ -120,7 +120,9 @@ def find_candidate(event: dict[str, Any], merge_sha: str, run_id: int) -> dict[s
                 "No retained candidate matches this merge commit. Run fresh offline CI, then retry this label workflow."
             )
             raise RuntimeError(msg)
-        hardware = jobs.get("IBM quantum execution", {}).get("conclusion")
+        hardware = jobs.get("IBM quantum execution / IBM quantum execution", jobs.get("IBM quantum execution", {})).get(
+            "conclusion"
+        )
         if hardware not in {"skipped", "success"}:
             msg = "The source CI already requires hardware. Finish or inspect that run; no paid retry was started."
             raise RuntimeError(msg)

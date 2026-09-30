@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Isolate PR label handling from CI so unrelated labels preserve `🚦 Check`,
+  while hardware labels reuse the exact validated candidate.
+
 - 🐛 Report the linked QDMI version for source and installed packages. ([#49])
   ([**@marcelwa**])
 

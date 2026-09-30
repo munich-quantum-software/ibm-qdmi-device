@@ -1,0 +1,52 @@
+name: IBM quantum execution
+on:
+  workflow_call:
+    inputs:
+      commit:
+        required: true
+        type: string
+      artifact-id:
+        required: true
+        type: string
+      run-id:
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  hardware:
+    name: IBM quantum execution
+    runs-on: ubuntu-26.04
+    timeout-minutes: 130
+    environment: ibm-quantum
+    concurrency:
+      group: ibm-quantum-execution
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.14"
+          enable-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ inputs.artifact-id }}
+          run-id: ${{ inputs.run-id }}
+          github-token: ${{ github.token }}
+          path: build/hardware/dist
+      - name: Install the tested candidate
+        run: |
+          uv venv build/hardware/venv
+          uv export --locked --only-group test --no-emit-project --output-file build/hardware/requirements.txt
+          uv pip install --python build/hardware/venv/bin/python -r build/hardware/requirements.txt build/hardware/dist/*.whl
+      - name: Validate quantum execution
+        env:
+          IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+          IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
+        run: >-
+          build/hardware/venv/bin/python -m pytest test/python/test_quantum.py
+          --run-quantum --ibm-backend both -n 0 --tb=line --show-capture=no

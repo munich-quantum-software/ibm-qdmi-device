@@ -61,8 +61,8 @@ def metadata(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], dict[str,
     }
 
     def get_json(path: str) -> dict[str, Any]:
-        if path == "actions/runs/11":
-            return {"workflow_id": 7}
+        if path == "actions/workflows/ci.yml":
+            return {"id": 7}
         if path == "actions/workflows/7/runs?event=pull_request&head_sha=head&per_page=100&page=1":
             return {"workflow_runs": data["runs"]}
         if path == "actions/runs/10/jobs?filter=latest&per_page=100&page=1":
@@ -179,3 +179,26 @@ def test_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
     }
     monkeypatch.setattr(reuse_candidate, "get_json", pages.__getitem__)
     assert len(list(reuse_candidate.items("runs", "workflow_runs"))) == 101
+
+
+@pytest.mark.parametrize("name", ["IBM quantum execution", "IBM quantum execution / IBM quantum execution"])
+@pytest.mark.parametrize("hardware", ["skipped", "success", "failure", None])
+def test_hardware_job_names(metadata: tuple[dict[str, Any], dict[str, Any]], name: str, hardware: str | None) -> None:
+    """Both direct and reusable job names retain the paid retry boundary."""
+    event, data = metadata
+    data["jobs"][2].update(name=name, conclusion=hardware)
+    if hardware in {"skipped", "success"}:
+        assert reuse_candidate.find_candidate(event, "merge", 11)["hardware-needed"] == (
+            "true" if hardware == "skipped" else "false"
+        )
+    else:
+        with pytest.raises(RuntimeError, match="source CI already requires hardware"):
+            reuse_candidate.find_candidate(event, "merge", 11)
+
+
+def test_rejects_missing_hardware(metadata: tuple[dict[str, Any], dict[str, Any]]) -> None:
+    """Absent hardware evidence cannot authorize a paid retry."""
+    event, data = metadata
+    data["jobs"].pop()
+    with pytest.raises(RuntimeError, match="source CI already requires hardware"):
+        reuse_candidate.find_candidate(event, "merge", 11)
