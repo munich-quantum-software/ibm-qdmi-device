@@ -13,6 +13,7 @@ releases may include breaking changes.
 ### Fixed
 
 - 🐛 Pass IBM credentials to reusable hardware checks on main and labeled PRs.
+  ([#51]) ([**@marcelwa**])
 
 - 🐛 Isolate PR label handling from CI so unrelated labels preserve `🚦 Check`,
   while hardware labels reuse the exact validated candidate. ([#50])
@@ -215,3 +216,4 @@ releases may include breaking changes.
 [#48]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/48
 [#49]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/49
 [#50]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/50
+[#51]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/51
