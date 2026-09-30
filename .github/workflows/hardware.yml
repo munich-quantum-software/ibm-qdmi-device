@@ -1,6 +1,11 @@
 name: IBM quantum execution
 on:
   workflow_call:
+    secrets:
+      IBM_QUANTUM_API_KEY:
+        required: true
+      IBM_QUANTUM_INSTANCE_CRN:
+        required: true
     inputs:
       artifact-id:
         required: true

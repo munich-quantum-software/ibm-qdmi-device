@@ -39,6 +39,9 @@ jobs:
       !cancelled() && needs.reuse-offline.result == 'success' &&
       needs.reuse-offline.outputs.hardware-needed == 'true'
     uses: $/.github/workflows/hardware.yml
+    secrets:
+      IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+      IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
     permissions:
       contents: read
       actions: read

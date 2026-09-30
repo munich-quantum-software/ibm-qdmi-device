@@ -266,6 +266,9 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'live-qpu-tests'))) &&
       needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success'
     uses: $/.github/workflows/hardware.yml
+    secrets:
+      IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+      IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
     permissions:
       contents: read
       actions: read

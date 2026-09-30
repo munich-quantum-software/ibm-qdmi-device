@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Pass IBM credentials to reusable hardware checks on main and labeled PRs.
+
 - 🐛 Isolate PR label handling from CI so unrelated labels preserve `🚦 Check`,
   while hardware labels reuse the exact validated candidate. ([#50])
   ([**@marcelwa**])

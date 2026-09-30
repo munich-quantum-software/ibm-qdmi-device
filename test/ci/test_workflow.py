@@ -208,6 +208,22 @@ def test_credentials_artifact_and_budget_boundary() -> None:
             assert re.fullmatch(r"[\w/-]+@[a-f0-9]{40}", step["uses"])
 
 
+@pytest.mark.parametrize("caller", ["ci.yml", "label.yml"])
+def test_hardware_receives_repository_credentials(caller: str) -> None:
+    """Both hardware routes pass the IBM credentials to the reusable workflow."""
+    workflow = yaml.safe_load((WORKFLOW.parent / caller).read_text(encoding="utf-8"))
+    assert workflow["jobs"]["hardware"].get("secrets") == {
+        "IBM_QUANTUM_API_KEY": "${{ secrets.IBM_QUANTUM_API_KEY }}",
+        "IBM_QUANTUM_INSTANCE_CRN": "${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}",
+    }
+    hardware = yaml.safe_load((WORKFLOW.parent / "hardware.yml").read_text(encoding="utf-8"))
+    triggers = hardware.get("on", hardware.get(True))
+    assert triggers["workflow_call"]["secrets"] == {
+        "IBM_QUANTUM_API_KEY": {"required": True},
+        "IBM_QUANTUM_INSTANCE_CRN": {"required": True},
+    }
+
+
 def test_coverage_is_offline() -> None:
     """Coverage runs synthetic tests without hardware opt-ins or credentials."""
     coverage = yaml.safe_load((WORKFLOW.parent / "cpp-coverage.yml").read_text(encoding="utf-8"))
