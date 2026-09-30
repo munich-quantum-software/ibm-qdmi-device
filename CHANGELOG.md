@@ -13,7 +13,8 @@ releases may include breaking changes.
 ### Fixed
 
 - 🐛 Isolate PR label handling from CI so unrelated labels preserve `🚦 Check`,
-  while hardware labels reuse the exact validated candidate.
+  while hardware labels reuse the exact validated candidate. ([#50])
+  ([**@marcelwa**])
 
 - 🐛 Report the linked QDMI version for source and installed packages. ([#49])
   ([**@marcelwa**])
@@ -211,3 +212,4 @@ releases may include breaking changes.
 [#47]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/47
 [#48]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/48
 [#49]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/49
+[#50]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/50
