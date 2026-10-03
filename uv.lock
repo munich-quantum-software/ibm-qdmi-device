@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -1094,13 +1094,16 @@ typecheck = [
     { name = "trustme" },
 ]
 
+[package.group-requires-python]
+chemistry = ">=3.11,<3.14"
+
 [package.metadata]
 requires-dist = [
     { name = "mqt-core", extras = ["pennylane", "qiskit"], marker = "extra == 'pennylane'", specifier = "~=4.0.0" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'executor'", specifier = "~=4.0.0" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = "~=4.0.0" },
     { name = "qiskit-algorithms", marker = "extra == 'qiskit'", specifier = ">=0.4" },
-    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = "~=0.49.0" },
+    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = "~=0.50.0" },
 ]
 provides-extras = ["executor", "pennylane", "qiskit"]
 
@@ -1121,7 +1124,7 @@ chemistry = [
     { name = "pytest-xdist", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = ">=3.8" },
     { name = "pyyaml", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = ">=6.0.2" },
     { name = "qiskit-algorithms", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = ">=0.4" },
-    { name = "qiskit-ibm-runtime", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = "~=0.49.0" },
+    { name = "qiskit-ibm-runtime", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = "~=0.50.0" },
     { name = "qiskit-nature", extras = ["pyscf"], marker = "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform != 'win32'", specifier = ">=0.7.2" },
     { name = "trustme", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = ">=1.2.1" },
 ]
@@ -1136,7 +1139,7 @@ dev = [
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qiskit-algorithms", specifier = ">=0.4" },
-    { name = "qiskit-ibm-runtime", specifier = "~=0.49.0" },
+    { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
     { name = "scikit-build-core", specifier = ">=1.0.3" },
     { name = "trustme", specifier = ">=1.2.1" },
 ]
@@ -1161,7 +1164,7 @@ examples = [
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qiskit-algorithms", specifier = ">=0.4" },
-    { name = "qiskit-ibm-runtime", specifier = "~=0.49.0" },
+    { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
     { name = "trustme", specifier = ">=1.2.1" },
 ]
 test = [
@@ -1173,7 +1176,7 @@ test = [
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qiskit-algorithms", specifier = ">=0.4" },
-    { name = "qiskit-ibm-runtime", specifier = "~=0.49.0" },
+    { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
     { name = "trustme", specifier = ">=1.2.1" },
 ]
 typecheck = [
@@ -1192,7 +1195,7 @@ typecheck = [
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qiskit-algorithms", specifier = ">=0.4" },
-    { name = "qiskit-ibm-runtime", specifier = "~=0.49.0" },
+    { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
     { name = "qiskit-nature", specifier = ">=0.7.2" },
     { name = "sphinx", specifier = ">=9" },
     { name = "sphinx-autoapi", specifier = ">=3.6.1" },
@@ -2826,7 +2829,7 @@ wheels = [
 
 [[package]]
 name = "qiskit-ibm-runtime"
-version = "0.49.0"
+version = "0.50.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-platform-services" },
@@ -2837,6 +2840,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "qiskit" },
+    { name = "qiskit-mitigation" },
     { name = "requests" },
     { name = "requests-ntlm" },
     { name = "samplomatic" },
@@ -2844,9 +2848,26 @@ dependencies = [
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/ef/b6845813b5d45da702a6ef06a67cb7a236b11a8b9a440339c8ac7b28c499/qiskit_ibm_runtime-0.49.0.tar.gz", hash = "sha256:f300eec48784afc5ce4be2691f1bd63ba7905ae4c0702c822e699376aa39432c", size = 2107733, upload-time = "2026-08-10T16:43:43.929Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/06/bc058998ce6da8734bf53c1b9a0f008388f2826c99f93b293a13ed7614a7/qiskit_ibm_runtime-0.50.0.tar.gz", hash = "sha256:50725dcc5a556ecd2e824a678e2aa66efca9f609836e458c51dc66c5728b2aa6", size = 3752709, upload-time = "2026-09-24T18:24:37.866Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/32/c8a84aa1ca3308f7c04b660586341df7a6959d7730073abda0ff1c8d4a21/qiskit_ibm_runtime-0.49.0-py3-none-any.whl", hash = "sha256:b29b4a0a5e013b6e6fd6556158fd34a05e2930dea870c60edef738b834977f2b", size = 2001333, upload-time = "2026-08-10T16:43:42.283Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/73/a30759b3b57d71fa25eb62364de40fa56c53f3f958f9a027b107842916cc/qiskit_ibm_runtime-0.50.0-py3-none-any.whl", hash = "sha256:d49e0ede6d0500587b9afce25c83195c9ba4b588c337a690650e133198d8f42d", size = 1979761, upload-time = "2026-09-24T18:24:35.891Z" },
+]
+
+[[package]]
+name = "qiskit-mitigation"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "qiskit" },
+    { name = "samplomatic" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/67/efd5d910918201d1e846ff4cf906acb961b7e38b4dd308ccd06f14dabd94/qiskit_mitigation-0.1.1.tar.gz", hash = "sha256:d527ed3e5a511720394812d628163e19f67e916434e01beb96caf76b34d12ad8", size = 1839761, upload-time = "2026-09-24T17:52:33.782Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/92/70f86bedb10f6dbb00e1f018b1b10538a7614bfd5830bc585a57cddca7f4/qiskit_mitigation-0.1.1-py3-none-any.whl", hash = "sha256:a99c9a9b67a734675ff1f3a1cefdefe06507761b8771e87b1d10fcc9a812f7b0", size = 113312, upload-time = "2026-09-24T17:52:31.338Z" },
 ]
 
 [[package]]
