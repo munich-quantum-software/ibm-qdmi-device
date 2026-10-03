@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -148,15 +148,15 @@ wheels = [
 
 [[package]]
 name = "breathe"
-version = "4.36.0"
+version = "5.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/01/56/99bf7d0799d95ad485d95596dc01c2a5b3dda58ebf50a94f6f73b33bacdf/breathe-4.36.0.tar.gz", hash = "sha256:14860b73118ac140b7a3f55446890c777d1b67149cb024279fe3710dad7f535c", size = 154842, upload-time = "2025-02-22T18:36:03.36Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/7f/c64ce129d35f05bac6b3d044ee2d3aea24b0c819f2f57cd34020b74d5efc/breathe-5.1.0.tar.gz", hash = "sha256:ff56af8bfd0b50ebf10c81a07b8a5739787eb015d26b4ba162b6983d6e17c7c3", size = 201885, upload-time = "2026-10-02T13:42:51.164Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/bc/d67ef1e11ed6e6343c135bf605aa9d5734ff0cc77eb42a2a41f182abc9d9/breathe-4.36.0-py3-none-any.whl", hash = "sha256:af85436f1f09e842bd1fd95617281211c635f8768d245ff830c59b979888d1d5", size = 97231, upload-time = "2025-02-22T18:36:01.087Z" },
+    { url = "https://files.pythonhosted.org/packages/76/7c/ff68c2846946ed17daca3355e47d49fcb8422ad373627d2b56488d6bd484/breathe-5.1.0-py3-none-any.whl", hash = "sha256:6a81b5fff50fb35b7f6bec1aa1a8621a596ee5ffec453eccd7d5e1f9e682d9a0", size = 100534, upload-time = "2026-10-02T13:42:49.767Z" },
 ]
 
 [[package]]
@@ -1094,6 +1094,9 @@ typecheck = [
     { name = "trustme" },
 ]
 
+[package.group-requires-python]
+chemistry = ">=3.11,<3.14"
+
 [package.metadata]
 requires-dist = [
     { name = "mqt-core", extras = ["pennylane", "qiskit"], marker = "extra == 'pennylane'", specifier = "~=4.0.0" },
@@ -1141,7 +1144,7 @@ dev = [
     { name = "trustme", specifier = ">=1.2.1" },
 ]
 docs = [
-    { name = "breathe", specifier = ">=4.36,<5" },
+    { name = "breathe", specifier = ">=5,<6" },
     { name = "furo", specifier = ">=2025.12.19" },
     { name = "myst-nb", specifier = ">=1.4" },
     { name = "sphinx", specifier = ">=9" },
@@ -1177,7 +1180,7 @@ test = [
     { name = "trustme", specifier = ">=1.2.1" },
 ]
 typecheck = [
-    { name = "breathe", specifier = ">=4.36,<5" },
+    { name = "breathe", specifier = ">=5,<6" },
     { name = "cmake", specifier = ">=3.24" },
     { name = "cryptography", specifier = ">=42" },
     { name = "furo", specifier = ">=2025.12.19" },
