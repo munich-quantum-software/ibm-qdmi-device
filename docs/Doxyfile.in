@@ -32,7 +32,9 @@ EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO
 SOURCE_BROWSER         = NO
 INLINE_SOURCES         = NO
-STRIP_FROM_PATH        = ..
+# Breathe 5 matches doxygenfile paths against Doxygen's file names, which
+# include directories only for duplicates.
+FULL_PATH_NAMES        = NO
 GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 GENERATE_TREEVIEW      = YES

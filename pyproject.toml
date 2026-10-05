@@ -96,7 +96,6 @@ test = [
   "trustme>=1.2.1",
 ]
 docs = [
-  # Breathe 5 cannot disambiguate headers through qualified file paths.
   "breathe>=5,<6",
   "furo>=2025.12.19",
   "myst-nb>=1.4",
