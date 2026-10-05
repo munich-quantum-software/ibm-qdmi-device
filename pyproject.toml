@@ -304,6 +304,7 @@ log_level = "INFO"
 markers = [
   "integration: offline native ABI and loopback transport tests (run in a separate process)",
   "ci: repository workflow and tooling tests",
+  "simulator: local qsa_sim metadata checks (requires --simulator-url)",
   "live: IBM metadata requests (requires --run-live)",
   "quantum: IBM QPU execution (requires --run-quantum)",
 ]

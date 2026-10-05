@@ -246,6 +246,36 @@ jobs:
           uv pip install --python build/candidate/venv/bin/python -r build/candidate/requirements.txt build/candidate/dist/*.whl
           build/candidate/venv/bin/python -m pytest -m integration -n 0
           build/candidate/venv/bin/python -m pytest
+      - name: Check out Simulated Quantum Resource
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: qrmi-community/simulated_quantum_resource
+          ref: 7aec9eb7a4daaacb03f87e0e92c5598fd6893132
+          path: build/qsa-sim
+          persist-credentials: false
+      - name: Install simulator dependencies
+        run: |
+          uv venv --python 3.12 build/qsa-sim/.venv
+          uv pip install --python build/qsa-sim/.venv/bin/python -r build/qsa-sim/requirements.txt
+      - name: Test candidate metadata against the simulator
+        run: |
+          (
+            cd build/qsa-sim
+            exec .venv/bin/python -m qsa_sim.app ../../test/fixtures/simulator.yaml
+          ) > build/qsa-sim/service.log 2>&1 &
+          simulator_pid=$!
+          cleanup() {
+            result=$?
+            kill "$simulator_pid" 2>/dev/null || true
+            wait "$simulator_pid" 2>/dev/null || true
+            if [ "$result" -ne 0 ]; then
+              tail -n 200 build/qsa-sim/service.log
+            fi
+          }
+          trap cleanup EXIT
+          curl --noproxy '*' -sf --max-time 2 --retry 30 --retry-max-time 60 \
+            --retry-all-errors --retry-delay 1 http://127.0.0.1:8290/version
+          build/candidate/venv/bin/python -m pytest -m simulator -n 0 --simulator-url http://127.0.0.1:8290
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         id: candidate
         with:

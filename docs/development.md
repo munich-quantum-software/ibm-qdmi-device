@@ -124,6 +124,44 @@ retrieval, sampler broadcasting, and estimator precision without IBM access:
 uvx nox -s tests-3.14 -- test/python/test_qiskit_backend.py
 ```
 
+### Simulator metadata checks
+
+[Simulated Quantum Resource](https://github.com/qrmi-community/simulated_quantum_resource)
+provides local IAM authentication and backend configuration/properties without
+IBM credentials or hardware quota. The pinned revision runs in a separate Python
+3.12 environment; the device tests use their usual interpreter.
+
+```console
+git clone https://github.com/qrmi-community/simulated_quantum_resource.git build/qsa-sim
+git -C build/qsa-sim checkout 7aec9eb7a4daaacb03f87e0e92c5598fd6893132
+uv venv --python 3.12 build/qsa-sim/.venv
+uv pip install --python build/qsa-sim/.venv/bin/python -r build/qsa-sim/requirements.txt
+cd build/qsa-sim
+.venv/bin/python -m qsa_sim.app ../../test/fixtures/simulator.yaml
+```
+
+Keep the service running and use another terminal at the repository root:
+
+```console
+uvx nox -s tests-3.14 -- -m simulator -n 0 --simulator-url http://127.0.0.1:8290
+```
+
+Stop the service with Ctrl+C after testing. The fixture configuration binds only
+to loopback and enables IAM with synthetic credentials and a synthetic Cloud
+CRN. No S3 service is needed for metadata. CI launches the same service, polls
+readiness for at most 60 seconds, tests the installed candidate wheel, and stops
+the service on exit. Failures print local simulator logs and block the offline
+CI gate.
+
+The `simulator` marker alone does not enable service access. Tests require
+`--simulator-url`, accept only loopback HTTP origins, and fail if an explicitly
+selected service is unavailable. Ordinary tests skip them before native session
+creation. Existing mocks cover controlled failures, optional metadata, status
+and queue queries, and Cloud Runtime jobs. The simulator implements the
+on-premises Quantum System API: its job submission and S3 result exchange differ
+from Cloud Runtime, so these checks do not submit jobs or replace quantum
+hardware checks.
+
 Build an sdist and a wheel from that sdist:
 
 ```console

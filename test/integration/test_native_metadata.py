@@ -224,3 +224,12 @@ def test_auth_file_is_a_session_snapshot(native: Native, service: Service, tmp_p
         assert native.device(session, 2, 0, None, None) == -8
     keys = [parse_qs(body.decode())["apikey"] for endpoint, _, body in service.requests if endpoint == "/auth"]
     assert keys == [["original-key"], ["original-key"]]
+
+
+def test_metadata_snapshot_without_status(native: Native, service: Service) -> None:
+    """Snapshot validation never requests the Cloud-specific status endpoint."""
+    service.errors["status"] = 500
+    with native.session(service.parameters) as session:
+        assert native.init(session) == 0
+        metadata_checks.validate_snapshot(native, session, "ibm_test", 2)
+    assert all(not path.endswith("/status") for path, _, _ in service.requests)

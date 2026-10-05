@@ -119,74 +119,80 @@ def duration(query: Query) -> None:
         require(ctypes.c_uint64.from_buffer_copy(raw).value >= 0, "duration range")
 
 
-def validate_backend(api: Native, backend: str, expected_qubits: int, parameters: Mapping[int, str]) -> None:
-    """Validate one snapshot and current status, freeing the session on failure.
+def validate_snapshot(api: Native, session: ctypes.c_void_p, backend: str, expected_qubits: int) -> None:
+    """Validate initialized metadata without requesting backend status.
 
     Raises:
         MetadataError: Metadata violates a query contract.
     """
+    device = partial(api.device, session)
+    require(text(partial(device, 0), "backend name") == backend, "backend identity")
+    require(number(partial(device, 4), "qubit count") == expected_qubits, "qubit count")
+    require(text(partial(device, 3), "QDMI version") == "1.3.3", "QDMI version")
+    require(text(partial(device, 12), "duration unit") == "ps", "duration unit")
+    scale = read(partial(device, 13), "duration scale")
+    if scale is None:
+        msg = "duration scale"
+        raise MetadataError(msg)
+    require(len(scale) == ctypes.sizeof(ctypes.c_double), "duration scale type")
+    require(math.isclose(ctypes.c_double.from_buffer_copy(scale).value, 1.0), "duration scale")
+    sites = handles(partial(device, 5), "site handles")
+    require(sites is not None and len(sites) == expected_qubits, "site count")
+    if sites is None:
+        msg = "site handles"
+        raise MetadataError(msg)
+    require(len(set(sites)) == len(sites), "site uniqueness")
+    indices = []
+    for site in sites:
+        indices.append(number(partial(api.site, session, site, 0), "site index"))
+        for property_id in (1, 2):
+            duration(partial(api.site, session, site, property_id))
+    require(set(indices) == set(range(expected_qubits)), "physical indices")
+    coupling = handles(partial(device, 7), "coupling handles")
+    require(coupling is not None and len(coupling) % 2 == 0, "coupling shape")
+    require(coupling is not None and set(coupling) <= set(sites), "coupling ownership")
+    operations = handles(partial(device, 6), "operation handles")
+    if operations is None:
+        msg = "operation handles"
+        raise MetadataError(msg)
+    require(bool(operations) and len(set(operations)) == len(operations), "operation uniqueness")
+    names = set()
+    for operation in operations:
+        general = partial(api.operation, session, operation, 0, None, 0, None)
+        name = text(partial(general, 0), "operation name")
+        require(name not in names, "operation names")
+        names.add(name)
+        arity = number(partial(general, 1), "operation arity", optional=True)
+        if arity is not None:
+            require(0 < arity <= expected_qubits, "operation arity")
+        number(partial(general, 2), "parameter count", optional=True)
+        tuples = handles(partial(general, 9), "operation sites", optional=True)
+        if tuples is None:
+            continue
+        require(arity is not None and arity > 0, "operation tuple arity")
+        if arity is None or arity == 0:
+            msg = "operation tuple arity"
+            raise MetadataError(msg)
+        require(len(tuples) % arity == 0 and set(tuples) <= set(sites), "operation site ownership")
+        for offset in range(0, len(tuples), arity):
+            selected = tuples[offset : offset + arity]
+            require(len(set(selected)) == arity, "operation tuple uniqueness")
+            pointers = (ctypes.c_void_p * arity)(*selected)
+            query = partial(api.operation, session, operation, arity, pointers, 0, None)
+            duration(partial(query, 3))
+            raw = read(partial(query, 4), "fidelity", optional=True)
+            if raw is not None:
+                require(len(raw) == ctypes.sizeof(ctypes.c_double), "fidelity type")
+                fidelity = ctypes.c_double.from_buffer_copy(raw).value
+                require(math.isfinite(fidelity) and 0 <= fidelity <= 1, "fidelity range")
+
+
+def validate_backend(api: Native, backend: str, expected_qubits: int, parameters: Mapping[int, str]) -> None:
+    """Validate one snapshot and current status, freeing the session on failure."""
     with api.session(parameters) as session:
         check(api.init(session), "session initialization")
+        validate_snapshot(api, session, backend, expected_qubits)
         device = partial(api.device, session)
-        require(text(partial(device, 0), "backend name") == backend, "backend identity")
-        require(number(partial(device, 4), "qubit count") == expected_qubits, "qubit count")
-        require(text(partial(device, 3), "QDMI version") == "1.3.3", "QDMI version")
-        require(text(partial(device, 12), "duration unit") == "ps", "duration unit")
-        scale = read(partial(device, 13), "duration scale")
-        if scale is None:
-            msg = "duration scale"
-            raise MetadataError(msg)
-        require(len(scale) == ctypes.sizeof(ctypes.c_double), "duration scale type")
-        require(math.isclose(ctypes.c_double.from_buffer_copy(scale).value, 1.0), "duration scale")
-        sites = handles(partial(device, 5), "site handles")
-        require(sites is not None and len(sites) == expected_qubits, "site count")
-        if sites is None:
-            msg = "site handles"
-            raise MetadataError(msg)
-        require(len(set(sites)) == len(sites), "site uniqueness")
-        indices = []
-        for site in sites:
-            indices.append(number(partial(api.site, session, site, 0), "site index"))
-            for property_id in (1, 2):
-                duration(partial(api.site, session, site, property_id))
-        require(set(indices) == set(range(expected_qubits)), "physical indices")
-        coupling = handles(partial(device, 7), "coupling handles")
-        require(coupling is not None and len(coupling) % 2 == 0, "coupling shape")
-        require(coupling is not None and set(coupling) <= set(sites), "coupling ownership")
-        operations = handles(partial(device, 6), "operation handles")
-        if operations is None:
-            msg = "operation handles"
-            raise MetadataError(msg)
-        require(bool(operations) and len(set(operations)) == len(operations), "operation uniqueness")
-        names = set()
-        for operation in operations:
-            general = partial(api.operation, session, operation, 0, None, 0, None)
-            name = text(partial(general, 0), "operation name")
-            require(name not in names, "operation names")
-            names.add(name)
-            arity = number(partial(general, 1), "operation arity", optional=True)
-            if arity is not None:
-                require(0 < arity <= expected_qubits, "operation arity")
-            number(partial(general, 2), "parameter count", optional=True)
-            tuples = handles(partial(general, 9), "operation sites", optional=True)
-            if tuples is None:
-                continue
-            require(arity is not None and arity > 0, "operation tuple arity")
-            if arity is None or arity == 0:
-                msg = "operation tuple arity"
-                raise MetadataError(msg)
-            require(len(tuples) % arity == 0 and set(tuples) <= set(sites), "operation site ownership")
-            for offset in range(0, len(tuples), arity):
-                selected = tuples[offset : offset + arity]
-                require(len(set(selected)) == arity, "operation tuple uniqueness")
-                pointers = (ctypes.c_void_p * arity)(*selected)
-                query = partial(api.operation, session, operation, arity, pointers, 0, None)
-                duration(partial(query, 3))
-                raw = read(partial(query, 4), "fidelity", optional=True)
-                if raw is not None:
-                    require(len(raw) == ctypes.sizeof(ctypes.c_double), "fidelity type")
-                    fidelity = ctypes.c_double.from_buffer_copy(raw).value
-                    require(math.isfinite(fidelity) and 0 <= fidelity <= 1, "fidelity range")
         status = read(partial(device, 2), "device status", optional=True)
         if status is not None:
             require(len(status) == ctypes.sizeof(ctypes.c_int), "device status type")
