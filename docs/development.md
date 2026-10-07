@@ -95,7 +95,7 @@ uvx nox -s tests-3.14 -- test/python/test_init.py
 uvx nox -s tests minimums
 ```
 
-Nox tests Python 3.11 through 3.14. The `tests` and `minimums` sessions use the
+Nox tests Python 3.11 through 3.15. The `tests` and `minimums` sessions use the
 default selection in `[tool.pytest]`; CI also runs `native_tests`. Registered
 markers, discovery paths, strict validation, and duration reporting live in
 `pyproject.toml`. Select offline ABI tests with `pytest -m integration -n 0`,
