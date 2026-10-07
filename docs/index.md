@@ -44,6 +44,7 @@ installation
 examples
 qiskit
 offloading
+slurm
 pennylane
 Usage guide <api>
 python_package

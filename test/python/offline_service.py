@@ -79,7 +79,9 @@ class Service:
 
 
 @contextmanager
-def serve(*, tls: SSLContext | None = None) -> Generator[Service, None, None]:
+def serve(
+    *, tls: SSLContext | None = None, address: tuple[str, int] = ("127.0.0.1", 0)
+) -> Generator[Service, None, None]:
     """Serve IBM-shaped responses without external network access.
 
     Yields:
@@ -125,7 +127,7 @@ def serve(*, tls: SSLContext | None = None) -> Generator[Service, None, None]:
             """Handle the IAM form exchange."""
             self.respond(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
 
-    with LoopbackHTTPServer(("127.0.0.1", 0), Handler) as server:
+    with LoopbackHTTPServer(address, Handler) as server:
         if tls is not None:
             minimum = tls.minimum_version
             tls.minimum_version = ssl.TLSVersion.TLSv1_2

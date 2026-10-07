@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Integrate IBM workloads with MQT Core's shared Slurm deployment and
+  native/wheel integration fixture. ([#62]) ([**@flowerthrower**])
+
 ### Fixed
 
 - 🐛 Ship license texts for libcurl, cpr, nlohmann/json, and OpenSSL bundled in
@@ -37,6 +42,7 @@ _This is the initial release of the IBM QDMI Device._
 
 [#59]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/59
 [#60]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/60
+[#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62
 
 <!-- Version links -->
 
@@ -46,6 +52,7 @@ _This is the initial release of the IBM QDMI Device._
 <!-- Contributor -->
 
 [**@marcelwa**]: https://github.com/marcelwa
+[**@flowerthrower**]: https://github.com/flowerthrower
 
 <!-- General links -->
 

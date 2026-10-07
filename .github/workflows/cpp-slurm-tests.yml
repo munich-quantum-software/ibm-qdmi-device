@@ -1,0 +1,45 @@
+name: Slurm integration
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  slurm:
+    name: Slurm 25.11 • ${{ matrix.install-mode }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        install-mode: [native, wheel]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: provider
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: munich-quantum-toolkit/core
+          ref: 6597990dcf4ceb1399d383c4ce9ad46558599206
+          persist-credentials: false
+          path: core
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14"
+      - name: Download released Core runtime
+        run: >-
+          uvx pip download --only-binary=:all: --no-deps --dest dist mqt-core==4.0.0
+      - name: Run IBM workload with the shared Slurm fixture
+        env:
+          PROVIDER_INSTALL_MODE: ${{ matrix.install-mode }}
+        run: >-
+          uv run --no-project core/test/slurm/run_integration.py
+          --workload provider --dist dist
+          --setup-script test/slurm/setup.sh
+          --compose-file provider/test/slurm/compose.yml
+          --device-license ibm.fixture
+          --qdmi-config-file /opt/provider-catalogue.json
+          --reference IBM_QUANTUM_API_KEY=synthetic-key
+          --reference IBM_QUANTUM_INSTANCE_CRN=crn:v1:bluemix:public:quantum-computing:us-east:a:instance::
+          --reference IBM_QUANTUM_BACKEND=ignored_backend
+          -- python3 /workload/test/slurm/probe.py
