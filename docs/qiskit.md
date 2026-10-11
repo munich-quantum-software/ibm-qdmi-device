@@ -115,10 +115,12 @@ second_memory = results.get_memory(1)
 Bind circuits yourself or supply one parameter mapping or ordered value sequence
 per circuit. The adapter validates and serializes the entire batch before its
 first submission. Serialization lives in `ibm.qdmi.serializers`; backend, job,
-and primitive orchestration use MQT Core. A later submission failure triggers
-cancellation attempts for earlier jobs. Submission is never automatically
-retried. A lost response can mean IBM accepted a job; inspect the platform
-before replacing it.
+and primitive orchestration use MQT Core. Compatible circuits with the common
+shot count share one ordered sampler request. A submission or result failure
+retains the batch handle on the execution exception for inspection and explicit
+cancellation. Automatic retries are disabled by default. `max_retries` allows
+bounded replacements of confirmed failed entries. A lost response can mean IBM
+accepted a job; unknown outcomes are never automatically replaced.
 
 ## Sampler and estimator
 

@@ -206,7 +206,7 @@ def test_generic_selection_required(runtime: RuntimeProxy, monkeypatch: pytest.M
     """Missing backend selection fails before authentication or metadata access."""
     monkeypatch.delenv("IBM_QUANTUM_BACKEND", raising=False)
     url = runtime.snapshot()["url"]
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError, match="Allocating QDMI session"):
         IBMBackend(api_key="synthetic-key", instance_crn=CRN, base_url=url, auth_url=url + "/auth")
     assert not runtime.snapshot()["requests"]
 
@@ -249,8 +249,8 @@ def test_administrator_default(runtime: RuntimeProxy, tmp_path: Path) -> None:
                             "custom1": "ibm_test",
                             "token": "synthetic-key",
                             "custom2": CRN,
-                            "base_url": runtime.snapshot()["url"],
-                            "auth_url": runtime.snapshot()["url"] + "/auth",
+                            "base-url": runtime.snapshot()["url"],
+                            "auth-url": runtime.snapshot()["url"] + "/auth",
                         },
                     }
                 ]
