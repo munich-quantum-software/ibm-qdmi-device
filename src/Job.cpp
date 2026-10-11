@@ -162,9 +162,24 @@ bool terminal(QDMI_Job_Status status) {
   return status == QDMI_JOB_STATUS_DONE || status == QDMI_JOB_STATUS_CANCELED ||
          status == QDMI_JOB_STATUS_FAILED;
 }
-void Job::setProgram(std::string source) {
-  if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
-    const auto params = nlohmann::json::parse(source, nullptr, false);
+void Job::checkProgramSupport(QDMI_Program_Format value,
+                              std::size_t count) const {
+  require(count != 0, QDMI_ERROR_INVALIDARGUMENT);
+  require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
+              value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+          QDMI_ERROR_NOTSUPPORTED);
+  require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR ||
+              (count == 1 && !samplerOptionsSet),
+          QDMI_ERROR_NOTSUPPORTED);
+}
+void Job::setPrograms(QDMI_Program_Format value,
+                      std::vector<std::string> sources) {
+  require(configurable(), QDMI_ERROR_BADSTATE);
+  checkProgramSupport(value, sources.size());
+  std::vector<std::vector<Register>> layouts;
+  auto configuredShots = shots;
+  if (value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
+    const auto params = nlohmann::json::parse(sources.front(), nullptr, false);
     require(params.is_object() && params.contains("schema_version"),
             QDMI_ERROR_INVALIDARGUMENT);
     require(params["schema_version"] == "v2.0", QDMI_ERROR_NOTSUPPORTED);
@@ -185,24 +200,19 @@ void Job::setProgram(std::string source) {
     const auto count = quantumProgram["shots"].get<std::uint64_t>();
     require(count <= std::numeric_limits<std::size_t>::max(),
             QDMI_ERROR_INVALIDARGUMENT);
-    program = std::move(source);
-    shots = static_cast<std::size_t>(count);
-    return;
+    configuredShots = static_cast<std::size_t>(count);
+  } else {
+    layouts.reserve(sources.size());
+    for (const auto& source : sources) {
+      layouts.push_back(outputRegisters(source, qubits));
+    }
   }
-  auto layout = outputRegisters(source, qubits);
-  program = std::move(source);
-  registers = std::move(layout);
-}
-void Job::setFormat(QDMI_Program_Format value) {
-  require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
-              value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
-          QDMI_ERROR_NOTSUPPORTED);
-  require(program.empty() ||
-              value == format.value_or(QDMI_PROGRAM_FORMAT_QASM3),
-          QDMI_ERROR_BADSTATE);
-  require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR || !samplerOptionsSet,
-          QDMI_ERROR_NOTSUPPORTED);
+  programs = std::move(sources);
+  registers = std::move(layouts);
   format = value;
+  shots = configuredShots;
+  cached.reset();
+  cachedExecutor.reset();
 }
 void Job::setShots(std::size_t value) {
   require(format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
@@ -234,7 +244,7 @@ void Job::setDynamicalDecoupling(const std::string& options) {
   samplerOptionsSet = true;
 }
 void Job::submit() {
-  require(configurable() && format.has_value() && !program.empty(),
+  require(configurable() && format.has_value() && !programs.empty(),
           QDMI_ERROR_BADSTATE);
   nlohmann::json payload{
       {"program_id", "sampler"},
@@ -243,8 +253,7 @@ void Job::submit() {
       {"params",
        {{"version", 2},
         {"support_qiskit", false},
-        {"pubs", nlohmann::json::array(
-                     {nlohmann::json::array({program, nullptr, shots})})},
+        {"pubs", nlohmann::json::array()},
         {"options",
          {{"execution", {{"meas_type", "classified"}}},
           {"dynamical_decoupling", dynamicalDecoupling},
@@ -252,7 +261,13 @@ void Job::submit() {
            {{"enable_gates", false}, {"enable_measure", false}}}}}}}};
   if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     payload["program_id"] = "executor";
-    payload["params"] = nlohmann::json::parse(program);
+    payload["params"] = nlohmann::json::parse(programs.front());
+  }
+  if (format == QDMI_PROGRAM_FORMAT_QASM3) {
+    for (const auto& source : programs) {
+      payload["params"]["pubs"].push_back(
+          nlohmann::json::array({source, nullptr, shots}));
+    }
   }
   const auto body = payload.dump();
   // Once submission starts, even a lost response must never permit a duplicate.
@@ -281,8 +296,7 @@ void Job::retrieve(const std::string& remoteId) {
     parameters = nlohmann::json::parse(parameters.get<std::string>());
   }
   if (programId == "executor") {
-    setFormat(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR);
-    setProgram(parameters.dump());
+    setPrograms(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, {parameters.dump()});
     id = remoteId;
     attempted = true;
     status = parseJobStatus(data);
@@ -292,14 +306,22 @@ void Job::retrieve(const std::string& remoteId) {
               !parameters.value("support_qiskit", true),
           QDMI_ERROR_NOTSUPPORTED);
   const auto& pubs = parameters.at("pubs");
-  require(pubs.is_array() && pubs.size() == 1, QDMI_ERROR_NOTSUPPORTED);
-  const auto& pub = pubs.at(0);
-  require(pub.is_array() && pub.size() == 3 && pub.at(0).is_string() &&
-              (pub.at(1).is_null() || pub.at(1).empty()),
-          QDMI_ERROR_NOTSUPPORTED);
-  setProgram(pub.at(0).get<std::string>());
-  shots = positiveInteger(pub.at(2));
-  format = QDMI_PROGRAM_FORMAT_QASM3;
+  require(pubs.is_array() && !pubs.empty(), QDMI_ERROR_NOTSUPPORTED);
+  std::vector<std::string> sources;
+  std::size_t commonShots = 0;
+  for (const auto& pub : pubs) {
+    require(pub.is_array() && pub.size() == 3 && pub.at(0).is_string() &&
+                (pub.at(1).is_null() || pub.at(1).empty()),
+            QDMI_ERROR_NOTSUPPORTED);
+    const auto pubShots = positiveInteger(pub.at(2));
+    if (sources.empty()) {
+      commonShots = pubShots;
+    }
+    require(pubShots == commonShots, QDMI_ERROR_NOTSUPPORTED);
+    sources.push_back(pub.at(0).get<std::string>());
+  }
+  setPrograms(QDMI_PROGRAM_FORMAT_QASM3, std::move(sources));
+  shots = commonShots;
   id = remoteId;
   attempted = true;
   status = parseJobStatus(data);
@@ -334,13 +356,14 @@ void Job::cancel() {
   checkResponse(response);
   throw Failure{QDMI_ERROR_FATAL};
 }
-const Results& Job::results() {
+const Results& Job::results(std::size_t index) {
+  require(index < programs.size(), QDMI_ERROR_OUTOFRANGE);
   require(format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
   const auto current = check();
   if (current == QDMI_JOB_STATUS_FAILED) {
-    throw Failure{QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_JOB_FAILED};
+    throw Failure{QDMI_ERROR_BADSTATE, IBM_QDMI_DIAGNOSTIC_JOB_FAILED};
   }
-  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
+  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_BADSTATE);
   if (!cached) {
     const auto response = auth->request("/v1/jobs/" + id + "/results");
     require(response.failed || response.timedOut || response.status != 204,
@@ -350,17 +373,27 @@ const Results& Job::results() {
     if (data.is_string()) {
       data = nlohmann::json::parse(data.get<std::string>());
     }
-    cached = decodeResults(data, registers, shots);
+    const auto& pubs = data.at("results");
+    require(pubs.is_array() && pubs.size() == programs.size());
+    std::vector<Results> decoded;
+    decoded.reserve(pubs.size());
+    for (std::size_t programIndex = 0; programIndex < pubs.size();
+         ++programIndex) {
+      decoded.push_back(decodeResults(
+          {{"results", nlohmann::json::array({pubs.at(programIndex)})}},
+          registers.at(programIndex), shots));
+    }
+    cached = std::move(decoded);
   }
-  return *cached;
+  return cached->at(index);
 }
 const std::string& Job::executorResults() {
   require(format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
   const auto current = check();
   if (current == QDMI_JOB_STATUS_FAILED) {
-    throw Failure{QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_JOB_FAILED};
+    throw Failure{QDMI_ERROR_BADSTATE, IBM_QDMI_DIAGNOSTIC_JOB_FAILED};
   }
-  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_INVALIDARGUMENT);
+  require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_BADSTATE);
   if (!cachedExecutor) {
     const auto response = auth->request("/v1/jobs/" + id + "/results");
     require(response.failed || response.timedOut || response.status != 204,

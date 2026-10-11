@@ -26,7 +26,7 @@ try:
     from mqt.core.plugins.qiskit.backend import QDMIBackend
     from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
     from mqt.core.qdmi import Device, ProgramFormat
-    from mqt.core.qdmi.driver import open_device
+    from mqt.core.qdmi.builtin_driver import open_device
 except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
@@ -189,7 +189,7 @@ class IBMBackend(QDMIBackend):
         """Submit validated circuits through the shared job and result adapter.
 
         Returns:
-            MQT Core's QDMI job, with one native job per circuit.
+            MQT Core's QDMI job, with indexed results from a native multi-program job.
 
         Raises:
             mqt.core.plugins.qiskit.exceptions.CircuitValidationError:

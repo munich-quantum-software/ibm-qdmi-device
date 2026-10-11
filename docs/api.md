@@ -5,7 +5,7 @@
 
 ## Native interface
 
-The library implements IBM-prefixed QDMI 1.3.3 device
+The library implements IBM-prefixed QDMI 1.4.0 device
 initialization/finalization, session
 allocation/configuration/initialization/free, and device, site, and operation
 queries, and the complete job lifecycle. Supported program formats are OpenQASM
@@ -199,12 +199,13 @@ Static unitary gate declarations support native instructions absent from
 `stdgates.inc`, such as ECR and RZZ. Their local arguments cannot introduce
 classical storage or control flow. The service validates native gate semantics.
 
-Each OpenQASM submission creates one Sampler V2 job with one circuit and
-classified measurements. Twirling is disabled; dynamical decoupling is disabled
-by default and can be configured [per job](#dynamical-decoupling). Submission is
-never automatically retried, including after an authentication failure or a lost
-response. A failed submission freezes that handle. An ambiguous response may
-mean IBM accepted the job; inspect the platform before creating a replacement.
+Each OpenQASM submission creates one Sampler V2 job with an ordered circuit list
+and classified measurements. Twirling is disabled; dynamical decoupling is
+disabled by default and can be configured [per job](#dynamical-decoupling).
+Submission is never automatically retried, including after an authentication
+failure or a lost response. A failed submission freezes that handle. An
+ambiguous response may mean IBM accepted the job; inspect the platform before
+creating a replacement.
 
 Job ID, program, format, and shots are queryable. An unset supported property
 returns `QDMI_ERROR_BADSTATE`; queue position returns `QDMI_ERROR_NOTSUPPORTED`.
@@ -290,6 +291,27 @@ rejection follows the normal submission error contract and is never retried.
 
 [dynamical-decoupling options]: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-dynamical-decoupling-options
 
+## Multi-program jobs
+
+`IBM_QDMI_device_job_set_programs` accepts an ordered list of OpenQASM 3
+programs with a common shot count. Each text size includes exactly one final
+null byte. The setter validates and copies the complete list atomically. A
+failed setter preserves the previous programs and format. Pass a nonzero count
+and a null program pointer to probe support without changing the job.
+
+Query `QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM` for the list length. Retrieve
+original bytes with `IBM_QDMI_device_job_get_program` and results with
+`IBM_QDMI_device_job_get_results`, using a zero-based program index. Size
+queries use a null output buffer. Results retain input order and each program's
+classical register layout. Retrieval by ID restores that mapping for supported
+jobs. IBM reports aggregate outcomes; indexed program status returns
+`QDMI_ERROR_NOTSUPPORTED`.
+
+QDMI 1.4 removes the separate program and format parameters, the program
+property, and unused calibration and pulse metadata. Their reserved numeric
+values return `QDMI_ERROR_NOTSUPPORTED`. Rebuild device consumers against the
+1.4 headers and use index zero for single-program results.
+
 ## Python package
 
 See the [Python package guide](python_package.md) for installed paths, package
@@ -298,18 +320,17 @@ exposes `ibm.qdmi.qiskit.IBMBackend` through MQT Core's shared adapter.
 
 ### Executor extension
 
-`IBM_QDMI_PROGRAM_FORMAT_EXECUTOR` aliases `QDMI_PROGRAM_FORMAT_CUSTOM1`. Set it
-before assigning `PROGRAM`, then provide a null-terminated Executor v2.0
-**params object**, rather than a complete REST job request. It contains
-`schema_version`, `quantum_program`, and optional `options`. The native device
-validates the envelope, positive shot count, and nonempty item list; IBM's
-encoder and service validate circuit and samplex contents.
+`IBM_QDMI_PROGRAM_FORMAT_EXECUTOR` aliases `QDMI_PROGRAM_FORMAT_CUSTOM1`. Pass
+it to `IBM_QDMI_device_job_set_programs` with exactly one null-terminated
+Executor v2.0 **params object**, rather than a complete REST job request. It
+contains `schema_version`, `quantum_program`, and optional `options`. The native
+device validates the envelope, positive shot count, and nonempty item list;
+IBM's encoder and service validate circuit and samplex contents.
 
 `quantum_program.shots` supplies `SHOTSNUM`. Setting the separate `SHOTSNUM`
 parameter or the Sampler dynamical-decoupling parameter is unsupported for this
-format. Selecting Executor after setting those parameters is also unsupported. A
-job's format cannot change after its program is assigned. The existing
-maximum-execution-time parameter applies to both formats.
+format. Selecting Executor after setting those parameters is also unsupported.
+The existing maximum-execution-time parameter applies to both formats.
 
 Read `IBM_QDMI_JOB_RESULT_EXECUTOR` (`QDMI_JOB_RESULT_CUSTOM1`) to obtain the
 null-terminated result JSON. Size queries include the terminating null byte. The

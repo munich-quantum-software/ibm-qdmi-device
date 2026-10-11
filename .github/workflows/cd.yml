@@ -32,6 +32,9 @@ jobs:
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
     with:
       runs-on: ${{ matrix.runs-on }}
+      setup-mlir: ${{ matrix.runs-on != 'windows-11-arm' }}
+      mlir-assertions: true
+      llvm-version: 23.1.2
     permissions:
       contents: read
 

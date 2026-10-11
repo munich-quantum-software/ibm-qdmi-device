@@ -21,14 +21,14 @@ include(GNUInstallDirs)
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(ENABLE_COVERAGE ${IBM_QDMI_ENABLE_COVERAGE})
   set(QDMI_MINIMUM_VERSION
-      1.3.3
+      1.4.0
       CACHE STRING "Minimum QDMI version")
   set(QDMI_VERSION
-      1.3.3
+      1.4.0
       CACHE STRING "QDMI version")
   set(QDMI_REV
-      "18cfb67fd9042761d3005c2f8655751c1758f9c5"
-      CACHE STRING "QDMI revision (v1.3.3)")
+      "6db03d83ad602aaa9fe928b5c3fc5cce84b10061"
+      CACHE STRING "QDMI revision (v1.4.0)")
   set(QDMI_REPO_OWNER
       "Munich-Quantum-Software-Stack"
       CACHE STRING "QDMI repository owner")

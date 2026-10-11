@@ -109,26 +109,28 @@ class Runtime:
         Returns:
             Classified per-register samples in deliberately reversed key order.
         """
-        source, parameters, shots = request["params"]["pubs"][0]
-        assert parameters is None
-        circuit = qasm3.loads(source)
-        memory = (
-            BasicSimulator()
-            .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
-            .result()
-            .get_memory()
-        )
-        data = {}
-        for register in reversed(circuit.cregs):
-            samples = []
-            for sample in memory:
-                integer = int(sample.replace(" ", ""), 2)
-                value = sum(
-                    ((integer >> circuit.find_bit(bit).index) & 1) << index for index, bit in enumerate(register)
-                )
-                samples.append(hex(value))
-            data[register.name] = {"samples": samples, "num_bits": len(register)}
-        return {"results": [{"data": data}]}
+        outputs = []
+        for source, parameters, shots in request["params"]["pubs"]:
+            assert parameters is None
+            circuit = qasm3.loads(source)
+            memory = (
+                BasicSimulator()
+                .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
+                .result()
+                .get_memory()
+            )
+            data = {}
+            for register in reversed(circuit.cregs):
+                samples = []
+                for sample in memory:
+                    integer = int(sample.replace(" ", ""), 2)
+                    value = sum(
+                        ((integer >> circuit.find_bit(bit).index) & 1) << index for index, bit in enumerate(register)
+                    )
+                    samples.append(hex(value))
+                data[register.name] = {"samples": samples, "num_bits": len(register)}
+            outputs.append({"data": data})
+        return {"results": outputs}
 
 
 def configure(service: Service) -> Runtime:

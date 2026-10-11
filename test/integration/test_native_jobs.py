@@ -39,10 +39,11 @@ PROGRAM = b"OPENQASM 3; qubit[2] q; bit[2] z; bit a; z[0] = measure q[1]; a = me
 
 def configure(native: Native, job: ctypes.c_void_p) -> None:
     """Configure one static three-shot job."""
-    fmt = ctypes.c_int(1)
     shots = ctypes.c_size_t(3)
-    assert native.job_set(job, 0, ctypes.sizeof(fmt), ctypes.byref(fmt)) == 0
-    assert native.job_set(job, 1, len(PROGRAM) + 1, PROGRAM) == 0
+    data = ctypes.create_string_buffer(PROGRAM)
+    sizes = (ctypes.c_size_t * 1)(len(data))
+    programs = (ctypes.c_void_p * 1)(ctypes.cast(data, ctypes.c_void_p))
+    assert native.set_programs(job, 1, 1, sizes, programs) == 0
     assert native.job_set(job, 2, ctypes.sizeof(shots), ctypes.byref(shots)) == 0
 
 
@@ -82,11 +83,15 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
         assert native.init(session) == 0
         with native.job(session) as job:
             assert native.submit(job) == -10
-            for prop in (0, 1, 2):
+            for prop in (0, 1, 5):
                 assert native.job_property(job, prop, 0, None, None) == -10
             assert native.job_property(job, 999999995, 0, None, None) == -9
-            assert native.results(job, 0, 0, None, None) == -7
+            assert native.results(job, 0, 0, 0, None, None) == -6
+            assert native.job_property(job, 2, 0, None, None) == -9
             configure(native, job)
+            count = ctypes.c_size_t()
+            assert native.job_property(job, 5, ctypes.sizeof(count), ctypes.byref(count), None) == 0
+            assert count.value == 1
             assert native.submit(job) == 0
             assert native.submit(job) == -10
             assert native.job_set(job, 2, 0, None) == -10
@@ -96,24 +101,24 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
             assert native.wait(job, 1) == 0
             assert native.cancel(job) == -7
             required = ctypes.c_size_t()
-            assert native.results(job, 0, 0, None, ctypes.byref(required)) == 0
+            assert native.results(job, 0, 0, 0, None, ctypes.byref(required)) == 0
             assert required.value == len("101,000,101") + 1
             buffer = ctypes.create_string_buffer(required.value)
-            assert native.results(job, 0, 1, buffer, None) == -7
-            assert native.results(job, 0, len(buffer), buffer, None) == 0
+            assert native.results(job, 0, 0, 1, buffer, None) == -7
+            assert native.results(job, 0, 0, len(buffer), buffer, None) == 0
             assert buffer.value == b"101,000,101"
-            assert native.results(job, 1, len(buffer), buffer, None) == 0
+            assert native.results(job, 0, 1, len(buffer), buffer, None) == 0
             assert buffer.value == b"000,101"
             counts = (ctypes.c_size_t * 2)()
-            assert native.results(job, 2, ctypes.sizeof(counts), counts, None) == 0
+            assert native.results(job, 0, 2, ctypes.sizeof(counts), counts, None) == 0
             assert list(counts) == [1, 2]
-            assert native.results(job, 3, 0, None, None) == -9
+            assert native.results(job, 0, 3, 0, None, None) == -9
             assert sum(path.endswith("/results") for path, _, _ in job_service.requests) == 1
             retrieved = ctypes.c_void_p()
             assert native.retrieve_job(session, b"synthetic-job", ctypes.byref(retrieved)) == 0
             try:
                 assert native.submit(retrieved) == -10
-                assert native.results(retrieved, 0, len(buffer), buffer, None) == 0
+                assert native.results(retrieved, 0, 0, len(buffer), buffer, None) == 0
                 assert buffer.value == b"101,000,101"
             finally:
                 native.job_free(retrieved)
@@ -187,10 +192,10 @@ def test_independent_session_requests_progress(native: Native, job_service: Serv
                         return native.device(session, 2, 0, None, None)
                     if blocked == "retrieval":
                         return native.retrieve_job(session, b"slow-job", ctypes.byref(retrieved))
-                    return native.results(slow, 0, 0, None, None)
+                    return native.results(slow, 0, 0, 0, None, None)
 
                 def independent() -> tuple[int, int]:
-                    return native.device(session, 0, 0, None, None), native.results(fast, 0, 0, None, None)
+                    return native.device(session, 0, 0, None, None), native.results(fast, 0, 0, 0, None, None)
 
                 with ThreadPoolExecutor(max_workers=2) as pool:
                     pending = pool.submit(request)
@@ -216,7 +221,7 @@ def test_concurrent_results_share_job_cache(native: Native, job_service: Service
             configure(native, job)
             assert native.submit(job) == 0
             with ThreadPoolExecutor(max_workers=4) as pool:
-                results = list(pool.map(lambda _: native.results(job, 0, 0, None, None), range(12)))
+                results = list(pool.map(lambda _: native.results(job, 0, 0, 0, None, None), range(12)))
             assert results == [0] * 12
     assert sum(path.endswith("/results") for path, _, _ in job_service.requests) == 1
 
@@ -238,7 +243,7 @@ def test_wait_deadline_includes_job_lock(native: Native, job_service: Service) -
             assert native.submit(job) == 0
             job_service.before_respond = block
             with ThreadPoolExecutor(max_workers=2) as pool:
-                pending = pool.submit(native.results, job, 0, 0, None, None)
+                pending = pool.submit(native.results, job, 0, 0, 0, None, None)
                 try:
                     assert entered.wait(5)
                     assert pool.submit(native.wait, job, 1).result(timeout=2) == -11
@@ -260,6 +265,7 @@ def test_retrieval_rejects_incompatible_jobs(native: Native, job_service: Servic
         data["private"] = True
     elif change == "pubs":
         data["params"]["pubs"] *= 2
+        data["params"]["pubs"][1] = [PROGRAM.decode(), None, 4]
     else:
         data["params"]["support_qiskit"] = True
     with native.session(job_service.parameters) as session:

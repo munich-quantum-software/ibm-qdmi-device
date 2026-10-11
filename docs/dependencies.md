@@ -13,7 +13,7 @@ CMake downloads the configured sources.
 
 | Dependency    | Default version | Purpose                                   |
 | :------------ | :-------------- | :---------------------------------------- |
-| QDMI          | 1.3.3           | Interface headers and device declarations |
+| QDMI          | 1.4.0           | Interface headers and device declarations |
 | nlohmann/json | 3.12.0          | JSON parsing and serialization            |
 | CPR           | 1.14.2          | HTTP requests through libcurl             |
 | GoogleTest    | 1.17.0          | Native tests, when enabled                |
@@ -32,11 +32,18 @@ It declares no mandatory Python runtime dependencies. Optional integrations
 install MQT Core in the Python environment; they are not bundled into this
 project's wheel.
 
-| Extra       | Requirement                                             | Purpose                                     |
-| :---------- | :------------------------------------------------------ | :------------------------------------------ |
-| `qiskit`    | `mqt-core[qiskit]~=4.0.0`                               | Qiskit backend and primitives               |
-| `executor`  | `mqt-core[qiskit]~=4.0.0`, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
-| `pennylane` | `mqt-core[pennylane,qiskit]~=4.0.0`                     | PennyLane devices and circuit serialization |
+| Extra       | Requirement                                                     | Purpose                                     |
+| :---------- | :-------------------------------------------------------------- | :------------------------------------------ |
+| `qiskit`    | MQT Core source pin, Qiskit extra                               | Qiskit backend and primitives               |
+| `executor`  | MQT Core source pin, Qiskit extra, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
+| `pennylane` | MQT Core source pin, PennyLane/Qiskit extras                    | PennyLane devices and circuit serialization |
+
+QDMI is pinned to release commit `6db03d83ad602aaa9fe928b5c3fc5cce84b10061`. The
+integrations temporarily use MQT Core commit
+`5f3fc6620f6a731067863ce0a8f2b1afc6f66058` for QDMI 1.4 support. Building Core
+requires LLVM/MLIR 23.1.2. Set `MLIR_DIR` to its `lib/cmake/mlir` directory.
+Replace this source pin and temporary SDK setup with compatible released Core
+wheels before publishing the next provider release.
 
 Follow [Python installation](installation.md#python-package) to select extras.
 MQT Core defines their transitive Qiskit and PennyLane requirements.

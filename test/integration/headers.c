@@ -32,3 +32,19 @@ int cSessionLifecycle(void) {
   IBM_QDMI_device_session_free(session);
   return result;
 }
+
+int cProgramInterface(void);
+int cProgramInterface(void) {
+  QDMI_Job_Status status = QDMI_JOB_STATUS_CREATED;
+  if (IBM_QDMI_device_job_set_programs(NULL, QDMI_PROGRAM_FORMAT_QASM3, 1, NULL,
+                                       NULL) != QDMI_ERROR_INVALIDARGUMENT ||
+      IBM_QDMI_device_job_get_program(NULL, 0, 0, NULL, NULL) !=
+          QDMI_ERROR_INVALIDARGUMENT ||
+      IBM_QDMI_device_job_get_program_status(NULL, 0, &status) !=
+          QDMI_ERROR_INVALIDARGUMENT ||
+      IBM_QDMI_device_job_get_results(NULL, 0, QDMI_JOB_RESULT_SHOTS, 0, NULL,
+                                      NULL) != QDMI_ERROR_INVALIDARGUMENT) {
+    return QDMI_ERROR_FATAL;
+  }
+  return QDMI_SUCCESS;
+}

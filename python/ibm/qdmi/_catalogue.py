@@ -19,13 +19,12 @@
 
 from __future__ import annotations
 
-import json
 import os
 from typing import TYPE_CHECKING
 
-from mqt.core.qdmi import driver
+from mqt.core.qdmi import builtin_driver
 
-from . import IBM_QDMI_CATALOG_PATH, IBM_QDMI_DEVICE_ID, IBM_QDMI_LIBRARY_PATH, IBM_QDMI_PREFIX
+from . import IBM_QDMI_DEVICE_ID
 
 if TYPE_CHECKING:
     from mqt.core.typing import QDMISessionParameters
@@ -57,7 +56,7 @@ def session_parameters(
 
 
 def register_device(device_id: str) -> None:
-    """Register the selected packaged entry if no driver definition exists.
+    """Validate the selected ID against the discovered device catalogue.
 
     Args:
         device_id: Stable catalogue identifier.
@@ -65,19 +64,6 @@ def register_device(device_id: str) -> None:
     Raises:
         ValueError: The selected identifier is absent from the packaged catalogue.
     """
-    entries = json.loads(IBM_QDMI_CATALOG_PATH.read_text(encoding="utf-8"))["qdmi"]["devices"]
-    entry = next((item for item in entries if item["id"] == device_id), None)
-    if entry is None:
-        # Administrators can provide additional definitions through MQT Core.
-        if device_id in driver.registered_device_ids():
-            return
+    if device_id not in builtin_driver.registered_device_ids():
         msg = "Unknown IBM QDMI catalogue identifier."
         raise ValueError(msg)
-    driver.register_device_if_absent(
-        driver.DeviceDefinition(
-            device_id,
-            IBM_QDMI_LIBRARY_PATH,
-            IBM_QDMI_PREFIX,
-            custom1=entry.get("session", {}).get("custom1"),
-        )
-    )

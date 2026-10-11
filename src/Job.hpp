@@ -51,8 +51,8 @@ Results decodeResults(const nlohmann::json& data,
 class Job {
 public:
   Job(Auth& auth, std::string backend, std::size_t qubits);
-  void setFormat(QDMI_Program_Format value);
-  void setProgram(std::string source);
+  void setPrograms(QDMI_Program_Format value, std::vector<std::string> sources);
+  void checkProgramSupport(QDMI_Program_Format value, std::size_t count) const;
   void setShots(std::size_t value);
   /// Validate and replace DD options atomically, filling omitted defaults.
   void setDynamicalDecoupling(const std::string& options);
@@ -60,12 +60,12 @@ public:
   void retrieve(const std::string& remoteId);
   QDMI_Job_Status check(Deadline deadline = Deadline::max());
   void cancel();
-  const Results& results();
+  const Results& results(std::size_t index);
   const std::string& executorResults();
   [[nodiscard]] bool configurable() const;
 
   std::string id;
-  std::string program;
+  std::vector<std::string> programs;
   std::optional<QDMI_Program_Format> format;
   std::size_t shots = 1024;
   std::uint64_t maxExecutionTime = 60;
@@ -78,8 +78,8 @@ private:
   nlohmann::json dynamicalDecoupling;
   bool attempted = false;
   bool samplerOptionsSet = false;
-  std::vector<Register> registers;
-  std::optional<Results> cached;
+  std::vector<std::vector<Register>> registers;
+  std::optional<std::vector<Results>> cached;
   std::optional<std::string> cachedExecutor;
 };
 bool terminal(QDMI_Job_Status status);

@@ -139,6 +139,8 @@ jobs:
       check-stubs: false
       enable-ty: true
       enable-mypy: false
+      setup-mlir: true
+      llvm-version: 23.1.2
   python-tests:
     name: 🐍 Test
     needs: change-detection
@@ -148,6 +150,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Temporary: remove after replacing the Core source pin with a release.
+      - name: Set up LLVM/MLIR for source-built MQT Core
+        uses: munich-quantum-software/setup-mlir@8d3eae73d0f0196fd30c787d91ebd2018cb6c709 # v1.5.0
+        with:
+          llvm-version: 23.1.2
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.14"
@@ -175,6 +182,9 @@ jobs:
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
     with:
       runs-on: ${{ matrix.runs-on }}
+      setup-mlir: ${{ matrix.runs-on != 'windows-11-arm' }}
+      mlir-assertions: true
+      llvm-version: 23.1.2
   documentation:
     name: 📚 Documentation
     uses: $/.github/workflows/documentation.yml
@@ -232,6 +242,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      # Temporary: remove after replacing the Core source pin with a release.
+      - name: Set up LLVM/MLIR for source-built MQT Core
+        uses: munich-quantum-software/setup-mlir@8d3eae73d0f0196fd30c787d91ebd2018cb6c709 # v1.5.0
+        with:
+          llvm-version: 23.1.2
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.14"

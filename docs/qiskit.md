@@ -39,8 +39,8 @@ Trusted endpoint overrides support applications such as loopback testing. See
 Use `IBMBackend(device=device)` to adapt an already-open IBM QDMI device. An
 open device is exclusive with connection overrides. `device_id` and `provider`
 may supply identity metadata, including through the inherited
-`IBMBackend.from_device_id()` factory for registered devices. Registration
-preserves administrator definitions in MQT Core's driver. Each normal
+`IBMBackend.from_device_id()` factory for registered devices. Installed manifest
+discovery preserves administrator definitions in MQT Core's driver. Each normal
 construction creates a fresh session.
 
 Credentials read from the environment become explicit native session parameters
@@ -83,11 +83,10 @@ preserved. Unsupported instructions, control flow, unbound parameters, and
 unsupported site tuples fail before submission. Scheduled delays are outside the
 current native contract.
 
-Each circuit creates one Sampler V2 job with a 60-second QPU execution cap,
-independent of queue time. This applies separately to every circuit in a batch.
-Direct QDMI callers can set the
-[custom execution-time parameter](api.md#jobs-and-results) and
-[dynamical-decoupling options](api.md#dynamical-decoupling). The Qiskit path
+Compatible circuits share one Sampler V2 job with a 60-second QPU execution cap,
+independent of queue time. The cap covers the complete native job. Direct QDMI
+callers can set the [custom execution-time parameter](api.md#jobs-and-results)
+and [dynamical-decoupling options](api.md#dynamical-decoupling). The Qiskit path
 retains the shared `shots` and `memory` execution options.
 
 ## Parameters and batches

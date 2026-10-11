@@ -88,13 +88,13 @@ def test_relocated_driver(device_id: str, service: Service, tmp_path: Path) -> N
     service.data["configuration"]["backend_name"] = backend
     script = """
 import sys
-from mqt.core.qdmi import driver
-assert set(('ibm.default', 'ibm.berlin', 'ibm.aachen')) <= set(driver.registered_device_ids())
+from mqt.core.qdmi import builtin_driver
+assert set(('ibm.default', 'ibm.berlin', 'ibm.aachen')) <= set(builtin_driver.registered_device_ids())
 options = dict(base_url=sys.argv[2], token='synthetic-key', auth_url=sys.argv[2] + '/auth',
                custom2='crn:v1:bluemix:public:quantum-computing:us-east:a:instance::')
 if sys.argv[1] == 'ibm.default':
     options['custom1'] = 'ibm_test'
-device = driver.open_device(sys.argv[1], **options)
+device = builtin_driver.open_device(sys.argv[1], **options)
 assert device.name() == sys.argv[3]
 assert len(device.sites()) == 2
 assert {operation.name() for operation in device.operations()} == {'x', 'rz', 'cx'}
@@ -160,7 +160,7 @@ def test_qiskit_import_opens_no_session() -> None:
     """Importing the optional adapter neither reads IBM credentials nor opens a device."""
     script = """
 import os
-from mqt.core.qdmi import driver
+from mqt.core.qdmi import builtin_driver
 class GuardedEnvironment(dict):
     def get(self, key, default=None):
         if key.startswith('IBM_QUANTUM_'):
@@ -168,9 +168,24 @@ class GuardedEnvironment(dict):
         return super().get(key, default)
 def blocked(*args, **kwargs):
     raise AssertionError('device opened during import')
-driver.open_device = blocked
+builtin_driver.open_device = blocked
 os.environ = GuardedEnvironment(os.environ)
 from ibm.qdmi.qiskit import IBMBackend
 assert IBMBackend is not None
 """
     subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, timeout=10)
+
+
+def test_installed_manifest_discovery_is_offline() -> None:
+    """Discover stable IDs without importing the provider or loading its library."""
+    script = """
+import sys
+class BlockProvider:
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == 'ibm' or fullname.startswith('ibm.'):
+            raise AssertionError('discovery imported the provider')
+sys.meta_path.insert(0, BlockProvider())
+from mqt.core.qdmi import builtin_driver
+assert {'ibm.default', 'ibm.berlin', 'ibm.aachen'} <= set(builtin_driver.registered_device_ids())
+"""
+    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, timeout=30)

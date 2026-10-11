@@ -91,6 +91,7 @@ IBM_QDMI_Diagnostic defaultDiagnostic(int status) noexcept {
   case QDMI_SUCCESS:
     return IBM_QDMI_DIAGNOSTIC_NONE;
   case QDMI_ERROR_INVALIDARGUMENT:
+  case QDMI_ERROR_OUTOFRANGE:
     return IBM_QDMI_DIAGNOSTIC_INVALID_ARGUMENT;
   case QDMI_ERROR_BADSTATE:
     return IBM_QDMI_DIAGNOSTIC_BAD_STATE;
@@ -363,11 +364,6 @@ int IBM_QDMI_device_session_query_device_property(
       return copyList(std::vector{QDMI_PROGRAM_FORMAT_QASM3,
                                   IBM_QDMI_PROGRAM_FORMAT_EXECUTOR},
                       size, value, sizeRet);
-    case QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION:
-      return copyValue(std::size_t{0}, size, value, sizeRet);
-    case QDMI_DEVICE_PROPERTY_PULSESUPPORT:
-      return copyValue(QDMI_DEVICE_PULSE_SUPPORT_LEVEL_NONE, size, value,
-                       sizeRet);
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
@@ -467,18 +463,6 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
     require(value == nullptr || size != 0);
     require(job.configurable(), QDMI_ERROR_BADSTATE);
     switch (parameter) {
-    case QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT:
-      if (value != nullptr) {
-        const auto format = readValue<QDMI_Program_Format>(size, value);
-        require(validEnum(format, QDMI_PROGRAM_FORMAT_MAX));
-        job.setFormat(format);
-      }
-      break;
-    case QDMI_DEVICE_JOB_PARAMETER_PROGRAM:
-      if (value != nullptr) {
-        job.setProgram(readString(size, value));
-      }
-      break;
     case QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM:
       require(job.format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
               QDMI_ERROR_NOTSUPPORTED);
@@ -507,6 +491,54 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
     return QDMI_SUCCESS;
   });
 }
+int IBM_QDMI_device_job_set_programs(IBM_QDMI_Device_Job handle,
+                                     QDMI_Program_Format format,
+                                     std::size_t count,
+                                     const std::size_t* sizes,
+                                     const void* const* programs) {
+  return boundary([&] {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    require(validEnum(format, QDMI_PROGRAM_FORMAT_MAX));
+    require(count != 0);
+    require(owned->job.configurable(), QDMI_ERROR_BADSTATE);
+    owned->job.checkProgramSupport(format, count);
+    if (programs == nullptr) {
+      return QDMI_SUCCESS;
+    }
+    require(sizes != nullptr);
+    std::vector<std::string> sources;
+    sources.reserve(count);
+    for (std::size_t index = 0; index < count; ++index) {
+      require(programs[index] != nullptr);
+      sources.push_back(readString(sizes[index], programs[index]));
+    }
+    owned->job.setPrograms(format, std::move(sources));
+    return QDMI_SUCCESS;
+  });
+}
+int IBM_QDMI_device_job_get_program(IBM_QDMI_Device_Job handle,
+                                    std::size_t index, std::size_t size,
+                                    void* data, std::size_t* sizeRet) {
+  return boundary([&] {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    require(!owned->job.programs.empty(), QDMI_ERROR_BADSTATE);
+    require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
+    return copyString(owned->job.programs[index], size, data, sizeRet);
+  });
+}
+int IBM_QDMI_device_job_get_program_status(IBM_QDMI_Device_Job handle,
+                                           std::size_t index,
+                                           QDMI_Job_Status* /*status*/) {
+  return boundary([&] {
+    auto owned = jobFor(handle);
+    const std::scoped_lock lock(owned->mutex);
+    require(!owned->job.programs.empty(), QDMI_ERROR_BADSTATE);
+    require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
+    return QDMI_ERROR_NOTSUPPORTED;
+  });
+}
 int IBM_QDMI_device_job_query_property(IBM_QDMI_Device_Job handle,
                                        QDMI_Device_Job_Property property,
                                        std::size_t size, void* value,
@@ -523,9 +555,9 @@ int IBM_QDMI_device_job_query_property(IBM_QDMI_Device_Job handle,
     case QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT:
       require(job.format.has_value(), QDMI_ERROR_BADSTATE);
       return copyOptional(job.format, size, value, sizeRet);
-    case QDMI_DEVICE_JOB_PROPERTY_PROGRAM:
-      require(!job.program.empty(), QDMI_ERROR_BADSTATE);
-      return copyString(job.program, size, value, sizeRet);
+    case QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM:
+      require(!job.programs.empty(), QDMI_ERROR_BADSTATE);
+      return copyValue(job.programs.size(), size, value, sizeRet);
     case QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM:
       return copyValue(job.shots, size, value, sizeRet);
     default:
@@ -590,12 +622,14 @@ int IBM_QDMI_device_job_wait(IBM_QDMI_Device_Job handle, std::size_t timeout) {
   });
 }
 int IBM_QDMI_device_job_get_results(IBM_QDMI_Device_Job handle,
-                                    QDMI_Job_Result result, std::size_t size,
-                                    void* value, std::size_t* sizeRet) {
+                                    std::size_t index, QDMI_Job_Result result,
+                                    std::size_t size, void* value,
+                                    std::size_t* sizeRet) {
   return boundary([&]() -> int {
     auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     require(validEnum(result, QDMI_JOB_RESULT_MAX));
+    require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
     if (result == IBM_QDMI_JOB_RESULT_EXECUTOR) {
       return copyString(owned->job.executorResults(), size, value, sizeRet);
     }
@@ -603,7 +637,7 @@ int IBM_QDMI_device_job_get_results(IBM_QDMI_Device_Job handle,
                 result == QDMI_JOB_RESULT_HIST_KEYS ||
                 result == QDMI_JOB_RESULT_HIST_VALUES,
             QDMI_ERROR_NOTSUPPORTED);
-    const auto& data = owned->job.results();
+    const auto& data = owned->job.results(index);
     if (result == QDMI_JOB_RESULT_SHOTS) {
       return copyString(data.shots, size, value, sizeRet);
     }

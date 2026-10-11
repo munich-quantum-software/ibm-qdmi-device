@@ -68,6 +68,9 @@ class Native:
         self.create_job = self.library.IBM_QDMI_device_session_create_device_job
         self.retrieve_job = self.library.IBM_QDMI_device_session_retrieve_device_job_by_id
         self.job_set = self.library.IBM_QDMI_device_job_set_parameter
+        self.set_programs = self.library.IBM_QDMI_device_job_set_programs
+        self.get_program = self.library.IBM_QDMI_device_job_get_program
+        self.program_status = self.library.IBM_QDMI_device_job_get_program_status
         self.job_property = self.library.IBM_QDMI_device_job_query_property
         self.submit = self.library.IBM_QDMI_device_job_submit
         self.cancel = self.library.IBM_QDMI_device_job_cancel
@@ -86,12 +89,15 @@ class Native:
             (self.create_job, [pointer, ctypes.POINTER(pointer)]),
             (self.retrieve_job, [pointer, ctypes.c_char_p, ctypes.POINTER(pointer)]),
             (self.job_set, [pointer, ctypes.c_int, size, pointer]),
+            (self.set_programs, [pointer, ctypes.c_int, size, size_pointer, ctypes.POINTER(pointer)]),
+            (self.get_program, [pointer, size, size, pointer, size_pointer]),
+            (self.program_status, [pointer, size, ctypes.POINTER(ctypes.c_int)]),
             (self.job_property, [pointer, ctypes.c_int, size, pointer, size_pointer]),
             (self.submit, [pointer]),
             (self.cancel, [pointer]),
             (self.job_check, [pointer, ctypes.POINTER(ctypes.c_int)]),
             (self.wait, [pointer, size]),
-            (self.results, [pointer, ctypes.c_int, size, pointer, size_pointer]),
+            (self.results, [pointer, size, ctypes.c_int, size, pointer, size_pointer]),
             (self.job_free, [pointer]),
             (self.site, [pointer, pointer, ctypes.c_int, size, pointer, size_pointer]),
             (

@@ -20,10 +20,12 @@
 #include <gtest/gtest.h>
 #include <ibm_qdmi/device.h>
 extern "C" int cSessionLifecycle();
+extern "C" int cProgramInterface();
 
 TEST(Package, CAndCppHeadersLinkWithLibrary) {
   ASSERT_EQ(IBM_QDMI_device_initialize(), QDMI_SUCCESS);
   EXPECT_EQ(cSessionLifecycle(), QDMI_SUCCESS);
+  EXPECT_EQ(cProgramInterface(), QDMI_SUCCESS);
   EXPECT_EQ(IBM_QDMI_device_finalize(), QDMI_SUCCESS);
 }
 

@@ -45,5 +45,6 @@ def test_sampler_parameter_broadcast_and_registers(runtime: RuntimeProxy) -> Non
     assert result.data["z"].get_counts(0) == {"1": 32}
     assert result.data["z"].get_counts(1) == {"0": 32}
     assert result.data["a"].get_counts(0) == {"1": 32}
-    assert len(runtime.snapshot()["submissions"]) == 2
+    assert len(runtime.snapshot()["submissions"]) == 1
+    assert len(runtime.snapshot()["submissions"][0]["params"]["pubs"]) == 2
     assert all(request["params"]["pubs"][0][2] == 32 for request in runtime.snapshot()["submissions"])

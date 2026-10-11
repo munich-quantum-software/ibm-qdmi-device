@@ -233,39 +233,12 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
             (std::vector{QDMI_PROGRAM_FORMAT_QASM3,
                          IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
-  std::size_t calibration = 123;
-  std::size_t required = 0;
-  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
-                session, QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION, 0, nullptr,
-                &required),
-            QDMI_SUCCESS);
-  EXPECT_EQ(required, sizeof(calibration));
-  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
-                session, QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION, required - 1,
-                &calibration, nullptr),
-            QDMI_ERROR_INVALIDARGUMENT);
-  EXPECT_EQ(calibration, 123);
-  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
-                session, QDMI_DEVICE_PROPERTY_NEEDSCALIBRATION, required,
-                &calibration, nullptr),
-            QDMI_SUCCESS);
-  EXPECT_EQ(calibration, 0);
-  QDMI_Device_Pulse_Support_Level pulse = QDMI_DEVICE_PULSE_SUPPORT_LEVEL_SITE;
-  EXPECT_EQ(
-      IBM_QDMI_device_session_query_device_property(
-          session, QDMI_DEVICE_PROPERTY_PULSESUPPORT, 0, nullptr, &required),
-      QDMI_SUCCESS);
-  EXPECT_EQ(required, sizeof(pulse));
-  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
-                session, QDMI_DEVICE_PROPERTY_PULSESUPPORT, required - 1,
-                &pulse, nullptr),
-            QDMI_ERROR_INVALIDARGUMENT);
-  EXPECT_EQ(pulse, QDMI_DEVICE_PULSE_SUPPORT_LEVEL_SITE);
-  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
-                session, QDMI_DEVICE_PROPERTY_PULSESUPPORT, sizeof(pulse),
-                &pulse, nullptr),
-            QDMI_SUCCESS);
-  EXPECT_EQ(pulse, QDMI_DEVICE_PULSE_SUPPORT_LEVEL_NONE);
+  for (const auto reserved : {8, 9}) {
+    EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                  session, static_cast<QDMI_Device_Property>(reserved), 0,
+                  nullptr, nullptr),
+              QDMI_ERROR_NOTSUPPORTED);
+  }
   EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                 session, QDMI_DEVICE_PROPERTY_CUSTOM1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
@@ -501,6 +474,12 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
             QDMI_ERROR_NOTSUPPORTED);
 }
 
+int setProgram(IBM_QDMI_Device_Job job, QDMI_Program_Format format,
+               std::size_t size, const void* program) {
+  const void* programs[] = {program};
+  return IBM_QDMI_device_job_set_programs(job, format, 1, &size, programs);
+}
+
 class DeviceJobMockTest : public DeviceTest {
 protected:
   IBM_QDMI_Device_Job job = nullptr;
@@ -514,13 +493,7 @@ protected:
   void configure() {
     const auto format = QDMI_PROGRAM_FORMAT_QASM3;
     const std::size_t shots = 3;
-    ASSERT_EQ(IBM_QDMI_device_job_set_parameter(
-                  job, QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT, sizeof(format),
-                  &format),
-              QDMI_SUCCESS);
-    ASSERT_EQ(IBM_QDMI_device_job_set_parameter(
-                  job, QDMI_DEVICE_JOB_PARAMETER_PROGRAM, PROGRAM.size() + 1,
-                  PROGRAM.c_str()),
+    ASSERT_EQ(setProgram(job, format, PROGRAM.size() + 1, PROGRAM.c_str()),
               QDMI_SUCCESS);
     ASSERT_EQ(
         IBM_QDMI_device_job_set_parameter(
@@ -562,30 +535,30 @@ TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
       "z":{"num_bits":2,"samples":["0x1","0x0","0x1"]},
       "a":{"num_bits":1,"samples":["0x1","0x0","0x1"]}}}]})"});
   std::size_t required = 0;
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS, 0,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 0,
                                             nullptr, &required),
             QDMI_SUCCESS);
   EXPECT_EQ(required, 12);
   std::array<char, 32> text{};
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS, 1,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 1,
                                             text.data(), nullptr),
             QDMI_ERROR_INVALIDARGUMENT);
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS,
                                             text.size(), text.data(), nullptr),
             QDMI_SUCCESS);
   EXPECT_STREQ(text.data(), "101,000,101");
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_HIST_KEYS,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_HIST_KEYS,
                                             text.size(), text.data(), nullptr),
             QDMI_SUCCESS);
   EXPECT_STREQ(text.data(), "000,101");
   std::array<std::size_t, 2> counts{};
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_HIST_VALUES,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_HIST_VALUES,
                                             sizeof(counts), counts.data(),
                                             nullptr),
             QDMI_SUCCESS);
   EXPECT_EQ(counts, (std::array<std::size_t, 2>{1, 2}));
   EXPECT_EQ(IBM_QDMI_device_job_get_results(
-                job, QDMI_JOB_RESULT_STATEVECTOR_DENSE, 0, nullptr, nullptr),
+                job, 0, QDMI_JOB_RESULT_STATEVECTOR_DENSE, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(std::ranges::count_if(http.requests(),
                                   [](const auto& request) {
@@ -626,17 +599,17 @@ TEST_F(DeviceJobMockTest, ParameterAndPropertyContracts) {
   EXPECT_EQ(IBM_QDMI_device_job_query_property(job, QDMI_DEVICE_JOB_PROPERTY_ID,
                                                0, nullptr, nullptr),
             QDMI_ERROR_BADSTATE);
-  EXPECT_EQ(IBM_QDMI_device_job_query_property(
-                job, QDMI_DEVICE_JOB_PROPERTY_PROGRAM, 0, nullptr, nullptr),
-            QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(
+      IBM_QDMI_device_job_query_property(
+          job, static_cast<QDMI_Device_Job_Property>(2), 0, nullptr, nullptr),
+      QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(
       IBM_QDMI_device_job_query_property(
           job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT, 0, nullptr, nullptr),
       QDMI_ERROR_BADSTATE);
   const std::size_t one = 1;
   for (const auto parameter :
-       {QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-        QDMI_DEVICE_JOB_PARAMETER_PROGRAM, QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
+       {QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
         IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME,
         IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING}) {
     EXPECT_EQ(IBM_QDMI_device_job_set_parameter(job, parameter, 0, &one),
@@ -667,18 +640,16 @@ TEST_F(DeviceJobMockTest, ParameterAndPropertyContracts) {
                 job, QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM, sizeof(zero), &zero),
             QDMI_ERROR_INVALIDARGUMENT);
   const auto unsupported = QDMI_PROGRAM_FORMAT_QASM2;
-  EXPECT_EQ(IBM_QDMI_device_job_set_parameter(
-                job, QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-                sizeof(unsupported), &unsupported),
-            QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_EQ(
+      IBM_QDMI_device_job_set_programs(job, unsupported, 1, nullptr, nullptr),
+      QDMI_ERROR_NOTSUPPORTED);
   configure();
-  EXPECT_EQ(IBM_QDMI_device_job_set_parameter(job,
-                                              QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
-                                              PROGRAM.size(), PROGRAM.c_str()),
+  const auto format = QDMI_PROGRAM_FORMAT_QASM3;
+  EXPECT_EQ(setProgram(job, format, PROGRAM.size(), PROGRAM.c_str()),
             QDMI_ERROR_INVALIDARGUMENT);
-  for (const auto property :
-       {QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT,
-        QDMI_DEVICE_JOB_PROPERTY_PROGRAM, QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM}) {
+  for (const auto property : {QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT,
+                              QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM,
+                              QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM}) {
     std::size_t size = 0;
     EXPECT_EQ(
         IBM_QDMI_device_job_query_property(job, property, 0, nullptr, &size),
@@ -711,9 +682,9 @@ TEST_F(DeviceJobMockTest, WaitAdvancesClockWithoutImplicitCancellation) {
   http.queue("/cancel", {.status = 204, .body = ""}, true);
   EXPECT_EQ(IBM_QDMI_device_job_cancel(job), QDMI_SUCCESS);
   EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS, 0,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 0,
                                             nullptr, nullptr),
-            QDMI_ERROR_INVALIDARGUMENT);
+            QDMI_ERROR_BADSTATE);
 }
 
 TEST_F(DeviceJobMockTest, FailedJobHasFixedDiagnostic) {
@@ -722,9 +693,9 @@ TEST_F(DeviceJobMockTest, FailedJobHasFixedDiagnostic) {
   queueStatus("Failed");
   EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_ERROR_FATAL);
   EXPECT_EQ(IBM_QDMI_device_last_diagnostic(), IBM_QDMI_DIAGNOSTIC_JOB_FAILED);
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS, 0,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 0,
                                             nullptr, nullptr),
-            QDMI_ERROR_FATAL);
+            QDMI_ERROR_BADSTATE);
   EXPECT_EQ(IBM_QDMI_device_last_diagnostic(), IBM_QDMI_DIAGNOSTIC_JOB_FAILED);
 }
 
@@ -890,17 +861,11 @@ TEST_F(DeviceJobMockTest, InvalidDynamicalDecouplingPreservesLastValidOptions) {
 
 TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
   const auto format = IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
-  ASSERT_EQ(IBM_QDMI_device_job_set_parameter(
-                job, QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT, sizeof(format),
-                &format),
-            QDMI_SUCCESS);
   const std::string params = R"({"schema_version":"v2.0","quantum_program":{
     "shots":3,"circuits":{},"items":[{"item_type":"circuit"},{"item_type":"samplex"}]},
     "options":{"rep_delay":0.001}})";
-  ASSERT_EQ(
-      IBM_QDMI_device_job_set_parameter(job, QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
-                                        params.size() + 1, params.c_str()),
-      QDMI_SUCCESS);
+  ASSERT_EQ(setProgram(job, format, params.size() + 1, params.c_str()),
+            QDMI_SUCCESS);
   std::size_t shots = 0;
   ASSERT_EQ(
       IBM_QDMI_device_job_query_property(job, QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM,
@@ -922,26 +887,28 @@ TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
   queueStatus("Completed");
   ASSERT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
-  const auto output = nlohmann::json::parse(R"({"schema_version":"v2.0","data":[
+  const auto output =
+      nlohmann::json::parse(R"({"schema_version":"v2.0","data":[
     {"results":{"meas":{"shape":[2,3,1],"data":"synthetic"},
     "measurement_flips.meas":{"shape":[2,1,1],"data":"corrections"}}}],
     "metadata":{"chunk_timing":[]}})");
   http.queue("/results", {.status = 200, .body = output.dump()});
   std::size_t required = 0;
-  ASSERT_EQ(IBM_QDMI_device_job_get_results(job, IBM_QDMI_JOB_RESULT_EXECUTOR,
-                                            0, nullptr, &required),
+  ASSERT_EQ(IBM_QDMI_device_job_get_results(
+                job, 0, IBM_QDMI_JOB_RESULT_EXECUTOR, 0, nullptr, &required),
             QDMI_SUCCESS);
   const auto requests = http.requests().size();
   std::vector<char> buffer(required);
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, IBM_QDMI_JOB_RESULT_EXECUTOR,
-                                            required - 1, buffer.data(),
-                                            nullptr),
-            QDMI_ERROR_INVALIDARGUMENT);
-  ASSERT_EQ(IBM_QDMI_device_job_get_results(job, IBM_QDMI_JOB_RESULT_EXECUTOR,
+  EXPECT_EQ(
+      IBM_QDMI_device_job_get_results(job, 0, IBM_QDMI_JOB_RESULT_EXECUTOR,
+                                      required - 1, buffer.data(), nullptr),
+      QDMI_ERROR_INVALIDARGUMENT);
+  ASSERT_EQ(IBM_QDMI_device_job_get_results(job, 0,
+                                            IBM_QDMI_JOB_RESULT_EXECUTOR,
                                             required, buffer.data(), nullptr),
             QDMI_SUCCESS);
   EXPECT_EQ(nlohmann::json::parse(buffer.data()), output);
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS, 0,
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 0,
                                             nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(http.requests().size(), requests);
@@ -967,7 +934,7 @@ TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
   EXPECT_EQ(retrievedFormat, format);
   http.queue("/results",
              {.status = 200, .body = nlohmann::json(output.dump()).dump()});
-  ASSERT_EQ(IBM_QDMI_device_job_get_results(retrieved,
+  ASSERT_EQ(IBM_QDMI_device_job_get_results(retrieved, 0,
                                             IBM_QDMI_JOB_RESULT_EXECUTOR,
                                             required, buffer.data(), nullptr),
             QDMI_SUCCESS);
@@ -976,10 +943,6 @@ TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
 
 TEST_F(DeviceJobMockTest, ExecutorRejectsInvalidInputsWithoutSubmission) {
   const auto format = IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
-  ASSERT_EQ(IBM_QDMI_device_job_set_parameter(
-                job, QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT, sizeof(format),
-                &format),
-            QDMI_SUCCESS);
   const auto before = http.requests().size();
   for (
       const auto* params :
@@ -987,16 +950,12 @@ TEST_F(DeviceJobMockTest, ExecutorRejectsInvalidInputsWithoutSubmission) {
        R"({"schema_version":"v2.0","quantum_program":{"shots":-1,"circuits":{},"items":[{}]}})",
        R"({"schema_version":"v2.0","quantum_program":{"shots":3,"circuits":{},"items":[]}})"}) {
     const std::string text = params;
-    EXPECT_EQ(IBM_QDMI_device_job_set_parameter(
-                  job, QDMI_DEVICE_JOB_PARAMETER_PROGRAM, text.size() + 1,
-                  text.c_str()),
+    EXPECT_EQ(setProgram(job, format, text.size() + 1, text.c_str()),
               QDMI_ERROR_INVALIDARGUMENT);
   }
   const std::string version = R"({"schema_version":"v9.0"})";
-  EXPECT_EQ(
-      IBM_QDMI_device_job_set_parameter(job, QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
-                                        version.size() + 1, version.c_str()),
-      QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_EQ(setProgram(job, format, version.size() + 1, version.c_str()),
+            QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
   EXPECT_EQ(http.requests().size(), before);
 }
@@ -1007,11 +966,131 @@ TEST_F(DeviceJobMockTest, ExecutorCannotDiscardConfiguredSamplerOptions) {
                 job, QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM, sizeof(shots), &shots),
             QDMI_SUCCESS);
   const auto format = IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
-  EXPECT_EQ(IBM_QDMI_device_job_set_parameter(
-                job, QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT, sizeof(format),
-                &format),
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 1, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
-  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, IBM_QDMI_JOB_RESULT_EXECUTOR,
-                                            0, nullptr, nullptr),
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(
+                job, 0, IBM_QDMI_JOB_RESULT_EXECUTOR, 0, nullptr, nullptr),
+            QDMI_ERROR_OUTOFRANGE);
+}
+
+TEST_F(DeviceJobMockTest, ProgramListsValidateCopyAndProbeWithoutMutation) {
+  const auto format = QDMI_PROGRAM_FORMAT_QASM3;
+  std::size_t count = 99;
+  ASSERT_EQ(IBM_QDMI_device_job_query_property(
+                job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM, sizeof(count),
+                &count, nullptr),
+            QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(count, 99);
+  EXPECT_EQ(
+      IBM_QDMI_device_job_set_programs(nullptr, format, 1, nullptr, nullptr),
+      QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 0, nullptr, nullptr),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(
+                job, static_cast<QDMI_Program_Format>(-1), 1, nullptr, nullptr),
+            QDMI_ERROR_INVALIDARGUMENT);
+  for (const auto reserved : {6, 9}) {
+    EXPECT_EQ(IBM_QDMI_device_job_set_programs(
+                  job, static_cast<QDMI_Program_Format>(reserved), 1, nullptr,
+                  nullptr),
+              QDMI_ERROR_NOTSUPPORTED);
+  }
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(
+                job, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, 2, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
+  ASSERT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, nullptr, nullptr),
+            QDMI_SUCCESS);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program(job, 0, 0, nullptr, nullptr),
+            QDMI_ERROR_BADSTATE);
+  QDMI_Job_Status missingStatus{};
+  EXPECT_EQ(IBM_QDMI_device_job_get_program_status(job, 0, &missingStatus),
+            QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program_status(job, 0, nullptr),
+            QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(IBM_QDMI_device_job_query_property(
+                job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM, 0, nullptr, nullptr),
+            QDMI_ERROR_BADSTATE);
+  std::string second = "OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];";
+  const std::array sizes{PROGRAM.size() + 1, second.size() + 1};
+  const std::array<const void*, 2> programs{PROGRAM.c_str(), second.c_str()};
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, nullptr,
+                                             programs.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  const std::array<const void*, 2> nullProgram{PROGRAM.c_str(), nullptr};
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, sizes.data(),
+                                             nullProgram.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  const std::array zeroSizes{PROGRAM.size() + 1, std::size_t{0}};
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, zeroSizes.data(),
+                                             programs.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(setProgram(job, format, PROGRAM.size(), PROGRAM.c_str()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  const std::array<char, 3> embeddedNull{'x', '\0', '\0'};
+  EXPECT_EQ(setProgram(job, format, embeddedNull.size(), embeddedNull.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  ASSERT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, sizes.data(),
+                                             programs.data()),
+            QDMI_SUCCESS);
+  second.assign("changed");
+  std::array<char, 128> buffer{};
+  std::size_t required = 0;
+  ASSERT_EQ(IBM_QDMI_device_job_get_program(job, 1, 0, nullptr, &required),
+            QDMI_SUCCESS);
+  EXPECT_EQ(
+      required,
+      std::string("OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];").size() +
+          1);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program(job, 1, required - 1, buffer.data(),
+                                            nullptr),
+            QDMI_ERROR_INVALIDARGUMENT);
+  ASSERT_EQ(IBM_QDMI_device_job_get_program(job, 1, buffer.size(),
+                                            buffer.data(), nullptr),
+            QDMI_SUCCESS);
+  EXPECT_STREQ(buffer.data(),
+               "OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];");
+  const std::string invalid = "invalid";
+  const std::array invalidSizes{PROGRAM.size() + 1, invalid.size() + 1};
+  const std::array<const void*, 2> invalidPrograms{PROGRAM.c_str(),
+                                                   invalid.c_str()};
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(
+                job, format, 2, invalidSizes.data(), invalidPrograms.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  ASSERT_EQ(IBM_QDMI_device_job_set_programs(
+                job, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, 1, nullptr, nullptr),
+            QDMI_SUCCESS);
+  ASSERT_EQ(IBM_QDMI_device_job_query_property(
+                job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM, sizeof(count),
+                &count, nullptr),
+            QDMI_SUCCESS);
+  EXPECT_EQ(count, 2);
+  QDMI_Program_Format stored{};
+  ASSERT_EQ(IBM_QDMI_device_job_query_property(
+                job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT, sizeof(stored),
+                &stored, nullptr),
+            QDMI_SUCCESS);
+  EXPECT_EQ(stored, format);
+  QDMI_Job_Status status{};
+  EXPECT_EQ(IBM_QDMI_device_job_get_program_status(job, 1, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program_status(job, 2, &status),
+            QDMI_ERROR_OUTOFRANGE);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program_status(job, 2, nullptr),
+            QDMI_ERROR_OUTOFRANGE);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program_status(job, 1, &status),
+            QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_EQ(IBM_QDMI_device_job_get_program(job, 2, 0, nullptr, nullptr),
+            QDMI_ERROR_OUTOFRANGE);
+  EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 2, QDMI_JOB_RESULT_SHOTS, 0,
+                                            nullptr, nullptr),
+            QDMI_ERROR_OUTOFRANGE);
+  for (const auto reserved : {0, 1}) {
+    EXPECT_EQ(
+        IBM_QDMI_device_job_set_parameter(
+            job, static_cast<QDMI_Device_Job_Parameter>(reserved), 0, nullptr),
+        QDMI_ERROR_NOTSUPPORTED);
+  }
+  submit();
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 1, nullptr, nullptr),
+            QDMI_ERROR_BADSTATE);
 }

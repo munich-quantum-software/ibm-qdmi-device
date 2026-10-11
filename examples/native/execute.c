@@ -150,17 +150,14 @@ int main(int argc, char** argv) {
     goto cleanup;
   }
   const QDMI_Program_Format format = QDMI_PROGRAM_FORMAT_QASM3;
+  const size_t programSize = (size_t)programLength + 1;
+  const void* programs[] = {program};
   const size_t shots = 16;
   const uint64_t maximumExecutionTime = 60;
   if (!succeeded(IBM_QDMI_device_session_create_device_job(session, &job),
                  "Create job") ||
-      !succeeded(IBM_QDMI_device_job_set_parameter(
-                     job, QDMI_DEVICE_JOB_PARAMETER_PROGRAMFORMAT,
-                     sizeof(format), &format),
-                 "Set program format") ||
-      !succeeded(IBM_QDMI_device_job_set_parameter(
-                     job, QDMI_DEVICE_JOB_PARAMETER_PROGRAM,
-                     (size_t)programLength + 1, program),
+      !succeeded(IBM_QDMI_device_job_set_programs(job, format, 1, &programSize,
+                                                  programs),
                  "Set program") ||
       !succeeded(
           IBM_QDMI_device_job_set_parameter(
@@ -186,8 +183,8 @@ int main(int argc, char** argv) {
   finished = true;
 
   size_t required = 0;
-  if (!succeeded(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS, 0,
-                                                 NULL, &required),
+  if (!succeeded(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS,
+                                                 0, NULL, &required),
                  "Query result size") ||
       required == 0) {
     goto cleanup;
@@ -197,7 +194,7 @@ int main(int argc, char** argv) {
     fputs("Cannot allocate the result buffer.\n", stderr);
     goto cleanup;
   }
-  if (!succeeded(IBM_QDMI_device_job_get_results(job, QDMI_JOB_RESULT_SHOTS,
+  if (!succeeded(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS,
                                                  required, results, NULL),
                  "Read shots")) {
     goto cleanup;

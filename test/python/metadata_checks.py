@@ -130,7 +130,7 @@ def validate_backend(api: Native, backend: str, expected_qubits: int, parameters
         device = partial(api.device, session)
         require(text(partial(device, 0), "backend name") == backend, "backend identity")
         require(number(partial(device, 4), "qubit count") == expected_qubits, "qubit count")
-        require(text(partial(device, 3), "QDMI version") == "1.3.3", "QDMI version")
+        require(text(partial(device, 3), "QDMI version") == "1.4.0", "QDMI version")
         require(text(partial(device, 12), "duration unit") == "ps", "duration unit")
         scale = read(partial(device, 13), "duration scale")
         if scale is None:
