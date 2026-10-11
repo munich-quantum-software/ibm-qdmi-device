@@ -109,8 +109,12 @@ def test_multi_program_submission_and_indexed_results(runtime: RuntimeProxy) -> 
     result = job.result()
     assert result.get_counts(0) == {"0": 4}
     assert result.get_counts(1) == {"1": 4}
-    assert result.results[0].header["metadata"] == {"index": 0}
-    assert result.results[1].header["metadata"] == {"index": 1}
+    first_header = result.results[0].header
+    second_header = result.results[1].header
+    assert first_header is not None
+    assert second_header is not None
+    assert first_header["metadata"] == {"index": 0}
+    assert second_header["metadata"] == {"index": 1}
     submissions = runtime.snapshot()["submissions"]
     assert len(submissions) == 1
     assert len(submissions[0]["params"]["pubs"]) == 2
