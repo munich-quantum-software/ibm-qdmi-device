@@ -7,12 +7,13 @@ through MQT Core's `QDMIBackend` and `QDMIJob`. Install the optional extra:
 uv pip install "ibm-qdmi[qiskit]"
 ```
 
-The extra uses `mqt-core[qiskit]~=4.0.0`. The base package remains usable
-without Qiskit; `qiskit-ibm-runtime` is not required. Imports do not open
-sessions or contact IBM. Constructing a backend reads live metadata. Executing
-circuits creates paid quantum jobs. These examples are not executed during
-documentation builds. Quantum execution remains unverified live until the gated
-checks pass.
+The extra uses the
+[pinned Core source](dependencies.md#python-package-and-integrations) with its
+Qiskit extra. The base package remains usable without Qiskit;
+`qiskit-ibm-runtime` is not required. Imports do not open sessions or contact
+IBM. Constructing a backend reads live metadata. Executing circuits creates paid
+quantum jobs. These examples are not executed during documentation builds.
+Quantum execution remains unverified live until the gated checks pass.
 
 ## Select a backend
 
