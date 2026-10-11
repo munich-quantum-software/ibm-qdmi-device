@@ -58,6 +58,7 @@ def test_estimator_precision_observables_and_layout(runtime: RuntimeProxy) -> No
     )
     np.testing.assert_allclose(result.data["evs"], [1, -1], atol=1e-12)
     np.testing.assert_allclose(result.data["stds"], [0, 0], atol=1e-12)
-    assert len(runtime.snapshot()["submissions"]) == 2
-    assert all(request["params"]["pubs"][0][2] == 64 for request in runtime.snapshot()["submissions"])
-    assert all(request["cost"] == 60 for request in runtime.snapshot()["submissions"])
+    submissions = runtime.snapshot()["submissions"]
+    assert len(submissions) == 1
+    assert [pub[2] for pub in submissions[0]["params"]["pubs"]] == [64, 64]
+    assert submissions[0]["cost"] == 60

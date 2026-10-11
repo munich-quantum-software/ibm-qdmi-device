@@ -152,7 +152,7 @@ def test_sampled_measurements(runtime: RuntimeProxy) -> None:
 
 
 def test_shot_vectors(runtime: RuntimeProxy) -> None:
-    """Each shot-vector partition creates one job with the requested shot count."""
+    """Equal shot-vector partitions share a job and retain ordered results."""
     device = open_device(runtime, 1)
 
     @qml.qnode(device, shots=[5, (3, 2)])
@@ -161,7 +161,8 @@ def test_shot_vectors(runtime: RuntimeProxy) -> None:
         return qml.counts(wires=0)
 
     assert circuit() == ({"1": 5}, {"1": 3}, {"1": 3})
-    assert [request["params"]["pubs"][0][2] for request in runtime.snapshot()["submissions"]] == [5, 3, 3]
+    submissions = runtime.snapshot()["submissions"]
+    assert [[pub[2] for pub in request["params"]["pubs"]] for request in submissions] == [[5], [3, 3]]
 
 
 def test_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
@@ -175,7 +176,9 @@ def test_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
 
     theta = pnp.array(math.pi / 2, requires_grad=True)
     assert qml.grad(circuit)(theta) == pytest.approx(-1)
-    assert len(runtime.snapshot()["submissions"]) >= 2
+    pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
+    assert len(pubs) >= 2
+    assert all(pub[2] == 31 for pub in pubs)
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
@@ -211,15 +214,18 @@ def test_invalid_batch_submits_nothing(runtime: RuntimeProxy) -> None:
     assert not runtime.snapshot()["submissions"]
 
 
-def test_failed_batch_cancels_previous_jobs(runtime: RuntimeProxy) -> None:
-    """A failed second submission cancels the first and is never retried."""
+def test_failed_batch_retains_previous_jobs_for_cancellation(runtime: RuntimeProxy) -> None:
+    """A failed second submission retains the first for explicit cancellation."""
     device = open_device(runtime, 1)
-    tape = qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=0)], shots=3)
+    tapes = tuple(qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=0)], shots=shots) for shots in (3, 4, 5))
     runtime.set_state("Queued", 2)
-    with pytest.raises(PennyLaneExecutionError):
-        device.execute((tape, tape, tape))
+    with pytest.raises(PennyLaneExecutionError) as error:
+        device.execute(tapes)
     assert len(runtime.snapshot()["submissions"]) == 2
+    assert error.value.job is not None
+    assert not error.value.job.cancel()
     assert runtime.snapshot()["cancellations"] == ["synthetic-1"]
+    assert len(runtime.snapshot()["submissions"]) == 2
 
 
 def test_analytic_execution_submits_nothing(runtime: RuntimeProxy) -> None:
@@ -381,10 +387,11 @@ def test_native_rzz_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
 
     theta = pnp.array(math.pi / 4, requires_grad=True)
     assert qml.grad(circuit)(theta) == pytest.approx(-math.sin(theta), abs=0.04)
-    submissions = runtime.snapshot()["submissions"]
-    assert len(submissions) >= 2
-    for submission in submissions:
-        emitted = qasm3.loads(submission["params"]["pubs"][0][0])
+    pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
+    assert len(pubs) >= 2
+    assert all(pub[2] == 4096 for pub in pubs)
+    for source, _, _ in pubs:
+        emitted = qasm3.loads(source)
         angles = [float(item.operation.params[0]) for item in emitted.data if item.operation.name == "rzz"]
         assert angles
         assert all(0 < angle <= math.pi / 2 for angle in angles)
@@ -418,4 +425,6 @@ def test_noncommuting_observables(runtime: RuntimeProxy) -> None:
         return qml.expval(qml.X(0)), qml.expval(qml.Y(0))
 
     np.testing.assert_allclose(circuit(), [1, 0], atol=0.1)
-    assert len(runtime.snapshot()["submissions"]) == 2
+    submissions = runtime.snapshot()["submissions"]
+    assert len(submissions) == 1
+    assert [pub[2] for pub in submissions[0]["params"]["pubs"]] == [1024, 1024]

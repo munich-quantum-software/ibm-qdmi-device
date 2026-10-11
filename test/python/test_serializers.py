@@ -51,7 +51,11 @@ def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> 
     assert result.get_counts(1) == {"1 01": 9}
     assert [experiment.header["name"] for experiment in result.results] == ["first", "second"]
     assert result.results[0].header["creg_sizes"] == [["z", 2], ["a", 1]]
-    assert len(runtime.snapshot()["submissions"]) == 2
+    submissions = runtime.snapshot()["submissions"]
+    assert len(submissions) == 1
+    pubs = submissions[0]["params"]["pubs"]
+    assert len(pubs) == 2
+    assert [pub[2] for pub in pubs] == [9, 9]
 
 
 def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
@@ -66,7 +70,8 @@ def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
     job = backend.run([circuit, circuit], parameter_values=[{theta: 0}, [math.pi]], shots=7, memory=True)
     assert job.result().get_counts(0) == {"1": 7}
     assert job.result().get_counts(1) == {"0": 7}
-    assert all("bit[1] c0;" in request["params"]["pubs"][0][0] for request in runtime.snapshot()["submissions"])
+    pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
+    assert all("bit[1] c0;" in pub[0] for pub in pubs)
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
