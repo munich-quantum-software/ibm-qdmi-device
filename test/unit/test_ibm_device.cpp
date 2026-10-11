@@ -692,8 +692,11 @@ TEST_F(DeviceJobMockTest, FailedJobHasFixedDiagnostic) {
   configure();
   submit();
   queueStatus("Failed");
-  EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_ERROR_FATAL);
-  EXPECT_EQ(IBM_QDMI_device_last_diagnostic(), IBM_QDMI_DIAGNOSTIC_JOB_FAILED);
+  EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
+  EXPECT_EQ(IBM_QDMI_device_last_diagnostic(), IBM_QDMI_DIAGNOSTIC_NONE);
+  QDMI_Job_Status status = QDMI_JOB_STATUS_CREATED;
+  EXPECT_EQ(IBM_QDMI_device_job_check(job, &status), QDMI_SUCCESS);
+  EXPECT_EQ(status, QDMI_JOB_STATUS_FAILED);
   EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 0,
                                             nullptr, nullptr),
             QDMI_ERROR_BADSTATE);
@@ -706,7 +709,7 @@ TEST_F(DeviceJobMockTest, SubmissionFailureAndTimeoutNeverRetry) {
   const auto before = http.requests().size();
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_TIMEOUT);
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
-  EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_ERROR_FATAL);
+  EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
   EXPECT_EQ(http.requests().size(), before + 1);
 }
 

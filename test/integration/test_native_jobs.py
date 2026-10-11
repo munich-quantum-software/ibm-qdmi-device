@@ -138,7 +138,11 @@ def test_failed_submission_is_not_retried(native: Native, job_service: Service, 
             configure(native, job)
             assert native.submit(job) == (-8 if failure in {401, 403} else -1)
             assert native.submit(job) == -10
-            assert native.wait(job, 1) == -1
+            assert native.wait(job, 1) == 0
+            status = ctypes.c_int()
+            assert native.job_check(job, ctypes.byref(status)) == 0
+            assert status.value == 6
+            assert native.results(job, 0, 0, 0, None, None) == -10
     assert sum(path == "/v1/jobs" for path, _, _ in job_service.requests) == 1
 
 

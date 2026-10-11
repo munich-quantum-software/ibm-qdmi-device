@@ -607,9 +607,6 @@ int IBM_QDMI_device_job_wait(IBM_QDMI_Device_Job handle, std::size_t timeout) {
       require(lock.try_lock_until(deadline), QDMI_ERROR_TIMEOUT);
       const auto status = owned->job.check(deadline);
       require(status != QDMI_JOB_STATUS_CREATED, QDMI_ERROR_BADSTATE);
-      if (status == QDMI_JOB_STATUS_FAILED) {
-        throw ibm::Failure{QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_JOB_FAILED};
-      }
       if (ibm::terminal(status)) {
         return QDMI_SUCCESS;
       }
