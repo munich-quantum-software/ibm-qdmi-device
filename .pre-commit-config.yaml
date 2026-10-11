@@ -175,4 +175,6 @@ repos:
     hooks:
       - id: ty
         args: [--only-group=typecheck]
+        # The reusable linter sets sccache launchers even without stub checks.
+        additional_dependencies: [sccache==0.16.0]
         priority: 8

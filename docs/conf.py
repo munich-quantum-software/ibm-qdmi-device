@@ -64,6 +64,7 @@ nitpick_ignore = [
     # IBM indexes this as py:pydantic_model, which cannot resolve a class role.
     ("py:class", "qiskit_ibm_runtime.options_models.executor.ExecutorOptions"),
     ("cpp:identifier", "size_t"),
+    ("cpp:identifier", "uint32_t"),
 ]
 
 # Opaque QDMI handles intentionally have no public struct definitions.
