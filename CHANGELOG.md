@@ -22,7 +22,7 @@ releases may include breaking changes.
 ### Changed
 
 - ⬆️ Adopt QDMI 1.4.0 with native multi-program jobs, indexed results, installed
-  manifest discovery, and export control.
+  manifest discovery, and export control. ([#66]) ([**@marcelwa**])
 
 - 📝 Document installation from PyPI, keep source builds as an alternative, and
   list the supported wheel platforms. ([#60]) ([**@marcelwa**])
@@ -38,6 +38,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#59]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/59
 [#60]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/60
 
