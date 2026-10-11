@@ -476,8 +476,9 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
 
 int setProgram(IBM_QDMI_Device_Job job, QDMI_Program_Format format,
                std::size_t size, const void* program) {
-  const void* programs[] = {program};
-  return IBM_QDMI_device_job_set_programs(job, format, 1, &size, programs);
+  const std::array<const void*, 1> programs{program};
+  return IBM_QDMI_device_job_set_programs(job, format, 1, &size,
+                                          programs.data());
 }
 
 class DeviceJobMockTest : public DeviceTest {
