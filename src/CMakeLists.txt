@@ -50,7 +50,15 @@ add_library(ibm-qdmi-device::ibm-qdmi-device ALIAS ${QDMI_TARGET_NAME})
 target_compile_features(${QDMI_TARGET_NAME} PRIVATE cxx_std_20)
 target_compile_definitions(${QDMI_TARGET_NAME} PRIVATE IBM_QDMI_device_EXPORTS)
 target_link_libraries(${QDMI_TARGET_NAME} PRIVATE ibm-qdmi-core qdmi::qdmi_project_warnings)
-configure_qdmi_exports(TARGET ${QDMI_TARGET_NAME} PREFIX "${QDMI_PREFIX}" INTERFACE device)
+configure_qdmi_exports(
+  TARGET
+  ${QDMI_TARGET_NAME}
+  PREFIX
+  "${QDMI_PREFIX}"
+  INTERFACE
+  device
+  EXTRA_SYMBOLS
+  IBM_QDMI_device_last_diagnostic)
 
 set_target_properties(
   ${QDMI_TARGET_NAME}
