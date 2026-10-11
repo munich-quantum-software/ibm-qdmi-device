@@ -24,7 +24,7 @@ INPUT                  = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi" \
 EXCLUDE                = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi/constants.h"
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
-PREDEFINED            = "IBM_QDMI_EXPORT=" "QDMI_EXPORT="
+PREDEFINED            = "IBM_QDMI_EXPORT=" "QDMI_EXPORT=" "QDMI_DRIVER_EXPORT="
 FILE_PATTERNS          = *.h *.hpp
 RECURSIVE              = NO
 EXTRACT_ALL            = YES

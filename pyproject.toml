@@ -204,6 +204,11 @@ cache-keys = [
 [tool.uv.dependency-groups]
 chemistry = { requires-python = ">=3.11,<3.14" }
 
+# Temporary: the reusable linter sets sccache launchers without installing sccache.
+[tool.uv.config-settings-package.mqt-core]
+"cmake.define.CMAKE_C_COMPILER_LAUNCHER" = ""
+"cmake.define.CMAKE_CXX_COMPILER_LAUNCHER" = ""
+
 
 [tool.cibuildwheel]
 build = "cp3*"

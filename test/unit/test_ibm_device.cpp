@@ -985,8 +985,8 @@ TEST_F(DeviceJobMockTest, ProgramListsValidateCopyAndProbeWithoutMutation) {
       QDMI_ERROR_INVALIDARGUMENT);
   EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 0, nullptr, nullptr),
             QDMI_ERROR_INVALIDARGUMENT);
-  EXPECT_EQ(IBM_QDMI_device_job_set_programs(
-                job, static_cast<QDMI_Program_Format>(-1), 1, nullptr, nullptr),
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, QDMI_PROGRAM_FORMAT_MAX, 1,
+                                             nullptr, nullptr),
             QDMI_ERROR_INVALIDARGUMENT);
   for (const auto reserved : {6, 9}) {
     EXPECT_EQ(IBM_QDMI_device_job_set_programs(
