@@ -80,7 +80,6 @@ ibm-qdmi = "ibm.qdmi.__main__:main"
 [dependency-groups]
 dev = [
   { include-group = "build" },
-  { include-group = "docs" },
   { include-group = "examples" },
   { include-group = "test" },
   "nox>=2026.8.10",
@@ -273,6 +272,11 @@ extend-ignore-re = [
 [tool.typos.default.extend-words]
 optin = "optin"
 
+
+[tool.ty.src]
+exclude = [
+  "docs/**",
+]
 
 [tool.ty.environment]
 extra-paths = [ "test/python", "test/ci" ]

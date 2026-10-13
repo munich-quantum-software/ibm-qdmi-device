@@ -969,14 +969,11 @@ chemistry = [
     { name = "trustme", marker = "python_full_version < '3.14'" },
 ]
 dev = [
-    { name = "breathe" },
     { name = "build" },
     { name = "cmake" },
     { name = "cryptography" },
-    { name = "furo" },
     { name = "mqt-bench" },
     { name = "mqt-core", extra = ["pennylane", "qiskit"] },
-    { name = "myst-nb" },
     { name = "ninja" },
     { name = "nox" },
     { name = "pytest" },
@@ -988,11 +985,6 @@ dev = [
     { name = "qiskit-ibm-runtime" },
     { name = "qiskit-nature" },
     { name = "scikit-build-core" },
-    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "sphinx-autoapi" },
-    { name = "sphinx-copybutton" },
-    { name = "sphinx-design" },
     { name = "trustme" },
 ]
 docs = [
@@ -1068,14 +1060,11 @@ chemistry = [
     { name = "trustme", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = ">=1.2.1" },
 ]
 dev = [
-    { name = "breathe", specifier = ">=5,<6" },
     { name = "build", specifier = ">=1.2.2" },
     { name = "cmake", specifier = ">=3.24" },
     { name = "cryptography", specifier = ">=42" },
-    { name = "furo", specifier = ">=2025.12.19" },
     { name = "mqt-bench", specifier = ">=2.2.2" },
     { name = "mqt-core", extras = ["pennylane", "qiskit"], specifier = "~=4.0.0" },
-    { name = "myst-nb", specifier = ">=1.4" },
     { name = "ninja", specifier = ">=1.5" },
     { name = "nox", specifier = ">=2026.8.10" },
     { name = "pytest", specifier = ">=9.1.1" },
@@ -1087,10 +1076,6 @@ dev = [
     { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
     { name = "qiskit-nature", specifier = ">=0.7.2" },
     { name = "scikit-build-core", specifier = ">=1.1" },
-    { name = "sphinx", specifier = ">=9" },
-    { name = "sphinx-autoapi", specifier = ">=3.6.1" },
-    { name = "sphinx-copybutton", specifier = ">=0.5.2" },
-    { name = "sphinx-design", specifier = ">=0.7" },
     { name = "trustme", specifier = ">=1.2.1" },
 ]
 docs = [

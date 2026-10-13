@@ -47,13 +47,13 @@ MQT Core defines their transitive Qiskit and PennyLane requirements.
 defines the build backend and dependency groups. These tools are not runtime
 requirements of the installed device.
 
-| Group      | Main tools                                                      | Purpose                                    |
-| :--------- | :-------------------------------------------------------------- | :----------------------------------------- |
-| `build`    | scikit-build-core, build                                        | CMake integration and Python packaging     |
-| `test`     | pytest, coverage and parallel-test plugins, MQT Core, PyYAML    | Offline package and adapter tests          |
-| `docs`     | Sphinx, Furo, MyST-NB, AutoAPI, Copybutton, Design              | Documentation and Python API generation    |
-| `examples` | Test dependencies and MQT Bench                                 | Runnable simulation and framework examples |
-| `dev`      | Build, test, docs, and example dependencies, Nox, Qiskit Nature | Development and type checking              |
+| Group      | Main tools                                                   | Purpose                                    |
+| :--------- | :----------------------------------------------------------- | :----------------------------------------- |
+| `build`    | scikit-build-core, build                                     | CMake integration and Python packaging     |
+| `test`     | pytest, coverage and parallel-test plugins, MQT Core, PyYAML | Offline package and adapter tests          |
+| `docs`     | Sphinx, Furo, MyST-NB, AutoAPI, Copybutton, Design           | Documentation and Python API generation    |
+| `examples` | Test dependencies and MQT Bench                              | Runnable simulation and framework examples |
+| `dev`      | Build, test, and example dependencies, Nox, Qiskit Nature    | Development and type checking              |
 
 Native builds also require a C++20 compiler, CMake 3.24 or newer, and Git.
 Documentation builds additionally require Doxygen on `PATH`; see
