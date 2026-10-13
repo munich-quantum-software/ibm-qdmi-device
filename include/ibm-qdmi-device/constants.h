@@ -22,8 +22,8 @@
 #include <ibm_qdmi/constants.h>
 
 /// Null-terminated Executor v2.0 params JSON, including quantum_program.shots.
-/// Select this format before setting the program. SHOTSNUM and the Sampler
-/// dynamical-decoupling parameter are unsupported for Executor jobs.
+/// Pass this format to IBM_QDMI_device_job_set_programs. SHOTSNUM and the
+/// Sampler dynamical-decoupling parameter are unsupported for Executor jobs.
 #define IBM_QDMI_PROGRAM_FORMAT_EXECUTOR QDMI_PROGRAM_FORMAT_CUSTOM1
 
 /// Null-terminated Executor result JSON, preserving arrays and metadata.

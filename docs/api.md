@@ -231,8 +231,8 @@ and probabilities are unsupported.
 
 Retrieval by job ID creates a read-only local handle without resubmitting. It
 requires the same backend and retained input parameters. Sampler retrieval
-supports the single-circuit plain-JSON contract. Executor retrieval supports the
-v2.0 extension described below. Private jobs are unsupported. See the
+supports the plain-JSON contract. Executor retrieval supports the v2.0 extension
+described below. Private jobs are unsupported. See the
 [IBM jobs API](https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest/tags/jobs).
 
 ### Dynamical decoupling
