@@ -80,8 +80,11 @@ ibm-qdmi = "ibm.qdmi.__main__:main"
 [dependency-groups]
 dev = [
   { include-group = "build" },
+  { include-group = "docs" },
+  { include-group = "examples" },
   { include-group = "test" },
   "nox>=2026.8.10",
+  "qiskit-nature>=0.7.2",
 ]
 test = [
   "cryptography>=42",
@@ -119,13 +122,6 @@ examples = [
   "mqt-core[pennylane,qiskit]~=4.0.0",
   "ninja>=1.5",
   "qiskit-algorithms>=0.4",
-]
-typecheck = [
-  { include-group = "test" },
-  { include-group = "docs" },
-  { include-group = "examples" },
-  "nox>=2026.8.10",
-  "qiskit-nature>=0.7.2",
 ]
 
 
