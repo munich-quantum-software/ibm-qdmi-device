@@ -28,7 +28,7 @@ license = "Apache-2.0 WITH LLVM-exception AND MIT AND curl AND OpenSSL"
 license-files = [ "LICENSE", "licenses/LICENSE-*" ]
 requires-python = ">=3.11"
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Information Technology",
   "Intended Audience :: Science/Research",
   "Natural Language :: English",

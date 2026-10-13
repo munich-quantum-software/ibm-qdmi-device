@@ -10,6 +10,8 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-13
+
 ### Changed
 
 - ⬆️ Adopt QDMI 1.4.0 and MQT Core 4.1 with native multi-program jobs, indexed
@@ -51,7 +53,8 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- Version links -->
 
-[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.0.0
 [0.1.1]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.1
 [0.1.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.0
 
