@@ -1062,7 +1062,7 @@ provides-extras = ["executor", "pennylane", "qiskit"]
 [package.metadata.requires-dev]
 build = [
     { name = "build", specifier = ">=1.2.2" },
-    { name = "scikit-build-core", specifier = ">=1.0.3" },
+    { name = "scikit-build-core", specifier = ">=1.1" },
 ]
 chemistry = [
     { name = "cmake", marker = "python_full_version >= '3.11' and python_full_version < '3.14'", specifier = ">=3.24" },
@@ -1092,7 +1092,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qiskit-algorithms", specifier = ">=0.4" },
     { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
-    { name = "scikit-build-core", specifier = ">=1.0.3" },
+    { name = "scikit-build-core", specifier = ">=1.1" },
     { name = "trustme", specifier = ">=1.2.1" },
 ]
 docs = [
