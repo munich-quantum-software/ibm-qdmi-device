@@ -58,9 +58,9 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
-executor = [ "mqt-core[qiskit]~=4.1.0", "qiskit-ibm-runtime~=0.50.0" ]
-pennylane = [ "mqt-core[pennylane,qiskit]~=4.1.0" ]
-qiskit = [ "mqt-core[qiskit]~=4.1.0", "qiskit-algorithms>=0.4" ]
+executor = [ "mqt-core[qiskit]~=4.1.1", "qiskit-ibm-runtime~=0.50.0" ]
+pennylane = [ "mqt-core[pennylane,qiskit]~=4.1.1" ]
+qiskit = [ "mqt-core[qiskit]~=4.1.1", "qiskit-algorithms>=0.4" ]
 
 [project.urls]
 Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
@@ -91,7 +91,7 @@ dev = [
 ]
 test = [
   "cryptography>=42",
-  "mqt-core[pennylane,qiskit]~=4.1.0",
+  "mqt-core[pennylane,qiskit]~=4.1.1",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
@@ -122,7 +122,7 @@ examples = [
   { include-group = "test" },
   "cmake>=3.24",
   "mqt-bench>=2.2.2",
-  "mqt-core[pennylane,qiskit]~=4.1.0",
+  "mqt-core[pennylane,qiskit]~=4.1.1",
   "ninja>=1.5",
   "qiskit-algorithms>=0.4",
 ]
