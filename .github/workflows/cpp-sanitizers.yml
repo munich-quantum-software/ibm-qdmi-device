@@ -21,7 +21,7 @@ jobs:
         uses: Chocobo1/setup-ccache-action@a4d08616f5b614053bce228ddf881592f69d61d4 # v1.5.9
         with:
           prepend_symlinks_to_path: false
-          override_cache_key: cpp-sanitizers-ubuntu-24.04
+          override_cache_key: cpp-sanitizers-ubuntu-26.04
       - name: Setup mold
         if: runner.os == 'Linux'
         uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1

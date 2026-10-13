@@ -174,10 +174,5 @@ repos:
     rev: v0.0.84
     hooks:
       - id: ty
-        # The reusable linter enables sccache without setting up its executable or cache.
-        args:
-          - --only-group=typecheck
-          - --config-settings-package=mqt-core:cmake.define.CMAKE_C_COMPILER_LAUNCHER=
-          - --config-settings-package=mqt-core:cmake.define.CMAKE_CXX_COMPILER_LAUNCHER=
-          - --config-settings-package=mqt-core:cmake.define.CMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_C_COMPILER_LAUNCHER;CMAKE_CXX_COMPILER_LAUNCHER
+        args: [--isolated, --no-install-project]
         priority: 8
