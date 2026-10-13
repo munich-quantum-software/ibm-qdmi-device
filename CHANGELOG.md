@@ -10,6 +10,15 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Changed
+
+- ⬆️ Adopt QDMI 1.4.0 and MQT Core 4.1 with native multi-program jobs, indexed
+  results, installed manifest discovery, and export control. ([#66])
+  ([**@marcelwa**], [**@denialhaag**])
+- 👷 Enable testing on Python 3.15 ([#63]) ([**@denialhaag**])
+
+## [0.1.1] - 2026-10-06
+
 ### Fixed
 
 - 🐛 Ship license texts for libcurl, cpr, nlohmann/json, and OpenSSL bundled in
@@ -21,10 +30,6 @@ releases may include breaking changes.
 
 ### Changed
 
-- ⬆️ Adopt QDMI 1.4.0 and MQT Core 4.1 with native multi-program jobs, indexed
-  results, installed manifest discovery, and export control. ([#66])
-  ([**@marcelwa**], [**@denialhaag**])
-- 👷 Enable testing on Python 3.15 ([#63]) ([**@denialhaag**])
 - 📝 Document installation from PyPI, keep source builds as an alternative, and
   list the supported wheel platforms. ([#60]) ([**@marcelwa**])
 
@@ -46,7 +51,8 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- Version links -->
 
-[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.1
 [0.1.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.0
 
 <!-- Contributor -->
