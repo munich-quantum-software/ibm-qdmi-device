@@ -58,20 +58,9 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
-executor = [
-  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@5f3fc6620f6a731067863ce0a8f2b1afc6f66058",
-  "qiskit-ibm-runtime~=0.50.0",
-]
-pennylane = [
-  """\
-  mqt-core[pennylane,qiskit] @ \
-  git+https://github.com/munich-quantum-toolkit/core.git@5f3fc6620f6a731067863ce0a8f2b1afc6f66058\
-  """,
-]
-qiskit = [
-  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@5f3fc6620f6a731067863ce0a8f2b1afc6f66058",
-  "qiskit-algorithms>=0.4",
-]
+executor = [ "mqt-core[qiskit]~=4.1.0", "qiskit-ibm-runtime~=0.50.0" ]
+pennylane = [ "mqt-core[pennylane,qiskit]~=4.1.0" ]
+qiskit = [ "mqt-core[qiskit]~=4.1.0", "qiskit-algorithms>=0.4" ]
 
 [project.urls]
 Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
@@ -102,10 +91,7 @@ dev = [
 ]
 test = [
   "cryptography>=42",
-  """\
-  mqt-core[pennylane,qiskit] @ \
-  git+https://github.com/munich-quantum-toolkit/core.git@5f3fc6620f6a731067863ce0a8f2b1afc6f66058\
-  """,
+  "mqt-core[pennylane,qiskit]~=4.1.0",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
@@ -136,10 +122,7 @@ examples = [
   { include-group = "test" },
   "cmake>=3.24",
   "mqt-bench>=2.2.2",
-  """\
-  mqt-core[pennylane,qiskit] @ \
-  git+https://github.com/munich-quantum-toolkit/core.git@5f3fc6620f6a731067863ce0a8f2b1afc6f66058\
-  """,
+  "mqt-core[pennylane,qiskit]~=4.1.0",
   "ninja>=1.5",
   "qiskit-algorithms>=0.4",
 ]
@@ -213,14 +196,7 @@ test-groups = [ "test" ]
 test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]
-# Temporary: Core builds from source until compatible release wheels are available.
-environment = { MLIR_DIR = "/opt/llvm-23.1.2/lib/cmake/mlir" }
-before-all = """
-set -e
-yum clean metadata
-yum install -y openssl-devel
-curl -LsSf https://github.com/munich-quantum-software/setup-mlir/releases/download/v1.5.0/setup-mlir.sh | bash -s -- -v 23.1.2 -p /opt/llvm-23.1.2
-"""
+before-all = "yum install -y openssl-devel"
 
 [tool.cibuildwheel.macos]
 environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }

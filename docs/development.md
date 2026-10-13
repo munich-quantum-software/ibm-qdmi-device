@@ -114,7 +114,7 @@ recovery, session isolation, and property queries without contacting IBM. The
 synthetic fixture in `test/fixtures/` models IBM API version `2026-04-15`; no
 recorded account data is used.
 
-Qiskit tests use the pinned MQT Core driver and installed native library. A
+Qiskit tests use the released MQT Core driver and installed native library. A
 separate local process hosts the synthetic server because native session
 creation can hold Python's GIL. The fixture simulates submitted OpenQASM with
 Qiskit's basic simulator. It checks layouts, registers, batches, cancellation,

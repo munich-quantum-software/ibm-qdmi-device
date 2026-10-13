@@ -109,7 +109,3 @@ device or contacting IBM. See the
 options and the equivalent `python -m ibm.qdmi` interface.
 
 See [development](development.md) for wheel and source-distribution checks.
-
-The optional integrations currently build MQT Core from source for QDMI 1.4.
-Install LLVM/MLIR 23.1.2 and set `MLIR_DIR` to its `lib/cmake/mlir` directory
-before installing an extra. See [dependency versions](dependencies.md).

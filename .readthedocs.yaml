@@ -23,12 +23,9 @@ build:
       - echo "a56f885d37e3aae08a99f638d17bbb381224c03a878d9e2dda4f9fa4baf1d8bd  build/tools/doxygen.tar.gz" | sha256sum --check
       - tar --extract --gzip --file build/tools/doxygen.tar.gz --directory build/tools/doxygen --strip-components=1
       - build/tools/doxygen/bin/doxygen --version
-      # Temporary: Core builds from source until compatible release wheels are available.
-      - curl -LsSf https://github.com/munich-quantum-software/setup-mlir/releases/download/v1.5.0/setup-mlir.sh | bash -s -- -v 23.1.2 -p "$PWD/build/tools/llvm"
-
     build:
       html:
-        - MLIR_DIR="$PWD/build/tools/llvm/lib/cmake/mlir" PATH="$PWD/build/tools/doxygen/bin:$PATH" uvx nox --non-interactive -s docs
+        - PATH="$PWD/build/tools/doxygen/bin:$PATH" uvx nox --non-interactive -s docs
         - mkdir -p $READTHEDOCS_OUTPUT/html && cp -R docs/_build/html/. $READTHEDOCS_OUTPUT/html
       htmlzip:
         - |
