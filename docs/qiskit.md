@@ -27,10 +27,10 @@ backend = IBMBackend("ibm.berlin")
 # Generic selection: IBMBackend(backend_name="ibm_berlin")
 ```
 
-The generic `ibm.default` entry uses `backend_name`, `IBM_QUANTUM_BACKEND`, or
-the administrator's registered backend default, in that order. A missing
-selection fails during native session initialization before contacting IBM.
-Concrete catalogue entries select their named backend. Explicit `api_key`,
+The generic `ibm.default` entry uses an explicit `backend_name`, the
+administrator's catalogue backend, or `IBM_QUANTUM_BACKEND`, in that order. A
+missing selection fails during native session initialization before contacting
+IBM. Concrete catalogue entries select their named backend. Explicit `api_key`,
 `instance_crn`, and `backend_name` arguments override defaults. Normally omit
 `base_url` and `auth_url`; the native library derives the region from the CRN.
 Trusted endpoint overrides support applications such as loopback testing. See
@@ -43,9 +43,10 @@ may supply identity metadata, including through the inherited
 discovery preserves administrator definitions in MQT Core's driver. Each normal
 construction creates a fresh session.
 
-Credentials read from the environment become explicit native session parameters
-and override registered defaults. Adapt an already-open device to preserve
-authentication configured directly through QDMI.
+Omitted connection arguments use the catalogue configuration, then native
+environment defaults. A configured authentication file takes precedence over
+`IBM_QUANTUM_API_KEY`. These rules also apply when opening a device directly
+through QDMI; see [session configuration](api.md#session-configuration).
 
 ## Transpile and execute
 

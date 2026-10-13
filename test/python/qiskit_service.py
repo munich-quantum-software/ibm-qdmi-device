@@ -50,11 +50,10 @@ class Runtime:
     fail_submission: int = 0
     state: str = "Completed"
     cancel_failure: bool = False
+    status_unavailable: bool = False
     invalid_results: bool = False
     mismatch_retrieval: bool = False
     result_reads: int = 0
-    job_reads: int = 0
-    inconsistent_state: bool = False
     executor_result: dict[str, Any] = field(default_factory=dict)
 
     def respond(self, path: str, body: bytes) -> tuple[int, Any]:
@@ -97,9 +96,8 @@ class Runtime:
                 samples = next(iter(data["results"][0]["data"].values()))["samples"]
                 samples[0] = "0x0"
             return 200, data
-        self.job_reads += 1
-        if self.inconsistent_state and self.job_reads == 2:
-            return 200, {**self.jobs[identifier], "state": {"status": "Queued"}}
+        if self.status_unavailable:
+            return 400, {}
         return 200, self.jobs[identifier]
 
     @staticmethod
@@ -202,9 +200,9 @@ class RuntimeServer:
         self.runtime.cancel_failure = category == "cancellation"
         if self.runtime.cancel_failure:
             self.runtime.state = "Queued"
+        self.runtime.status_unavailable = category == "status"
         self.runtime.invalid_results = category == "results"
         self.runtime.mismatch_retrieval = category == "retrieval"
-        self.runtime.inconsistent_state = category == "status-regression"
         if category == "authentication":
             self.runtime.service.errors["auth"] = 401
 

@@ -98,13 +98,14 @@ requires human authorization and also opts subsequent PR updates into hardware
 checks. Label additions reuse the exact merge commit's successful offline CI and
 retained candidate. Unrelated label changes must not start jobs, cancel CI, or
 publish a skipped `🚦 Check`. Fork PRs remain offline. The authorized CI budget
-is one job each on Berlin and Aachen, 128 shots per job, and at most 60 seconds
-of QPU execution per job. Do not make paid local submissions or automatically
-retry hardware tests. Preserve the tested candidate wheel across offline and
-hardware jobs. The `🚦 Check` aggregate covers every Actions prerequisite on
-`main`. Pre-commit.ci and Read the Docs are required before merging; hardware
-execution uses the Actions prerequisites on the tested commit. Hardware results
-and job IDs must not be uploaded as artifacts.
+is one job each on Berlin and Aachen, two programs with 64 shots each (128
+total) per job, and at most 60 seconds of QPU execution per job. Do not make
+paid local submissions or automatically retry hardware tests. Preserve the
+tested candidate wheel across offline and hardware jobs. The `🚦 Check`
+aggregate covers every Actions prerequisite on `main`. Pre-commit.ci and Read
+the Docs are required before merging; hardware execution uses the Actions
+prerequisites on the tested commit. Hardware results and job IDs must not be
+uploaded as artifacts.
 
 ## Git and GitHub
 

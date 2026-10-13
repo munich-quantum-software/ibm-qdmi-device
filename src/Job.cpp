@@ -108,6 +108,10 @@ std::string bitstring(const std::string& sample, std::size_t width) {
   bits.insert(0, width - bits.size(), '0');
   return bits;
 }
+void checkSamplerExecutions(std::size_t count, std::size_t shots) {
+  // IBM limits each Sampler job to ten million circuit executions.
+  require(count <= 10'000'000 / shots, QDMI_ERROR_NOTSUPPORTED);
+}
 void append(std::string& destination, const std::string& value) {
   if (!destination.empty()) {
     destination += ',';
@@ -119,9 +123,7 @@ void append(std::string& destination, const std::string& value) {
 Results decodeResults(const nlohmann::json& data,
                       const std::vector<Register>& registers,
                       std::size_t shots) {
-  const auto& pubs = data.at("results");
-  require(pubs.is_array() && pubs.size() == 1);
-  const auto& output = pubs.at(0).at("data");
+  const auto& output = data.at("data");
   require(output.is_object() && output.size() == registers.size());
   std::vector<std::string> samples(shots);
   // QDMI strings put the highest classical-bit index on the left. Preserve
@@ -171,6 +173,9 @@ void Job::checkProgramSupport(QDMI_Program_Format value,
   require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR ||
               (count == 1 && !samplerOptionsSet),
           QDMI_ERROR_NOTSUPPORTED);
+  if (value == QDMI_PROGRAM_FORMAT_QASM3) {
+    checkSamplerExecutions(count, shots);
+  }
 }
 void Job::setPrograms(QDMI_Program_Format value,
                       std::vector<std::string> sources) {
@@ -217,6 +222,7 @@ void Job::setPrograms(QDMI_Program_Format value,
 void Job::setShots(std::size_t value) {
   require(format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, QDMI_ERROR_NOTSUPPORTED);
   require(value != 0, QDMI_ERROR_INVALIDARGUMENT);
+  checkSamplerExecutions(std::max(programs.size(), std::size_t{1}), value);
   shots = value;
   samplerOptionsSet = true;
 }
@@ -320,8 +326,8 @@ void Job::retrieve(const std::string& remoteId) {
     require(pubShots == commonShots, QDMI_ERROR_NOTSUPPORTED);
     sources.push_back(pub.at(0).get<std::string>());
   }
+  setShots(commonShots);
   setPrograms(QDMI_PROGRAM_FORMAT_QASM3, std::move(sources));
-  shots = commonShots;
   id = remoteId;
   attempted = true;
   status = parseJobStatus(data);
@@ -379,9 +385,8 @@ const Results& Job::results(std::size_t index) {
     decoded.reserve(pubs.size());
     for (std::size_t programIndex = 0; programIndex < pubs.size();
          ++programIndex) {
-      decoded.push_back(decodeResults(
-          {{"results", nlohmann::json::array({pubs.at(programIndex)})}},
-          registers.at(programIndex), shots));
+      decoded.push_back(decodeResults(pubs.at(programIndex),
+                                      registers.at(programIndex), shots));
     }
     cached = std::move(decoded);
   }

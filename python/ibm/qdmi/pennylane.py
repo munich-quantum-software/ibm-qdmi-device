@@ -40,7 +40,7 @@ from pennylane.devices.preprocess import decompose
 from pennylane.transforms.core import BoundTransform
 
 from . import IBM_QDMI_DEVICE_ID
-from ._catalogue import register_device, session_parameters
+from ._catalogue import session_parameters
 from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
@@ -180,9 +180,7 @@ class IBMDevice(QDMIDevice):
             super().__init__(device=device, wires=wires, job_parameters=job_parameters)
         else:
             selected_id = self.qdmi_device_id if device_id is None else device_id
-            register_device(selected_id)
             session = session_parameters(
-                selected_id,
                 backend_name=backend_name,
                 api_key=api_key,
                 instance_crn=instance_crn,

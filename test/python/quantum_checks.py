@@ -19,14 +19,13 @@
 
 from __future__ import annotations
 
-import math
-import time
 from collections import Counter
 from typing import TYPE_CHECKING
 
-from mqt.core.qdmi import Job
+from mqt.core.qdmi import Job, ProgramFormat
 from qiskit import QuantumCircuit, transpile
-from qiskit.providers import JobStatus
+
+from ibm.qdmi.serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -34,19 +33,23 @@ if TYPE_CHECKING:
     from ibm.qdmi.qiskit import IBMBackend
 
 
-def valid_results(memory: object, counts: object) -> bool:
+def valid_results(memory: object, counts: object, program_index: int) -> bool:
     """Check the fixed shot budget, bit ordering, histogram, and noisy Bell pair.
 
     Returns:
         Whether the results satisfy the hardware acceptance contract.
     """
-    if not isinstance(memory, list) or len(memory) != 128 or not isinstance(counts, dict):
+    if not isinstance(memory, list) or len(memory) != 64 or not isinstance(counts, dict):
         return False
     if any(not isinstance(shot, str) or len(shot) != 3 or set(shot) - {"0", "1"} for shot in memory):
         return False
     if any(type(count) is not int or count <= 0 for count in counts.values()) or Counter(memory) != counts:
         return False
-    return counts.get("100", 0) + counts.get("111", 0) >= 96 and min(counts.get("100", 0), counts.get("111", 0)) >= 13
+    outcomes = ("100", "111") if program_index == 0 else ("000", "011")
+    return (
+        sum(counts.get(outcome, 0) for outcome in outcomes) >= 48
+        and min(counts.get(outcome, 0) for outcome in outcomes) >= 7
+    )
 
 
 def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int = 3600) -> str | None:
@@ -59,51 +62,47 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
     Returns:
         A fixed diagnostic category on failure, or None on success. Job IDs and
         native exception text never leave this function. Failure triggers one
-        cancellation attempt through the original Qiskit job before releasing it.
+        cancellation attempt for an active job before releasing it.
     """
-    backend = fresh = job = control = retrieved = None
+    backend = fresh = job = retrieved = None
     category = "configuration"
     failure = None
     success = False
     try:  # ruff: ignore[too-many-statements-in-try-clause] -- one boundary redacts the entire paid lifecycle
         backend = open_backend()
         category = "transpilation"
-        circuit = QuantumCircuit(3, 3)
-        circuit.h(0)
-        circuit.cx(0, 1)
-        circuit.x(2)
-        circuit.measure(range(3), range(3))
-        compiled = transpile(circuit, backend, optimization_level=1, seed_transpiler=7)
+        circuits = []
+        for program_index in range(2):
+            circuit = QuantumCircuit(3, 3)
+            circuit.h(0)
+            circuit.cx(0, 1)
+            if program_index == 0:
+                circuit.x(2)
+            circuit.measure(range(3), range(3))
+            circuits.append(circuit)
+        compiled = transpile(circuits, backend, optimization_level=1, seed_transpiler=7)
+        programs = [qiskit_to_qasm3(circuit, backend.num_qubits) for circuit in compiled]
         category = "submission"
-        job = backend.run(compiled, shots=128, memory=True)
-        deadline = time.monotonic() + timeout
-        category = "retrieval"
-        identifier = job.job_id()
-        control = backend.device.retrieve_job_by_id(identifier)
+        # One explicit QDMI job prevents adapter fallback into separate paid jobs.
+        job = backend.device.submit_job(programs, ProgramFormat.QASM3, 64)
         category = "waiting"
-        state = control.check()
-        remaining = math.floor(deadline - time.monotonic())
-        if state in {Job.Status.FAILED, Job.Status.CANCELED}:
-            failure = "remote state"
-        elif remaining <= 0:
+        if not job.wait(timeout):
             failure = "timeout"
-        elif not control.wait(remaining):
-            failure = "remote state" if control.check() in {Job.Status.FAILED, Job.Status.CANCELED} else "timeout"
-        # Confirm completion on the original handle too. Its cached terminal
-        # state prevents the shared result adapter from starting an unlimited wait.
-        elif control.check() != Job.Status.DONE or job.status() != JobStatus.DONE:
+        elif job.check() != Job.Status.DONE:
             failure = "remote state"
         else:
             category = "results"
-            result = job.result()
-            memory, counts = result.get_memory(), result.get_counts()
-            if not valid_results(memory, counts):
+            results = [(job.get_shots(index), job.get_counts(index)) for index in range(2)]
+            if not all(valid_results(memory, counts, index) for index, (memory, counts) in enumerate(results)):
                 failure = "result contract"
             else:
                 category = "fresh retrieval"
                 fresh = open_backend()
-                retrieved = fresh.device.retrieve_job_by_id(identifier)
-                if retrieved.get_shots() != memory or retrieved.get_counts() != counts:
+                retrieved = fresh.device.retrieve_job_by_id(job.id)
+                if retrieved.num_programs != 2 or any(
+                    retrieved.get_shots(index) != memory or retrieved.get_counts(index) != counts
+                    for index, (memory, counts) in enumerate(results)
+                ):
                     failure = "retrieval mismatch"
                 else:
                     success = True
@@ -112,11 +111,15 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
     finally:
         if job is not None and not success:
             try:
-                if not job.cancel() and job.status() not in {JobStatus.DONE, JobStatus.ERROR, JobStatus.CANCELLED}:
+                job.cancel()
+            except Exception:  # ruff: ignore[blind-except] -- cancellation can race with completion
+                try:
+                    terminal = job.check() in {Job.Status.DONE, Job.Status.FAILED, Job.Status.CANCELED}
+                except Exception:  # ruff: ignore[blind-except] -- a failed status lookup leaves cancellation unconfirmed
+                    terminal = False
+                if not terminal:
                     failure = f"{failure or category}; cancellation failed"
-            except Exception:  # ruff: ignore[blind-except] -- cleanup must not reveal or mask the original failure
-                failure = f"{failure or category}; cancellation failed"
         # Release job handles before their sessions; local cleanup never cancels.
-        retrieved = control = job = None
+        retrieved = job = None
         fresh = backend = None
     return failure

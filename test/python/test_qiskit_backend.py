@@ -154,13 +154,11 @@ def test_status_cancellation_and_retrieval(runtime: RuntimeProxy) -> None:
 
 @pytest.mark.parametrize("use_environment", [False, True])
 def test_session_overrides_and_existing_device(monkeypatch: pytest.MonkeyPatch, *, use_environment: bool) -> None:
-    """Forward explicit or environment values without opening a native session."""
+    """Forward explicit overrides and leave environment defaults to the native device."""
     device = Mock(spec=adapter.Device)
     opened = Mock(return_value=device)
     initialized = Mock(return_value=None)
-    registered = Mock()
     monkeypatch.setattr(adapter, "open_device", opened)
-    monkeypatch.setattr(adapter, "register_device", registered)
     monkeypatch.setattr(adapter.QDMIBackend, "__init__", initialized)
     monkeypatch.setenv("IBM_QUANTUM_API_KEY", "synthetic-key" if use_environment else "wrong-key")
     monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", CRN if use_environment else "wrong-crn")
@@ -172,12 +170,11 @@ def test_session_overrides_and_existing_device(monkeypatch: pytest.MonkeyPatch, 
         instance_crn=None if use_environment else CRN,
         backend_name=None if use_environment else "ibm_test",
     )
-    registered.assert_called_once_with("ibm.default")
     opened.assert_called_once_with(
         "ibm.default",
-        token="synthetic-key",  # ruff: ignore[hardcoded-password-func-arg] -- synthetic forwarding assertion
-        custom1="ibm_test",
-        custom2=CRN,
+        token=None if use_environment else "synthetic-key",
+        custom1=None if use_environment else "ibm_test",
+        custom2=None if use_environment else CRN,
         base_url="http://127.0.0.1:1",
         auth_url="http://127.0.0.1:1/auth",
     )

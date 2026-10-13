@@ -258,24 +258,26 @@ Only the final test step receives the existing `ibm-quantum` environment
 secrets. The native library derives the API region from the instance CRN; the
 workflow supplies no endpoint override.
 
-Berlin and Aachen run sequentially through the public `IBMBackend`. Each backend
-receives exactly one job with 128 shots and the native 60-second QPU execution
-cap. The circuit contains a Bell pair and an independent X-prepared qubit. The
-check requires 128 three-bit shots, matching counts and memory, at least 75%
-combined `100`/`111`, and at least 10% for each outcome. A fresh session
-retrieves the same job and compares its results without another submission.
-Sampler and estimator checks run offline and do not add hardware jobs.
+Berlin and Aachen run sequentially. `IBMBackend` provides the compilation
+target; QDMI submits exactly one two-program job per backend with 64 shots per
+program (128 total) and the native 60-second QPU execution cap. Both circuits
+contain a Bell pair; an independent third qubit is prepared in one for the first
+circuit and zero for the second. For each program, the check requires 64
+three-bit shots, matching counts and memory, at least 75% combined expected
+outcomes, and at least 10% for each Bell outcome. Different third-qubit values
+detect swapped program results. A fresh session retrieves the same job and
+compares both indexed results without another submission. Sampler and estimator
+checks run offline and do not add hardware jobs.
 
 Each backend may wait up to one hour, including time in IBM's queue. This wait
-does not increase the 60-second QPU execution cap. The original public job must
-also report completion before result collection, so it cannot start an unlimited
-second wait. Failures and timeouts trigger a cancellation attempt before handles
-are released; cancellation can race with completion. Freeing a handle alone does
-not cancel a remote job. The workflow job timeout is 130 minutes, allowing both
-sequential waits plus installation and cleanup. Runs are serialized without
-automatic cancellation or retries. Rerunning the workflow is another paid run;
-do so only within an authorized budget. Do not make development-time hardware
-submissions.
+does not increase the 60-second QPU execution cap. The QDMI job must report
+successful completion before result collection. Failures and timeouts trigger a
+cancellation attempt before handles are released; cancellation can race with
+completion. Freeing a handle alone does not cancel a remote job. The workflow
+job timeout is 130 minutes, allowing both sequential waits plus installation and
+cleanup. Runs are serialized without automatic cancellation or retries.
+Rerunning the workflow is another paid run; do so only within an authorized
+budget. Do not make development-time hardware submissions.
 
 The `quantum` marker requires `--run-quantum`; `--run-live` enables metadata
 only. Default pytest, Nox, wheel, and documentation builds cannot activate
@@ -361,3 +363,8 @@ trusted publishing after a GitHub release is published. The `pypi` environment
 permits only tags matching `v*`; publishing uses short-lived identity tokens.
 Manual CD runs build artifacts. Coverage jobs upload native and Python reports
 to Codecov using OpenID Connect.
+
+Before tagging a release, ensure every declared dependency is published,
+regenerate `uv.lock` with `uv lock`, and validate the installed candidate wheels
+against those released dependencies. For version 1.0, this includes MQT Core
+4.1. A local development build does not replace that release check.

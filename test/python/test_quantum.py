@@ -31,7 +31,7 @@ from ibm.qdmi.qiskit import IBMBackend
 @pytest.mark.quantum
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_quantum(backend: str) -> None:
-    """Execute exactly one 128-shot job, then reopen it without resubmission."""
+    """Execute one two-program job with 128 total shots, then retrieve it."""
     key = os.environ.get("IBM_QUANTUM_API_KEY", "")
     crn = os.environ.get("IBM_QUANTUM_INSTANCE_CRN", "")
     if not key or not crn:

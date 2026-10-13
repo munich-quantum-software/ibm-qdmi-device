@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
@@ -100,8 +101,8 @@ void configure(ibm::Job& job) {
 } // namespace
 
 TEST(Results, PreservesShotsAndClassicalBitOrder) {
-  const auto decoded =
-      ibm::decodeResults(results(), ibm::outputRegisters(PROGRAM, 2), 3);
+  const auto decoded = ibm::decodeResults(results()["results"][0],
+                                          ibm::outputRegisters(PROGRAM, 2), 3);
   EXPECT_EQ(decoded.shots, "101,000,101");
   EXPECT_EQ(decoded.keys, "000,101");
   EXPECT_EQ(decoded.counts, (std::vector<std::size_t>{1, 2}));
@@ -112,7 +113,8 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
     data["results"][0]["data"]["z"]["samples"][0] = sample;
     fails(
         [&] {
-          (void)ibm::decodeResults(data, ibm::outputRegisters(PROGRAM, 2), 3);
+          (void)ibm::decodeResults(data["results"][0],
+                                   ibm::outputRegisters(PROGRAM, 2), 3);
         },
         QDMI_ERROR_FATAL);
   }
@@ -120,15 +122,43 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   data["results"][0]["data"]["z"]["num_bits"] = 1;
   fails(
       [&] {
-        (void)ibm::decodeResults(data, ibm::outputRegisters(PROGRAM, 2), 3);
+        (void)ibm::decodeResults(data["results"][0],
+                                 ibm::outputRegisters(PROGRAM, 2), 3);
       },
       QDMI_ERROR_FATAL);
   fails(
       [&] {
-        (void)ibm::decodeResults(results(), ibm::outputRegisters(PROGRAM, 2),
-                                 4);
+        (void)ibm::decodeResults(results()["results"][0],
+                                 ibm::outputRegisters(PROGRAM, 2), 4);
       },
       QDMI_ERROR_FATAL);
+}
+TEST(Job, SamplerExecutionLimitPreservesConfiguration) {
+  Service service;
+  ibm::Auth auth(configuration(),
+                 [&](const auto& request) { return service(request); });
+  ibm::Job job(auth, "ibm_test", 2);
+  job.setShots(10'000);
+  job.checkProgramSupport(QDMI_PROGRAM_FORMAT_QASM3, 1000);
+  fails([&] { job.checkProgramSupport(QDMI_PROGRAM_FORMAT_QASM3, 1001); },
+        QDMI_ERROR_NOTSUPPORTED);
+  fails(
+      [&] {
+        job.checkProgramSupport(QDMI_PROGRAM_FORMAT_QASM3,
+                                std::numeric_limits<std::size_t>::max());
+      },
+      QDMI_ERROR_NOTSUPPORTED);
+  job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM, PROGRAM});
+  job.setShots(5'000'000);
+  fails(
+      [&] {
+        job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM, PROGRAM, PROGRAM});
+      },
+      QDMI_ERROR_NOTSUPPORTED);
+  fails([&] { job.setShots(5'000'001); }, QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_EQ(job.programs, (std::vector<std::string>{PROGRAM, PROGRAM}));
+  EXPECT_EQ(job.shots, 5'000'000);
+  EXPECT_TRUE(service.requests.empty());
 }
 TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
   Service service;

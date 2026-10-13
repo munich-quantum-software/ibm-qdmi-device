@@ -31,37 +31,60 @@ import sysconfig
 from importlib.metadata import distribution
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs
 
 import pytest
+from offline_service import CRN
+from qiskit_service import configure
 
 from ibm import qdmi
-from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name] -- shared adapter precedence
 
 if TYPE_CHECKING:
     from offline_service import Service
 
 
-@pytest.mark.parametrize("device_id", ["ibm.default", "ibm.berlin", "ibm.aachen", "site.ibm"])
-@pytest.mark.parametrize("override", [None, "", "explicit"])
-def test_session_precedence(device_id: str, override: str | None, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only omitted values use the environment; concrete IDs keep their backend."""
-    monkeypatch.setenv("IBM_QUANTUM_API_KEY", "environment-key")
-    monkeypatch.setenv("IBM_QUANTUM_INSTANCE_CRN", "environment-crn")
-    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "environment-backend")
-    parameters = session_parameters(
-        device_id,
-        backend_name=override,
-        api_key=override,
-        instance_crn=override,
-        base_url="http://127.0.0.1/api",
-        auth_url="http://127.0.0.1/auth",
+def test_adapter_credential_precedence(service: Service, tmp_path: Path) -> None:
+    """Direct QDMI and both adapters share native credential precedence."""
+    configure(service)
+    key_file = tmp_path / "api-key"
+    key_file.write_text("synthetic-site-key", encoding="utf-8")
+    catalogue = {
+        "schema-version": 1,
+        "qdmi": {
+            "devices": [
+                {
+                    "id": "ibm.berlin",
+                    "session": {
+                        "auth-file": str(key_file),
+                        "custom1": "ibm_test",
+                        "custom2": CRN,
+                        "base-url": service.url,
+                        "auth-url": service.url + "/auth",
+                    },
+                }
+            ]
+        },
+    }
+    script = """
+from mqt.core.qdmi import builtin_driver
+from ibm.qdmi.qiskit import IBMBackend
+from ibm.qdmi.pennylane import IBMDevice
+sessions = [builtin_driver.open_device('ibm.berlin'),
+            IBMBackend('ibm.berlin'), IBMDevice(device_id='ibm.berlin', wires=2),
+            IBMBackend('ibm.berlin', api_key='synthetic-explicit-key')]
+"""
+    env = {key: value for key, value in os.environ.items() if not key.startswith("MQT_CORE_QDMI_CONFIG_")}
+    env.update(
+        MQT_CORE_QDMI_CONFIG_JSON=json.dumps(catalogue),
+        IBM_QUANTUM_API_KEY="synthetic-environment-key",
+        IBM_QUANTUM_INSTANCE_CRN="invalid-environment-crn",
     )
-    assert parameters["token"] == ("environment-key" if override is None else override)
-    assert parameters["custom2"] == ("environment-crn" if override is None else override)
-    expected_backend = "environment-backend" if override is None and device_id == "ibm.default" else override
-    assert parameters["custom1"] == expected_backend
-    assert parameters["base_url"] == "http://127.0.0.1/api"
-    assert parameters["auth_url"] == "http://127.0.0.1/auth"
+    result = subprocess.run(
+        [sys.executable, "-c", script], check=False, capture_output=True, text=True, env=env, timeout=30
+    )
+    assert result.returncode == 0, result.stderr
+    keys = [parse_qs(body.decode())["apikey"] for path, _, body in service.requests if path.endswith("/auth")]
+    assert keys == [["synthetic-site-key"]] * 3 + [["synthetic-explicit-key"]]
 
 
 @pytest.mark.parametrize("device_id", ["ibm.default", "ibm.berlin", "ibm.aachen"])

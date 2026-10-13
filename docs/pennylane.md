@@ -27,15 +27,15 @@ def circuit():
 ```
 
 Supply `api_key`, `instance_crn`, and `backend_name` explicitly to override the
-environment. `IBMDevice(device=opened_device, wires=2)` adapts an existing QDMI
-session and rejects connection overrides. Importing the adapter and inspecting
-entry points do not open a session or submit work.
+catalogue configuration and environment defaults.
+`IBMDevice(device=opened_device, wires=2)` adapts an existing QDMI session and
+rejects connection overrides. Importing the adapter and inspecting entry points
+do not open a session or submit work.
 
-The wrapper uses environment credentials as explicit session parameters when
-`api_key` or `instance_crn` is omitted. An environment API key therefore takes
-precedence over a registered authentication file. To retain a native session's
-file selection, open it through the QDMI driver and pass it as `device`; see
-{doc}`api` for native credential precedence.
+Omitted connection arguments use the same native configuration as a direct QDMI
+session. A configured authentication file takes precedence over
+`IBM_QUANTUM_API_KEY`; see
+[session configuration](api.md#session-configuration).
 
 Wire labels map in their declared order to physical qubits starting at zero. For
 example, `wires=["control", "target"]` maps those labels to physical qubits 0

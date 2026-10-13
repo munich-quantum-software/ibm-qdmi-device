@@ -19,19 +19,13 @@
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
-
-from mqt.core.qdmi import builtin_driver
-
-from . import IBM_QDMI_DEVICE_ID
 
 if TYPE_CHECKING:
     from mqt.core.typing import QDMISessionParameters
 
 
 def session_parameters(
-    device_id: str,
     *,
     backend_name: str | None,
     api_key: str | None,
@@ -39,31 +33,15 @@ def session_parameters(
     base_url: str | None,
     auth_url: str | None,
 ) -> QDMISessionParameters:
-    """Map explicit connection values and environment defaults to QDMI.
+    """Map explicit connection overrides to QDMI session parameters.
 
     Returns:
-        Session overrides, preserving catalogue backends for concrete IDs.
+        Explicit overrides; native session initialization resolves omitted values.
     """
-    if device_id == IBM_QDMI_DEVICE_ID and backend_name is None:
-        backend_name = os.environ.get("IBM_QUANTUM_BACKEND")
     return {
-        "token": api_key if api_key is not None else os.environ.get("IBM_QUANTUM_API_KEY"),
-        "custom2": instance_crn if instance_crn is not None else os.environ.get("IBM_QUANTUM_INSTANCE_CRN"),
+        "token": api_key,
+        "custom2": instance_crn,
         "custom1": backend_name,
         "base_url": base_url,
         "auth_url": auth_url,
     }
-
-
-def register_device(device_id: str) -> None:
-    """Validate the selected ID against the discovered device catalogue.
-
-    Args:
-        device_id: Stable catalogue identifier.
-
-    Raises:
-        ValueError: The selected identifier is absent from the packaged catalogue.
-    """
-    if device_id not in builtin_driver.registered_device_ids():
-        msg = "Unknown IBM QDMI catalogue identifier."
-        raise ValueError(msg)

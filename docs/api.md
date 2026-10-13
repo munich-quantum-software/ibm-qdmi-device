@@ -95,8 +95,6 @@ calibration snapshot. Status and queue queries fetch current backend status.
 | Gate fidelity                | `1 - gate_error`, where IBM reports a finite error in `[0, 1]`.                                                                                                 |
 | Device status                | `OFFLINE` when unavailable; otherwise `BUSY` for a nonempty queue and `IDLE` for an empty queue. Missing availability is unsupported.                           |
 | Queue length                 | Nonnegative number of queued jobs.                                                                                                                              |
-| Needs calibration            | `size_t` zero; the interface does not require client-triggered calibration.                                                                                     |
-| Pulse support                | `QDMI_DEVICE_PULSE_SUPPORT_LEVEL_NONE`; pulse submission is unsupported.                                                                                        |
 
 Measurement calibration uses `readout_length` and `1 - readout_error` from qubit
 properties. Site-dependent duration and fidelity require a supported ordered
@@ -183,9 +181,19 @@ int queryQubitCount(const char *apiKey, const char *crn, const char *backend,
 
 ## Jobs and results
 
-Configure the program format and a null-terminated program before submission.
-OpenQASM shots default to 1,024; an explicit shot count must be positive. The
-custom `IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a
+`IBM_QDMI_device_job_set_programs` accepts an ordered list of programs with a
+common format and shot count. Each text size includes exactly one final null
+byte. The setter validates and copies the complete list atomically; rejection
+preserves the previous programs and format. Pass a nonzero count and a null
+program pointer to probe support with the current job parameters.
+
+OpenQASM shots default to 1,024 and must be positive. The number of programs
+times the shot count must not exceed
+[IBM's 10-million-execution limit](https://quantum.cloud.ibm.com/docs/en/guides/job-limits).
+Setting programs or changing shots beyond this limit returns
+`QDMI_ERROR_NOTSUPPORTED` without changing the configuration.
+
+The custom `IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a
 `uint64_t` number of seconds from 1 through 10,800, defaulting to 60. This
 bounds QPU execution time, not queue or wall-clock time. A null parameter value
 probes support without changing configuration.
@@ -207,10 +215,14 @@ failure or a lost response. A failed submission freezes that handle. An
 ambiguous response may mean IBM accepted the job; inspect the platform before
 creating a replacement.
 
-Job ID, program, format, and shots are queryable. An unset supported property
-returns `QDMI_ERROR_BADSTATE`; queue position returns `QDMI_ERROR_NOTSUPPORTED`.
-A job retains its session resources; freeing a session or job handle does not
-cancel a remote job. Free every job and session before device finalization.
+Job ID, format, shots, and program count
+(`QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM`) are queryable.
+`IBM_QDMI_device_job_get_program` retrieves the original bytes at a zero-based
+program index. Size queries use a null output buffer. An unset supported
+property returns `QDMI_ERROR_BADSTATE`; queue position returns
+`QDMI_ERROR_NOTSUPPORTED`. A job retains its session resources; freeing a
+session or job handle does not cancel a remote job. Free every job and session
+before device finalization.
 
 `job_check` polls once. `job_wait` accepts a timeout in seconds, with zero
 meaning no overall deadline. The deadline includes authentication and HTTP
@@ -220,19 +232,22 @@ request. Waiting succeeds when a job finishes, is canceled, or fails. Call
 completion returns `QDMI_ERROR_INVALIDARGUMENT` and preserves the completed
 state.
 
-Sampler result queries return comma-separated binary shots, comma-separated
+`IBM_QDMI_device_job_get_results` selects a program by its zero-based input
+index. Sampler results contain comma-separated binary shots, comma-separated
 histogram keys, and a matching `size_t` count array. Strings include their
 terminating null byte. Bits follow classical declaration order, with the highest
 bit index on the left. Leading zeros and shot order are preserved. Results of
 unfinished, canceled, or failed jobs return `QDMI_ERROR_BADSTATE`. Results not
 yet available after completion return `QDMI_ERROR_BADSTATE`; malformed results
 fail rather than fabricating counts. Completed results are cached. Statevectors
-and probabilities are unsupported.
+and probabilities are unsupported. IBM reports aggregate outcomes; indexed
+program status returns `QDMI_ERROR_NOTSUPPORTED`.
 
 Retrieval by job ID creates a read-only local handle without resubmitting. It
 requires the same backend and retained input parameters. Sampler retrieval
-supports the plain-JSON contract. Executor retrieval supports the v2.0 extension
-described below. Private jobs are unsupported. See the
+restores ordered plain-JSON circuit lists with a common shot count and each
+program's classical register layout. Executor retrieval supports the v2.0
+extension described below. Private jobs are unsupported. See the
 [IBM jobs API](https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest/tags/jobs).
 
 ### Dynamical decoupling
@@ -291,27 +306,6 @@ IBM validates compatibility with the selected backend and circuit. Service
 rejection follows the normal submission error contract and is never retried.
 
 [dynamical-decoupling options]: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-dynamical-decoupling-options
-
-## Multi-program jobs
-
-`IBM_QDMI_device_job_set_programs` accepts an ordered list of OpenQASM 3
-programs with a common shot count. Each text size includes exactly one final
-null byte. The setter validates and copies the complete list atomically. A
-failed setter preserves the previous programs and format. Pass a nonzero count
-and a null program pointer to probe support without changing the job.
-
-Query `QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM` for the list length. Retrieve
-original bytes with `IBM_QDMI_device_job_get_program` and results with
-`IBM_QDMI_device_job_get_results`, using a zero-based program index. Size
-queries use a null output buffer. Results retain input order and each program's
-classical register layout. Retrieval by ID restores that mapping for supported
-jobs. IBM reports aggregate outcomes; indexed program status returns
-`QDMI_ERROR_NOTSUPPORTED`.
-
-QDMI 1.4 removes the separate program and format parameters, the program
-property, and unused calibration and pulse metadata. Their reserved numeric
-values return `QDMI_ERROR_NOTSUPPORTED`. Rebuild device consumers against the
-1.4 headers and use index zero for single-program results.
 
 ## Python package
 

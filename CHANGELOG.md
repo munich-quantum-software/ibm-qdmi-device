@@ -12,6 +12,11 @@ releases may include breaking changes.
 
 ## [1.0.0] - 2026-10-13
 
+### Fixed
+
+- 🐛 Enforce Sampler execution limits and consistent QDMI credential precedence.
+  ([#66]) ([**@burgholzer**])
+
 ### Changed
 
 - ⬆️ Adopt QDMI 1.4.0 and MQT Core 4.1 with native multi-program jobs, indexed
@@ -60,6 +65,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- Contributor -->
 
+[**@burgholzer**]: https://github.com/burgholzer
 [**@marcelwa**]: https://github.com/marcelwa
 [**@denialhaag**]: https://github.com/denialhaag
 
