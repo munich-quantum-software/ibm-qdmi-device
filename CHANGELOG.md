@@ -19,9 +19,10 @@ releases may include breaking changes.
 
 ### Changed
 
-- ⬆️ Adopt QDMI 1.4.0 and MQT Core 4.1 with native multi-program jobs, indexed
-  results, installed manifest discovery, and export control. ([#66])
+- ⬆️ Update MQT Core to 4.1.1 with installed manifest discovery. ([#66])
   ([**@marcelwa**], [**@denialhaag**])
+- ⬆️ Update QDMI to 1.4.0 with native multi-program jobs, indexed results, and
+  export control. ([#66]) ([**@marcelwa**], [**@denialhaag**])
 - 👷 Enable testing on Python 3.15 ([#63]) ([**@denialhaag**])
 
 ## [0.1.1] - 2026-10-06

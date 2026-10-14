@@ -363,8 +363,3 @@ trusted publishing after a GitHub release is published. The `pypi` environment
 permits only tags matching `v*`; publishing uses short-lived identity tokens.
 Manual CD runs build artifacts. Coverage jobs upload native and Python reports
 to Codecov using OpenID Connect.
-
-Before tagging a release, ensure every declared dependency is published,
-regenerate `uv.lock` with `uv lock`, and validate the installed candidate wheels
-against those released dependencies. For version 1.0, this includes MQT Core
-4.1. A local development build does not replace that release check.
