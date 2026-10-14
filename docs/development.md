@@ -143,6 +143,13 @@ macOS wheels use Apple's native TLS backend and disable optional curl libraries
 from Homebrew so that their deployment requirements do not raise the wheel's
 minimum supported macOS version.
 
+## Slurm integration
+
+The [Slurm smoke test](slurm.md#run-the-offline-smoke-test) runs both adapters
+in the shared HPCQC playground against the synthetic IBM service. It runs
+without credentials, including on fork PRs, and participates in the offline CI
+gate. See `test/slurm/README.md` for the local command.
+
 ## Live IBM metadata
 
 Live validation is separate from ordinary CI and the required-check aggregate.

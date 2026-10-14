@@ -27,6 +27,8 @@ jobs:
         test/python/**
         examples/native/**
       additional-python-files: |
+        .github/workflows/slurm.yml
+        test/slurm/**
         .github/workflows/cpp-coverage.yml
         test/fixtures/**
         examples/**
@@ -174,6 +176,11 @@ jobs:
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
     with:
       runs-on: ${{ matrix.runs-on }}
+  slurm-tests:
+    name: Slurm
+    needs: change-detection
+    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests) || fromJSON(needs.change-detection.outputs.run-python-tests)
+    uses: $/.github/workflows/slurm.yml
   documentation:
     name: 📚 Documentation
     uses: $/.github/workflows/documentation.yml
@@ -195,6 +202,7 @@ jobs:
         build-sdist,
         build-wheel,
         documentation,
+        slurm-tests,
         candidate-wheel,
       ]
     runs-on: ubuntu-slim
@@ -206,6 +214,10 @@ jobs:
             ${{
               github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false'
               && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-install-tests,cpp-sanitizers,cpp-coverage,' || ''
+            }}
+            ${{
+              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false' && needs.change-detection.outputs.run-python-tests == 'false'
+              && 'slurm-tests,' || ''
             }}
             ${{
               github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-linter == 'false'
