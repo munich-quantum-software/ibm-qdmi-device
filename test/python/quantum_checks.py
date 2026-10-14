@@ -80,7 +80,7 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
                 circuit.x(2)
             circuit.measure(range(3), range(3))
             circuits.append(circuit)
-        compiled = transpile(circuits, backend, optimization_level=1, seed_transpiler=7)
+        compiled = transpile(circuits, backend, optimization_level=1, seed_transpiler=7, num_processes=1)
         programs = [qiskit_to_qasm3(circuit, backend.num_qubits) for circuit in compiled]
         category = "submission"
         # One explicit QDMI job prevents adapter fallback into separate paid jobs.

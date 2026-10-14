@@ -23,6 +23,7 @@ from collections import Counter
 
 import pytest
 from offline_service import CRN
+from qiskit.utils import should_run_in_parallel
 from qiskit_service import remote_runtime
 from quantum_checks import valid_results, validate_execution
 
@@ -43,8 +44,13 @@ from ibm.qdmi.qiskit import IBMBackend
         "cancellation",
     ],
 )
-def test_hardware_contract_offline(failure: str | None) -> None:
+def test_hardware_contract_offline(
+    failure: str | None, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
     """Use actual native jobs to verify the budget, retrieval, and cleanup."""
+    monkeypatch.setenv("QISKIT_PARALLEL", "TRUE")
+    should_run_in_parallel.cache_clear()
+    request.addfinalizer(should_run_in_parallel.cache_clear)
     with remote_runtime() as runtime:
         if failure in {"Queued", "Failed"}:
             runtime.set_state(failure, 0)
