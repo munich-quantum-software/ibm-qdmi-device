@@ -17,13 +17,6 @@ releases may include breaking changes.
 - ✨ Add a QDMI Slurm guide and an offline cluster smoke test. ([#62])
   ([**@flowerthrower**], [**@burgholzer**])
 
-### Fixed
-
-- 🐛 Select calibrated layouts for live quantum checks. ([#66])
-  ([**@marcelwa**])
-- 🐛 Enforce Sampler execution limits and consistent QDMI credential precedence.
-  ([#66]) ([**@burgholzer**])
-
 ### Changed
 
 - ⬆️ Update MQT Core to 4.1.1 with installed manifest discovery. ([#66])
@@ -32,7 +25,19 @@ releases may include breaking changes.
   export control. ([#66]) ([**@marcelwa**], [**@denialhaag**])
 - 👷 Enable testing on Python 3.15 ([#63]) ([**@denialhaag**])
 
+### Fixed
+
+- 🐛 Select calibrated layouts for live quantum checks. ([#66])
+  ([**@marcelwa**])
+- 🐛 Enforce Sampler execution limits and consistent QDMI credential precedence.
+  ([#66]) ([**@burgholzer**])
+
 ## [0.1.1] - 2026-10-06
+
+### Changed
+
+- 📝 Document installation from PyPI, keep source builds as an alternative, and
+  list the supported wheel platforms. ([#60]) ([**@marcelwa**])
 
 ### Fixed
 
@@ -42,11 +47,6 @@ releases may include breaking changes.
 
 - 🐛 Use absolute links in the README so its logo and links render on PyPI.
   ([#59]) ([**@marcelwa**])
-
-### Changed
-
-- 📝 Document installation from PyPI, keep source builds as an alternative, and
-  list the supported wheel platforms. ([#60]) ([**@marcelwa**])
 
 ## [0.1.0] - 2026-10-05
 
@@ -60,10 +60,10 @@ _This is the initial release of the IBM QDMI Device._
 <!-- PR links -->
 
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
-[#59]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/59
-[#60]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/60
-[#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
+[#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62
+[#60]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/60
+[#59]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/59
 
 <!-- Version links -->
 
