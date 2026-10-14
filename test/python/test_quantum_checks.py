@@ -26,7 +26,7 @@ from offline_service import CRN
 from qiskit import qasm3
 from qiskit.utils import should_run_in_parallel
 from qiskit_service import open_backend, remote_runtime
-from quantum_checks import result_failure, validate_execution
+from quantum_checks import valid_results, validate_execution
 
 from ibm.qdmi.qiskit import IBMBackend
 
@@ -99,30 +99,30 @@ def test_hardware_contract_offline(
 
 
 @pytest.mark.parametrize(
-    ("memory", "failure"),
+    ("memory", "valid"),
     [
-        (["100"] * 32 + ["111"] * 32, None),
-        (["100"] * 7 + ["111"] * 41 + ["001"] * 16, None),
-        (["100"] * 6 + ["111"] * 58, "Bell balance"),
-        (["100"] * 7 + ["111"] * 40 + ["001"] * 17, "Bell population"),
-        (["100"] * 64, "Bell balance"),
-        (["100"] * 32 + ["111"] * 31, "shot shape"),
-        (["1"] * 64, "shot encoding"),
-        (["00x"] * 64, "shot encoding"),
-        ([100] * 64, "shot encoding"),
+        (["100"] * 32 + ["111"] * 32, True),
+        (["100"] * 7 + ["111"] * 41 + ["001"] * 16, True),
+        (["100"] * 6 + ["111"] * 58, False),
+        (["100"] * 7 + ["111"] * 40 + ["001"] * 17, False),
+        (["100"] * 64, False),
+        (["100"] * 32 + ["111"] * 31, False),
+        (["1"] * 64, False),
+        (["00x"] * 64, False),
+        ([100] * 64, False),
     ],
 )
-def test_noisy_acceptance(memory: list[object], failure: str | None) -> None:
+def test_noisy_acceptance(memory: list[object], *, valid: bool) -> None:
     """Threshold boundaries use the agreed shot count and classical ordering."""
-    assert result_failure(memory, dict(Counter(memory)), 0) == failure
+    assert valid_results(memory, dict(Counter(memory)), 0) is valid
 
 
 def test_result_mismatch() -> None:
     """Reject inconsistent or noninteger histograms even with valid shot memory."""
     memory = ["100"] * 32 + ["111"] * 32
-    assert result_failure(memory, {"100": 31, "111": 33}, 0) == "histogram"
-    assert result_failure(memory, {"100": 32.0, "111": 32}, 0) == "histogram"
-    assert result_failure(memory, [("100", 32), ("111", 32)], 0) == "shot shape"
+    assert not valid_results(memory, {"100": 31, "111": 33}, 0)
+    assert not valid_results(memory, {"100": 32.0, "111": 32}, 0)
+    assert not valid_results(memory, [("100", 32), ("111", 32)], 0)
 
 
 def test_calibrated_layout() -> None:
@@ -158,5 +158,5 @@ def test_program_order() -> None:
     """The second circuit's independent qubit distinguishes indexed results."""
     memory = ["000"] * 32 + ["011"] * 32
     counts = dict(Counter(memory))
-    assert result_failure(memory, counts, 1) is None
-    assert result_failure(memory, counts, 0) == "Bell population"
+    assert valid_results(memory, counts, 1)
+    assert not valid_results(memory, counts, 0)

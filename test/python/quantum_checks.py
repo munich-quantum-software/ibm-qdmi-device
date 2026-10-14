@@ -33,24 +33,23 @@ if TYPE_CHECKING:
     from ibm.qdmi.qiskit import IBMBackend
 
 
-def result_failure(memory: object, counts: object, program_index: int) -> str | None:
+def valid_results(memory: object, counts: object, program_index: int) -> bool:
     """Check the fixed shot budget, bit ordering, histogram, and noisy Bell pair.
 
     Returns:
-        A fixed diagnostic category, or None when the contract is satisfied.
+        Whether the results satisfy the hardware acceptance contract.
     """
     if not isinstance(memory, list) or len(memory) != 64 or not isinstance(counts, dict):
-        return "shot shape"
+        return False
     if any(not isinstance(shot, str) or len(shot) != 3 or set(shot) - {"0", "1"} for shot in memory):
-        return "shot encoding"
+        return False
     if any(type(count) is not int or count <= 0 for count in counts.values()) or Counter(memory) != counts:
-        return "histogram"
+        return False
     outcomes = ("100", "111") if program_index == 0 else ("000", "011")
-    if sum(counts.get(outcome, 0) for outcome in outcomes) < 48:
-        return "Bell population"
-    if min(counts.get(outcome, 0) for outcome in outcomes) < 7:
-        return "Bell balance"
-    return None
+    return (
+        sum(counts.get(outcome, 0) for outcome in outcomes) >= 48
+        and min(counts.get(outcome, 0) for outcome in outcomes) >= 7
+    )
 
 
 def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int = 3600) -> str | None:
@@ -95,11 +94,9 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
         else:
             category = "results"
             results = [(job.get_shots(index), job.get_counts(index)) for index in range(2)]
-            for index, (memory, counts) in enumerate(results):
-                failure = result_failure(memory, counts, index)
-                if failure is not None:
-                    break
-            if failure is None:
+            if not all(valid_results(memory, counts, index) for index, (memory, counts) in enumerate(results)):
+                failure = "result contract"
+            else:
                 category = "fresh retrieval"
                 fresh = open_backend()
                 retrieved = fresh.device.retrieve_job_by_id(job.id)
