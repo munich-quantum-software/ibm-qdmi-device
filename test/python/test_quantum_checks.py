@@ -23,8 +23,9 @@ from collections import Counter
 
 import pytest
 from offline_service import CRN
+from qiskit import qasm3
 from qiskit.utils import should_run_in_parallel
-from qiskit_service import remote_runtime
+from qiskit_service import open_backend, remote_runtime
 from quantum_checks import result_failure, validate_execution
 
 from ibm.qdmi.qiskit import IBMBackend
@@ -122,6 +123,35 @@ def test_result_mismatch() -> None:
     assert result_failure(memory, {"100": 31, "111": 33}, 0) == "histogram"
     assert result_failure(memory, {"100": 32.0, "111": 32}, 0) == "histogram"
     assert result_failure(memory, [("100", 32), ("111", 32)], 0) == "shot shape"
+
+
+def test_calibrated_layout() -> None:
+    """Avoid a connected but noisy trivial layout without relaxing acceptance."""
+    with remote_runtime() as runtime:
+        runtime.set_properties({
+            "qubits": [[{"name": "readout_error", "value": 0.4 if site < 2 else 0.001}] for site in range(5)],
+            "gates": [
+                {
+                    "gate": name,
+                    "qubits": sites,
+                    "parameters": [{"name": "gate_error", "value": 0.4 if min(sites) < 2 else 0.001}],
+                }
+                for name in ("x", "sx", "rz", "cx")
+                for sites in (
+                    [[site, site + 1] for site in range(4)] if name == "cx" else [[site] for site in range(5)]
+                )
+            ],
+        })
+        assert validate_execution(lambda: open_backend(runtime), timeout=2) is None
+        submissions = runtime.snapshot()["submissions"]
+        assert len(submissions) == 1
+        for source, _, _ in submissions[0]["params"]["pubs"]:
+            circuit = qasm3.loads(source)
+            assert all(
+                circuit.find_bit(instruction.qubits[0]).index >= 2
+                for instruction in circuit.data
+                if instruction.operation.name == "measure"
+            )
 
 
 def test_program_order() -> None:

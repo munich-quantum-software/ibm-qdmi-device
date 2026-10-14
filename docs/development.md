@@ -259,15 +259,16 @@ secrets. The native library derives the API region from the instance CRN; the
 workflow supplies no endpoint override.
 
 Berlin and Aachen run sequentially. `IBMBackend` provides the compilation
-target; QDMI submits exactly one two-program job per backend with 64 shots per
-program (128 total) and the native 60-second QPU execution cap. Both circuits
-contain a Bell pair; an independent third qubit is prepared in one for the first
-circuit and zero for the second. For each program, the check requires 64
-three-bit shots, matching counts and memory, at least 75% combined expected
-outcomes, and at least 10% for each Bell outcome. Different third-qubit values
-detect swapped program results. A fresh session retrieves the same job and
-compares both indexed results without another submission. Sampler and estimator
-checks run offline and do not add hardware jobs.
+target; optimization level 2 selects layouts using its calibration data even
+when the trivial layout fits. QDMI submits exactly one two-program job per
+backend with 64 shots per program (128 total) and the native 60-second QPU
+execution cap. Both circuits contain a Bell pair; an independent third qubit is
+prepared in one for the first circuit and zero for the second. For each program,
+the check requires 64 three-bit shots, matching counts and memory, at least 75%
+combined expected outcomes, and at least 10% for each Bell outcome. Different
+third-qubit values detect swapped program results. A fresh session retrieves the
+same job and compares both indexed results without another submission. Sampler
+and estimator checks run offline and do not add hardware jobs.
 
 Each backend may wait up to one hour, including time in IBM's queue. This wait
 does not increase the 60-second QPU execution cap. The QDMI job must report

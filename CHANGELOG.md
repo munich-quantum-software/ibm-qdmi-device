@@ -14,6 +14,8 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Select calibrated layouts for live quantum checks and distinguish result
+  failures without exposing hardware data. ([#66]) ([**@marcelwa**])
 - 🐛 Enforce Sampler execution limits and consistent QDMI credential precedence.
   ([#66]) ([**@burgholzer**])
 
