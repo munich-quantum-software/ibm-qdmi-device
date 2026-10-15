@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
 
 def session_parameters(
     *,
+    device_id: str = "ibm.default",
     backend_name: str | None,
     api_key: str | None,
     instance_crn: str | None,
@@ -37,7 +39,20 @@ def session_parameters(
 
     Returns:
         Explicit overrides; native session initialization resolves omitted values.
+
+    Raises:
+        ValueError: A fake backend conflicts with explicit connection settings.
     """
+    selected = backend_name
+    if selected is None and device_id == "ibm.default":
+        selected = os.getenv("IBM_QUANTUM_BACKEND")
+    if selected is not None and selected.startswith("fake_"):
+        if any(value is not None for value in (api_key, instance_crn, base_url, auth_url)):
+            msg = "Fake backends are exclusive with connection overrides."
+            raise ValueError(msg)
+        from ._mock_runtime import connection  # ruff: ignore[import-outside-top-level]
+
+        return connection(selected)
     return {
         "token": api_key,
         "custom2": instance_crn,
