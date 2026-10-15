@@ -181,6 +181,7 @@ class IBMDevice(QDMIDevice):
         else:
             selected_id = self.qdmi_device_id if device_id is None else device_id
             session = session_parameters(
+                device_id=selected_id,
                 backend_name=backend_name,
                 api_key=api_key,
                 instance_crn=instance_crn,
