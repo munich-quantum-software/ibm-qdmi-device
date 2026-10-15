@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
+  access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
+
 ## [1.0.0] - 2026-10-14
 
 ### Added
