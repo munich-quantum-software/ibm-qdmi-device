@@ -10,6 +10,12 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Add binary QPY submission and retrieval, prefer QPY in Qiskit, and support
+  measurement-based conditional gates with offline examples and regression
+  tests. ([**@marcelwa**])
+
 ### Changed
 
 - ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.

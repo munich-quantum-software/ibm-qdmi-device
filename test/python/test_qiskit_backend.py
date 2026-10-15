@@ -79,7 +79,7 @@ def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid
         circuit.h(0)
     elif invalid == "control":
         with circuit.if_test((circuit.clbits[0], True)):
-            circuit.x(0)
+            circuit.reset(0)
     elif invalid == "sites":
         circuit.cx(1, 0)
     elif invalid == "unbound":

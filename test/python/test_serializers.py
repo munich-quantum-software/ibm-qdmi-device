@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 import pytest
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit import Parameter
-from qiskit_service import open_backend
+from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
     from qiskit_service import RuntimeProxy
@@ -71,7 +71,7 @@ def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
     assert job.result().get_counts(0) == {"1": 7}
     assert job.result().get_counts(1) == {"0": 7}
     pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
-    assert all("bit[1] c0;" in pub[0] for pub in pubs)
+    assert all(submitted_circuit(pub[0]).num_clbits == 1 for pub in pubs)
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
@@ -92,5 +92,7 @@ def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str)
     assert sum(result.get_counts().values()) == 32
     assert Counter(result.get_memory()) == result.get_counts()
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert f"gate {name}" in source
-    assert "q[3], q[4]" in source
+    emitted = submitted_circuit(source)
+    assert emitted.count_ops()[name] == 1
+    instruction = next(item for item in emitted.data if item.operation.name == name)
+    assert [emitted.find_bit(bit).index for bit in instruction.qubits] == [3, 4]

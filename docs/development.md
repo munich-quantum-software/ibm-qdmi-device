@@ -61,6 +61,8 @@ installed device with a synthetic IBM service and local circuit simulation.
 Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
 minimum-version sessions. Hardware requests test a fresh candidate wheel offline
 before submitting jobs.
+Conditional circuits use Aer where wheels are available; Linux x86_64 Python
+3.14 CI runs these semantic tests. Unsupported platforms skip the Aer cases.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 

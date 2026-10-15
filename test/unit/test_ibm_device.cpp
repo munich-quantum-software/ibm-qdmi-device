@@ -30,6 +30,8 @@
 #include <ibm-qdmi-device/constants.h>
 #include <ibm-qdmi-device/diagnostics.h>
 #include <ibm_qdmi/device.h>
+#include <ios>
+#include <iterator>
 #include <limits>
 #include <new>
 #include <nlohmann/json.hpp>
@@ -234,7 +236,7 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
   EXPECT_EQ(qubits, 2);
   EXPECT_EQ(handles<QDMI_Program_Format>(
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
-            (std::vector{QDMI_PROGRAM_FORMAT_QASM3,
+            (std::vector{QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY,
                          IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
   for (const auto reserved : {8, 9}) {
     EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
@@ -551,6 +553,41 @@ protected:
                });
   }
 };
+
+TEST_F(DeviceJobMockTest, QpyBinaryProgramsProbeAndReplaceAtomically) {
+  std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/native.qpy",
+                     std::ios::binary);
+  const std::string program{std::istreambuf_iterator<char>(file), {}};
+  ASSERT_FALSE(program.empty());
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, QDMI_PROGRAM_FORMAT_QPY, 2,
+                                             nullptr, nullptr),
+            QDMI_SUCCESS);
+  ASSERT_EQ(
+      setProgram(job, QDMI_PROGRAM_FORMAT_QPY, program.size(), program.data()),
+      QDMI_SUCCESS);
+  std::size_t size = 0;
+  ASSERT_EQ(IBM_QDMI_device_job_get_program(job, 0, 0, nullptr, &size),
+            QDMI_SUCCESS);
+  ASSERT_EQ(size, program.size());
+  std::string copied(size, '\0');
+  EXPECT_EQ(
+      IBM_QDMI_device_job_get_program(job, 0, size - 1, copied.data(), nullptr),
+      QDMI_ERROR_INVALIDARGUMENT);
+  ASSERT_EQ(
+      IBM_QDMI_device_job_get_program(job, 0, size, copied.data(), nullptr),
+      QDMI_SUCCESS);
+  EXPECT_EQ(copied, program);
+  const std::array<std::size_t, 2> sizes{program.size(), 3};
+  const std::array<const void*, 2> programs{program.data(), "bad"};
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, QDMI_PROGRAM_FORMAT_QPY, 2,
+                                             sizes.data(), programs.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  copied.assign(size, '\0');
+  ASSERT_EQ(
+      IBM_QDMI_device_job_get_program(job, 0, size, copied.data(), nullptr),
+      QDMI_SUCCESS);
+  EXPECT_EQ(copied, program);
+}
 
 TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
   configure();
@@ -941,7 +978,8 @@ TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
   queueStatus("Completed");
   ASSERT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
-  const auto output = nlohmann::json::parse(R"({"schema_version":"v2.0","data":[
+  const auto output =
+      nlohmann::json::parse(R"({"schema_version":"v2.0","data":[
     {"results":{"meas":{"shape":[2,3,1],"data":"synthetic"},
     "measurement_flips.meas":{"shape":[2,1,1],"data":"corrections"}}}],
     "metadata":{"chunk_timing":[]}})");

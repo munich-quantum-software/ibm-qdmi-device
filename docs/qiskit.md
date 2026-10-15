@@ -10,6 +10,10 @@ extra:
 uv pip install "ibm-qdmi[qiskit]"
 ```
 
+Installation builds the
+[pinned MQT Core revision](dependencies.md#python-package-and-integrations) from
+source for its QPY serializer.
+
 Importing the adapter is offline. Constructing a backend reads live metadata;
 executing circuits creates paid quantum jobs. The examples below require
 authorized IBM access and are not executed during documentation builds.
@@ -57,10 +61,38 @@ counts = result.get_counts()
 shots = result.get_memory()
 ```
 
-Serialization preserves the full physical width and measurement destinations.
+The backend prefers QPY, preserving conditions, global phase, classical
+registers, and physical indices. Serialization uses the full backend width.
+Devices advertising only OpenQASM 3 accept static circuits through that format.
 Results preserve circuit names, metadata, classical register boundaries, and bit
-order. Unsupported instructions, control flow, unbound parameters, and invalid
-site tuples fail before submission. Scheduled delays are unsupported.
+order. Unsupported instructions, unbound parameters, invalid site tuples, and
+scheduled delays fail before submission.
+
+(dynamic-circuits)=
+
+Backends advertising `if_else` support conditional execution through QPY.
+Conditions compare one classical bit or a register of at most 32 bits with an
+integer. Both branches preserve physical qubit mappings:
+
+```python
+circuit = QuantumCircuit(2, 2)
+circuit.h(0)
+circuit.measure(0, 0)
+with circuit.if_test((circuit.clbits[0], True)):
+    circuit.x(1)
+circuit.measure(1, 1)
+compiled = transpile(circuit, backend, optimization_level=1)
+counts = backend.run(compiled, shots=128).result().get_counts()
+```
+
+Ideal samples are `00` and `11`. Nested conditionals, measurements or resets
+inside branches, loops, switches, classical expressions, and `Store` are
+unsupported. The whole batch is validated before submission. See IBM's
+[dynamic-circuit limits](https://quantum.cloud.ibm.com/docs/en/guides/execute-dynamic-circuits#quantum-compute-limitations).
+Run the example locally with
+`uv run --group examples python -m examples.dynamic_circuit --shots 128`. It
+uses Aer without IBM access; select `--backend ibm --device ibm.berlin` only
+within an authorized hardware budget.
 
 `shots` must be positive and defaults to 1,024. Set `memory=True` to retrieve
 ordered samples, including leading zeros. Compatible circuits share one Sampler
