@@ -14,6 +14,7 @@ releases may include breaking changes.
 
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
   access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
+  ([#72]) ([**@marcelwa**])
 - ✨ Support binary QPY 17 submission and retrieval. ([#71]) ([**@marcelwa**],
   [**@burgholzer**])
 - ✨ Support measurement-based `if_else` conditions through QPY and OpenQASM 3.
@@ -115,6 +116,7 @@ _This is the initial release of the IBM QDMI Device._
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
+[#72]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/72
 [#71]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/71
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
