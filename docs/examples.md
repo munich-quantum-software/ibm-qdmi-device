@@ -312,3 +312,29 @@ skips because PySCF is unavailable.
 [qiskit-nature]: https://qiskit-community.github.io/qiskit-nature/
 [qsci]: https://arxiv.org/abs/2302.11320
 [pyscf]: https://pyscf.org/user/install.html
+
+## Conditional feedforward
+
+`examples/dynamic_circuit.py` measures one qubit and applies a conditional X
+gate to another. Ideal results contain only `00` and `11`. It defaults to the
+local Aer simulator and submits no IBM jobs:
+
+```console
+uv run --group examples python -m examples.dynamic_circuit --shots 128
+```
+
+Aer wheels are required for local dynamic simulation. The example dependencies
+include Aer below Python 3.15 on supported platforms. Select IBM explicitly with
+`--backend ibm --device ibm.berlin` only within an authorized QPU budget. The
+backend transmits the compiled circuit as QPY.
+
+To submit a static QPY circuit through the direct QDMI interface:
+
+```console
+uv run --group examples python -m examples.native_job --backend ibm --device ibm.berlin --format qpy --shots 128
+```
+
+The direct example keeps OpenQASM 3 as its default. Both paths use the same job
+lifecycle and return classified counts. See the
+[QPY contract](api.md#qpy-programs) and
+[conditional-execution limits](qiskit.md#dynamic-circuits).

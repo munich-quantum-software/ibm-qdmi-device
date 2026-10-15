@@ -24,7 +24,7 @@ requires = [ "scikit-build-core>=1.1" ]
 name = "ibm-qdmi"
 description = "IBM quantum execution through QDMI, Qiskit, and PennyLane"
 readme = "README.md"
-license = "Apache-2.0 WITH LLVM-exception AND MIT AND curl AND OpenSSL"
+license = "Apache-2.0 WITH LLVM-exception AND MIT AND curl AND OpenSSL AND Zlib"
 license-files = [ "LICENSE", "licenses/LICENSE-*" ]
 requires-python = ">=3.11"
 classifiers = [
@@ -97,6 +97,10 @@ test = [
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8",
   "pyyaml>=6.0.2",
+  """\
+  qiskit-aer>=0.17.2; python_version<'3.15' and platform_machine!='ARM64' and (sys_platform!='linux' or \
+  python_version<'3.14' or platform_machine!='aarch64')\
+  """,
   "qiskit-algorithms>=0.4",
   "qiskit-ibm-runtime~=0.50.0",
   "trustme>=1.2.1",
@@ -281,6 +285,8 @@ extend-ignore-re = [
 
 [tool.typos.default.extend-words]
 optin = "optin"
+Aer = "Aer"
+aer = "aer"
 
 
 [tool.ty.src]

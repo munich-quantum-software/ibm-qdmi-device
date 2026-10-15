@@ -194,12 +194,17 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
     for (const auto& item : instructions) {
       const auto name = item.get<std::string>();
-      if ((name != "measure" && name != "reset") || names.contains(name)) {
+      if ((name != "measure" && name != "reset" && name != "if_else") ||
+          names.contains(name)) {
         continue;
       }
       names.insert(name);
       Operation operation;
       operation.name = name;
+      if (name == "if_else") {
+        result.operations.push_back(std::move(operation));
+        continue;
+      }
       operation.arity = 1;
       operation.parameters = 0;
       for (std::size_t i = 0; i < count; ++i) {
