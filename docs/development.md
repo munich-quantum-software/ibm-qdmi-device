@@ -55,6 +55,18 @@ uvx nox -s tests-3.14 -- test/python/test_qiskit_backend.py
 uvx nox -s tests minimums
 ```
 
+Run `uvx nox -s mock_tests` for native end-to-end tests with official Runtime
+fakes and Aer on Python 3.13. These tests require no IBM credentials. To expose
+a local service to C or C++ clients:
+
+```console
+uv run --extra mock python -m ibm.qdmi.mock --backend-name fake_manila --port 0
+```
+
+The service prints synthetic QDMI session parameters. Use them before session
+initialization and never supply real credentials. Stop it with Ctrl+C; its
+in-memory jobs disappear.
+
 Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
 direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
