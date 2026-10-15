@@ -347,6 +347,7 @@ disable_warnings = [
   "no-sysmon",
 ]
 core = "sysmon"
+patch = [ "subprocess", "_exit" ]
 
 [tool.coverage.report]
 exclude_also = [

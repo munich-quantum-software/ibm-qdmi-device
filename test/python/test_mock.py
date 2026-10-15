@@ -25,6 +25,9 @@ import subprocess
 import sys
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from http.client import HTTPConnection
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import numpy as np
 import pennylane as qml
@@ -48,8 +51,23 @@ from ibm.qdmi._backends import build_sampler  # ruff: ignore[import-private-name
 from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
 
-pytestmark = pytest.mark.mock
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+pytestmark = [pytest.mark.mock, pytest.mark.usefixtures("close_services")]
 pytest.importorskip("qiskit_aer")
+
+
+@pytest.fixture(scope="module")
+def close_services() -> Iterator[None]:
+    """Reap child processes before pytest combines their coverage data.
+
+    Yields:
+        Control to the mock integration tests.
+    """
+    yield
+    gc.collect()
+    _mock_runtime._shutdown()  # ruff: ignore[private-member-access] -- own test service lifetime
 
 
 def test_mock_round_trip_without_cloud_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -317,3 +335,82 @@ def test_executor_failure_and_cancellation() -> None:
         assert sampler.cancelled()
     else:
         assert sum(sampler.result().get_counts().values()) == 8
+
+
+def test_local_http_validation() -> None:
+    """The loopback boundary rejects malformed requests and unknown resources."""
+    parameters = _mock_runtime.connection("fake_manila")
+    token = parameters["token"]
+    assert token is not None
+    endpoint = urlsplit(parameters["base_url"])
+    source = 'OPENQASM 3; include "stdgates.inc"; qubit[1] q; bit[1] c; c[0] = measure q[0];'
+    params = {"version": 2, "support_qiskit": False, "pubs": [[source, None, 4]]}
+    request = {"backend": "fake_manila", "program_id": "sampler", "params": params}
+    backend = IBMBackend(backend_name="fake_manila")
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    job = backend.run(circuit, shots=4)
+    job.result()
+    cases = [
+        ("POST", "/v1/jobs", {**request, "backend": "wrong"}, {}, 400),
+        ("POST", "/v1/jobs", {**request, "program_id": "unknown"}, {}, 400),
+        ("POST", "/v1/jobs", {**request, "params": {**params, "version": 1}}, {}, 400),
+        ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": []}}, {}, 400),
+        ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": [[source, None, True]]}}, {}, 400),
+        (
+            "POST",
+            "/v1/jobs",
+            {**request, "params": {**params, "options": {"dynamical_decoupling": {"enable": True}}}},
+            {},
+            400,
+        ),
+        ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": [["invalid qasm", None, 4]]}}, {}, 500),
+        ("POST", "/v1/jobs", {}, {}, 400),
+        ("GET", "/v1/jobs/unknown", {}, {}, 404),
+        ("GET", f"/v1/jobs/{job.job_id()}/unknown", {}, {}, 404),
+        ("POST", f"/v1/jobs/{job.job_id()}/unknown", {}, {}, 404),
+        ("GET", "/v1/backends/fake_manila/unknown", {}, {}, 404),
+        ("GET", "/unknown", {}, {"Authorization": "wrong"}, 401),
+        ("POST", "/v1/jobs", {}, {"Content-Length": str(16 * 1024 * 1024 + 1)}, 413),
+        ("POST", "/v1/jobs", {}, {"Content-Length": "invalid"}, 400),
+    ]
+    for method, path, payload, extra_headers, expected in cases:
+        connection = HTTPConnection("127.0.0.1", endpoint.port, timeout=10)
+        try:
+            connection.request(
+                method,
+                path,
+                body=json.dumps(payload),
+                headers={
+                    "Authorization": "Bearer " + token,
+                    **extra_headers,
+                },
+            )
+            response = connection.getresponse()
+            assert response.status == expected, path
+            response.read()
+        finally:
+            connection.close()
+
+
+def test_stopped_service_does_not_replace_existing_jobs() -> None:
+    """A dead service cannot silently restart with an empty job registry."""
+    _mock_runtime.connection("fake_belem")
+    process, _ = _mock_runtime._SERVICES["fake_belem"]  # ruff: ignore[private-member-access] -- simulate a crashed child
+    process.terminate()
+    process.wait(timeout=5)
+    with pytest.raises(RuntimeError, match="stopped"):
+        _mock_runtime.connection("fake_belem")
+
+
+def test_unresponsive_service_is_reaped() -> None:
+    """Cleanup kills a child that does not observe the closed parent pipe."""
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    _mock_runtime._stop(process)  # ruff: ignore[private-member-access] -- exercise bounded cleanup
+    assert process.poll() is not None
