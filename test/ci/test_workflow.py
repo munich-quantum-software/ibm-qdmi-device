@@ -38,6 +38,8 @@ def test_runtime_mocks_are_required_offline() -> None:
     steps = jobs["python-tests"]["steps"]
     assert any("mock_tests" in step.get("run", "") for step in steps)
     assert "python-tests" in jobs["offline-checks-pass"]["needs"]
+    patterns = jobs["change-detection"]["with"]["additional-python-files"].splitlines()
+    assert {"src/**", "include/**", "cmake/**", "CMakeLists.txt"} <= set(patterns)
 
 
 def evaluate(expression: str, context: dict[str, str | list[str]]) -> bool | str | list[str]:

@@ -27,6 +27,10 @@ jobs:
         test/python/**
         examples/native/**
       additional-python-files: |
+        src/**
+        include/**
+        cmake/**
+        CMakeLists.txt
         .github/workflows/slurm.yml
         test/slurm/**
         .github/workflows/cpp-coverage.yml
