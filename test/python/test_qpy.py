@@ -51,6 +51,24 @@ def test_qpy_preserves_condition_and_physical_width() -> None:
     assert decoded.data[1].qubits == (decoded.qubits[1],)
 
 
+def test_qpy_rejects_insufficient_physical_width() -> None:
+    """The public serializer rejects circuits that cannot fit the backend."""
+    with pytest.raises(ValueError, match="physical backend width"):
+        qiskit_to_qpy(QuantumCircuit(2, 1), 1)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_angles_submit_nothing(runtime: RuntimeProxy, value: float) -> None:
+    """Native gate parameters must be finite before QPY serialization."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 1)
+    circuit.rz(value, 4)
+    circuit.measure(4, 0)
+    with pytest.raises(CircuitValidationError, match="finite"):
+        backend.run(circuit)
+    assert not runtime.snapshot()["submissions"]
+
+
 @pytest.mark.parametrize("version", range(13, 18))
 def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy, version: int) -> None:
     """Every supported QPY version survives the public device and remote retrieval."""

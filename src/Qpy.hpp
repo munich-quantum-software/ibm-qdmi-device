@@ -26,7 +26,7 @@
 #include <vector>
 
 namespace ibm {
-inline constexpr std::size_t MAX_QPY_SIZE = 64 * 1024 * 1024;
+inline constexpr std::size_t MAX_QPY_SIZE = std::size_t{64} * 1024 * 1024;
 /// Read the output layout of one QPY 13–17 circuit without interpreting gates.
 std::vector<Register> qpyRegisters(const std::string& program,
                                    std::size_t qubits);

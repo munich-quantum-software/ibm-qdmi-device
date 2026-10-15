@@ -136,6 +136,18 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
                 .operations.size(),
             3);
 }
+
+TEST(Metadata, ExposesAdvertisedConditionalCapability) {
+  auto data = fixture();
+  data["configuration"]["supported_instructions"] = {"if_else"};
+  const auto metadata =
+      ibm::parseMetadata(data["configuration"], data["properties"]);
+  const auto& conditional = metadata.operations.back();
+  EXPECT_EQ(conditional.name, "if_else");
+  EXPECT_FALSE(conditional.arity.has_value());
+  EXPECT_FALSE(conditional.parameters.has_value());
+  EXPECT_TRUE(conditional.sites.empty());
+}
 TEST(Metadata, MergesRepeatedMeasurementCalibration) {
   auto data = fixture();
   data["configuration"]["supported_instructions"] = {"measure"};
