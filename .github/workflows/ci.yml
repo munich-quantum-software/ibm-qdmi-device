@@ -257,7 +257,7 @@ jobs:
           uv pip install --python build/candidate/venv/bin/python -r build/candidate/requirements.txt build/candidate/dist/*.whl
           build/candidate/venv/bin/python -m pytest -m integration -n 0
           build/candidate/venv/bin/python -m pytest
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: candidate
         with:
           name: hardware-candidate-${{ github.sha }}-${{ github.run_attempt }}
