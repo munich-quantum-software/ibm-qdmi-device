@@ -23,8 +23,11 @@
 
 #include <chrono>
 #include <cstddef>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
+#include <ios>
+#include <iterator>
 #include <limits>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -106,6 +109,30 @@ TEST(Results, PreservesShotsAndClassicalBitOrder) {
   EXPECT_EQ(decoded.shots, "101,000,101");
   EXPECT_EQ(decoded.keys, "000,101");
   EXPECT_EQ(decoded.counts, (std::vector<std::size_t>{1, 2}));
+}
+
+TEST(Job, QpySubmissionAndRetrievalPreserveBinaryBatch) {
+  std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/native.qpy",
+                     std::ios::binary);
+  const std::string program{std::istreambuf_iterator<char>(file), {}};
+  ASSERT_FALSE(program.empty());
+  Service service;
+  ibm::Auth auth(configuration(),
+                 [&](const auto& request) { return service(request); });
+  ibm::Job job(auth, "ibm_test", 2);
+  job.setShots(3);
+  job.setPrograms(QDMI_PROGRAM_FORMAT_QPY, {program, program});
+  job.submit();
+  EXPECT_EQ(service.submitted["params"]["pubs"][0][0]["__type__"],
+            "QuantumCircuit");
+  ibm::Job retrieved(auth, "ibm_test", 2);
+  retrieved.retrieve("synthetic-job");
+  EXPECT_EQ(retrieved.format, QDMI_PROGRAM_FORMAT_QPY);
+  EXPECT_EQ(retrieved.programs, job.programs);
+  EXPECT_EQ(retrieved.shots, 3);
+  service.submitted["params"]["pubs"][1][0] = PROGRAM;
+  ibm::Job mixed(auth, "ibm_test", 2);
+  fails([&] { mixed.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
 }
 TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   for (const auto* sample : {"0x4", "0xg", "0x", "10", "-1"}) {

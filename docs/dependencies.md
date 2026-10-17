@@ -16,9 +16,11 @@ CMake downloads the configured sources.
 | QDMI          | 1.4.0           | Interface headers and device declarations |
 | nlohmann/json | 3.12.0          | JSON parsing and serialization            |
 | CPR           | 1.14.2          | HTTP requests through libcurl             |
+| zlib          | zlib-ng 2.1.3   | QPY compression and decompression         |
 | GoogleTest    | 1.17.0          | Native tests, when enabled                |
 
-The default build uses static CPR and curl dependencies. Linux builds require
+The default build uses static CPR, curl, and zlib dependencies. An installed CPR
+build also requires an installed zlib development package. Linux builds require
 OpenSSL development headers; macOS wheels use Apple's native TLS backend.
 GoogleTest is not installed with the device. See
 [installation](installation.md#building-from-source) for the runtime and

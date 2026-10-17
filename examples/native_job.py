@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Submit one OpenQASM job through the native QDMI interface."""
+"""Submit one OpenQASM or QPY job through the native QDMI interface."""
 
 from __future__ import annotations
 
@@ -31,7 +31,14 @@ if TYPE_CHECKING:
     from mqt.core.qdmi import Device
 
 
-def run(device: Device, shots: int, timeout: int = 60, *, qubits: int | None = None) -> dict[str, int]:
+def run(
+    device: Device,
+    shots: int,
+    timeout: int = 60,
+    *,
+    qubits: int | None = None,
+    program_format: ProgramFormat = ProgramFormat.QASM3,
+) -> dict[str, int]:
     """Execute one measured X gate with a finite wait.
 
     Args:
@@ -39,6 +46,7 @@ def run(device: Device, shots: int, timeout: int = 60, *, qubits: int | None = N
         shots: Positive shot count.
         timeout: Maximum wait in seconds.
         qubits: Program width; defaults to the full physical device width.
+        program_format: OpenQASM 3 or QPY submission format.
 
     Returns:
         Classified counts, preserving the classical-bit convention.
@@ -50,8 +58,21 @@ def run(device: Device, shots: int, timeout: int = 60, *, qubits: int | None = N
     if shots <= 0 or timeout <= 0 or not 1 <= width <= device.qubits_num():
         msg = "Shots, timeout, and device width must be positive."
         raise ValueError(msg)
-    program = f'OPENQASM 3.0; include "stdgates.inc"; qubit[{width}] q; bit[1] c; x q[0]; c[0] = measure q[0];'
-    job = device.submit_job(program, ProgramFormat.QASM3, shots)
+    if program_format == ProgramFormat.QPY:
+        from qiskit import QuantumCircuit  # ruff: ignore[import-outside-top-level]
+
+        from ibm.qdmi.serializers import qiskit_to_qpy  # ruff: ignore[import-outside-top-level]
+
+        circuit = QuantumCircuit(width, 1)
+        circuit.x(0)
+        circuit.measure(0, 0)
+        program = qiskit_to_qpy(circuit, width)
+    elif program_format == ProgramFormat.QASM3:
+        program = f'OPENQASM 3.0; include "stdgates.inc"; qubit[{width}] q; bit[1] c; x q[0]; c[0] = measure q[0];'
+    else:
+        msg = "Choose OpenQASM 3 or QPY."
+        raise ValueError(msg)
+    job = device.submit_job(program, program_format, shots)
     try:
         return _wait_for_counts(job, timeout)
     except BaseException:
@@ -74,12 +95,19 @@ def main() -> None:
     """Run the direct QDMI example."""
     arguments = parser(__doc__ or "")
     arguments.add_argument("--timeout", type=positive_integer, default=60)
+    arguments.add_argument("--format", choices=["qasm3", "qpy"], default="qasm3")
     options = arguments.parse_args()
     if options.backend == "ibm" and options.device is None:
         arguments.error("--backend ibm requires --device")
     backend = open_backend(options.backend, options.device)
     width = 1 if options.backend == "sim" else backend.num_qubits
-    print(json.dumps(run(backend.device, options.shots, options.timeout, qubits=width), sort_keys=True))
+    program_format = ProgramFormat.QPY if options.format == "qpy" else ProgramFormat.QASM3
+    print(
+        json.dumps(
+            run(backend.device, options.shots, options.timeout, qubits=width, program_format=program_format),
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -69,6 +69,11 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     GIT_TAG 1.14.2
     FIND_PACKAGE_ARGS 1.14.2)
   FetchContent_MakeAvailable(nlohmann_json cpr)
+  if(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlib)
+  elseif(NOT TARGET ZLIB::ZLIB)
+    find_package(ZLIB REQUIRED)
+  endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
      AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
      AND TARGET cpr)

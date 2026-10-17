@@ -69,20 +69,52 @@ counts = result.get_counts()
 shots = result.get_memory()
 ```
 
-Transpile against the selected backend before submission. Serialization retains
-the full physical register, including idle qubits, and all measurement
-destinations. It uses stable internal classical register names; Qiskit results
-retain the original register names, boundaries, and classical-bit order. Global
-phase does not affect classified samples and is omitted. Native instructions
-outside `stdgates.inc` retain their gate declarations so that IBM can import the
-program without external definitions.
+Transpile against the selected backend before submission. The backend prefers
+QPY, preserving circuit instructions, conditions, global phase, classical
+register names, and physical indices. Serialization retains the full physical
+width, including idle qubits, and all measurement destinations. QPY versions 13
+through 17 are supported by the native device.
+
+For devices that report only OpenQASM 3, static circuits use that format
+instead. The OpenQASM serializer uses stable internal register names and omits
+global phase; Qiskit results retain the original names and classical-bit order.
+Native instructions outside `stdgates.inc` include their gate declarations.
 
 `shots` must be a positive integer and defaults to 1,024. `memory` defaults to
 false. Requested memory contains genuine ordered samples, including leading
 zeros, and agrees with counts. Circuit names, metadata, and experiment order are
-preserved. Unsupported instructions, control flow, unbound parameters, and
-unsupported site tuples fail before submission. Scheduled delays are outside the
-current native contract.
+preserved. Unsupported instructions, unbound parameters, and unsupported site
+tuples fail before submission. Scheduled delays are outside the current native
+contract.
+
+## Dynamic circuits
+
+On backends advertising `if_else`, QPY supports mid-circuit measurements and
+conditional gates. Conditions compare a classical bit or register with an
+integer. Register operands must contain at most 32 bits. Both true and false
+branches retain their physical qubit mappings.
+
+```python
+circuit = QuantumCircuit(2, 2)
+circuit.h(0)
+circuit.measure(0, 0)
+with circuit.if_test((circuit.clbits[0], True)):
+    circuit.x(1)
+circuit.measure(1, 1)
+compiled = transpile(circuit, backend, optimization_level=1)
+counts = backend.run(compiled, shots=128).result().get_counts()
+```
+
+Ideal samples are `00` and `11`. The second qubit follows the first measurement
+through classical feedforward. See the runnable
+[dynamic-circuit example](examples.md#conditional-feedforward).
+
+Nested conditionals, measurements or resets inside branches, loops, switch
+statements, classical expressions, and `Store` instructions are unsupported.
+Validation rejects unsupported circuits before submitting any circuit in a
+batch. Dynamic circuits require QPY; the OpenQASM fallback remains static. See
+IBM's
+[dynamic-circuit limitations](https://quantum.cloud.ibm.com/docs/en/guides/execute-dynamic-circuits#quantum-compute-limitations).
 
 Compatible circuits share one Sampler V2 job with a 60-second QPU execution cap,
 independent of queue time. The cap covers the complete native job. Direct QDMI

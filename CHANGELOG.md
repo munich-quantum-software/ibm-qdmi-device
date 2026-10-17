@@ -10,6 +10,12 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Add binary QPY submission and retrieval, prefer QPY in Qiskit, and support
+  measurement-based conditional gates with offline examples and regression
+  tests. ([#71]) ([**@marcelwa**])
+
 ## [1.0.0] - 2026-10-14
 
 ### Added
@@ -59,6 +65,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#71]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/71
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
 [#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62

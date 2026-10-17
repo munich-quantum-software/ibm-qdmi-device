@@ -19,10 +19,35 @@
 
 from __future__ import annotations
 
-from qiskit import qasm3
-from qiskit.circuit import ClassicalRegister, QuantumCircuit, QuantumRegister
+import io
 
-__all__ = ["qiskit_to_qasm3"]
+from qiskit import qasm3, qpy
+from qiskit.circuit import ClassicalRegister, QuantumCircuit, QuantumRegister, Qubit
+
+__all__ = ["qiskit_to_qasm3", "qiskit_to_qpy"]
+
+
+def qiskit_to_qpy(circuit: QuantumCircuit, num_qubits: int) -> bytes:
+    """Serialize one circuit with physical indices and control flow intact.
+
+    Args:
+        circuit: A bound circuit validated against the backend.
+        num_qubits: Full physical width of the backend.
+
+    Returns:
+        QPY bytes using a version supported by IBM's service.
+
+    Raises:
+        ValueError: The circuit exceeds the physical backend width.
+    """
+    if circuit.num_qubits > num_qubits:
+        msg = "The circuit exceeds the physical backend width."
+        raise ValueError(msg)
+    translated = circuit.copy()
+    translated.add_bits([Qubit() for _ in range(num_qubits - circuit.num_qubits)])
+    with io.BytesIO() as stream:
+        qpy.dump(translated, stream, version=min(qpy.QPY_VERSION, 17))
+        return stream.getvalue()
 
 
 def qiskit_to_qasm3(circuit: QuantumCircuit, num_qubits: int) -> str:
