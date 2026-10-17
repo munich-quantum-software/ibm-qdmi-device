@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 import pennylane as qml
 import pytest
-from examples import native_job, pennylane_qaoa, qiskit_workloads
+from examples import native_job, pennylane_qaoa, qiskit_workloads, runtime_mock
 from mqt.core.plugins.qiskit.backend import QDMIBackend
 from offline_service import CRN
 from qiskit_service import remote_runtime
@@ -34,6 +34,12 @@ from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+def test_runtime_mock_example() -> None:
+    """Run both native program formats in the credential-free example."""
+    pytest.importorskip("qiskit_aer")
+    runtime_mock.main()
 
 
 @pytest.fixture(params=["sim", "ibm"])

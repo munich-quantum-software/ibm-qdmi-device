@@ -87,6 +87,32 @@ wheel. CLI tests run in process for coverage and retain subprocess smoke checks.
 
 ## Python checks
 
+Run official Runtime fakes through the installed native device without IBM
+credentials:
+
+```console
+uvx nox -s mock_tests
+```
+
+Ordinary CI requires this session on Python 3.13, including Are installation. It
+executes real Sampler and Executor programs. Synthetic transport fixtures remain
+responsible for malformed responses and deterministic failure cases. Live
+execution retains the separate `live-qpu-tests` PR label and existing hardware
+authorization rules.
+
+For native clients, start a local service in another terminal:
+
+```console
+python -m ibm.qdmi.mock --backend-name fake_manila --port 8080
+```
+
+The first stdout line contains JSON session parameters: `base_url` and
+`auth_url` select the loopback endpoints, `token` supplies the synthetic API
+key, `custom1` selects the fake, and `custom2` supplies a synthetic instance
+CRN. Pass these values through the corresponding QDMI session parameters before
+initialization. Use port zero to select a free port. Stop the service with
+Ctrl+C; its in-memory jobs disappear. Never supply real credentials to it.
+
 The Python package derives its version from the `project()` declaration in
 `CMakeLists.txt`. Update that version for both native and Python releases.
 
