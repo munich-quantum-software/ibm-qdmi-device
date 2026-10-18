@@ -14,7 +14,7 @@ permissions:
 jobs:
   change-detection:
     name: 🔍 Change
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-change-detection.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-change-detection.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
     with:
       additional-cpp-files: |
         .github/workflows/cpp-*.yml
@@ -136,7 +136,7 @@ jobs:
     name: 🐍 Lint
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-linter)
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
     with:
       enable-ty: true
       enable-mypy: false
@@ -157,7 +157,7 @@ jobs:
     name: 🚀 CD
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
   build-wheel:
     name: 🚀 CD
     needs: change-detection
@@ -173,7 +173,7 @@ jobs:
             windows-2025,
             windows-11-arm,
           ]
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
     with:
       runs-on: ${{ matrix.runs-on }}
   slurm-tests:
