@@ -20,7 +20,10 @@
 from __future__ import annotations
 
 import io
+import subprocess
+import sys
 from importlib.util import find_spec
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -32,6 +35,20 @@ from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
     from qiskit_service import RuntimeProxy
+
+
+def test_reference_service_does_not_load_core() -> None:
+    """Keep native Core/LLVM libraries out of the isolated reference simulator."""
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import qiskit_service; assert 'mqt.core.qdmi' not in sys.modules",
+        ],
+        cwd=Path(__file__).parent,
+        check=True,
+        capture_output=True,
+    )
 
 
 def test_qpy_preserves_condition_and_physical_width(runtime: RuntimeProxy) -> None:
