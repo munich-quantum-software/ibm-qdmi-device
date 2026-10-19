@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
+  ([**@marcelwa**])
+
 ## [1.0.0] - 2026-10-14
 
 ### Added
@@ -59,6 +64,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
 [#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62
