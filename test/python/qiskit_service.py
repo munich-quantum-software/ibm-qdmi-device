@@ -34,13 +34,13 @@ from qiskit import qasm3, qpy
 from qiskit.circuit import ControlFlowOp
 from qiskit.providers.basic_provider import BasicSimulator
 
-from ibm.qdmi.qiskit import IBMBackend
-
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from offline_service import Service
     from qiskit import QuantumCircuit
+
+    from ibm.qdmi.qiskit import IBMBackend
 
 
 def submitted_circuit(source: str | dict[str, Any]) -> QuantumCircuit:
@@ -300,6 +300,8 @@ def open_backend(runtime: RuntimeProxy) -> IBMBackend:
     Returns:
         The public IBM backend.
     """
+    from ibm.qdmi.qiskit import IBMBackend  # ruff: ignore[import-outside-top-level] Keep LLVM out of the service.
+
     return IBMBackend(
         api_key="synthetic-key",
         instance_crn=CRN,
