@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import io
+from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 import pytest
@@ -119,7 +120,9 @@ def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy, version: int) 
 @pytest.mark.parametrize("register_condition", [False, True])
 def test_dynamic_feedforward(runtime: RuntimeProxy, initial: int, *, register_condition: bool) -> None:
     """Both condition outcomes and both branches execute after QPY transport."""
-    pytest.importorskip("qiskit_aer")
+    # Aer runs in the spawned service; do not load its OpenMP runtime into pytest.
+    if find_spec("qiskit_aer") is None:
+        pytest.skip("Qiskit Aer is not installed.")
     backend = open_backend(runtime)
     circuit = QuantumCircuit(5, 3)
     if initial:
