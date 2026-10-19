@@ -22,11 +22,13 @@ from __future__ import annotations
 import base64
 import io
 import json
+import os
 import subprocess
 import sys
 import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from importlib.metadata import distribution
 from multiprocessing import get_context
 from multiprocessing.managers import BaseManager
 from pathlib import Path
@@ -133,12 +135,24 @@ class Runtime:
             assert parameters is None
             circuit = submitted_circuit(source)
             if any(isinstance(item.operation, ControlFlowOp) for item in circuit.data):
-                # Start Aer before other native runtimes can exhaust static TLS.
+                environment = os.environ.copy()
+                if sys.platform == "linux":
+                    # Allocate TLS for the wheel's OpenMP runtime at process startup.
+                    aer = distribution("qiskit-aer")
+                    libraries = [
+                        str(aer.locate_file(path))
+                        for path in aer.files or ()
+                        if path.parent.name == "qiskit_aer.libs"
+                        and path.name.startswith("libgomp")
+                        and ".so" in path.name
+                    ]
+                    environment["LD_PRELOAD"] = " ".join([*libraries, environment.get("LD_PRELOAD", "")]).strip()
                 memory = json.loads(
                     subprocess.check_output(  # ruff: ignore[subprocess-without-shell-equals-true] Fixed reference; payload uses stdin.
                         [sys.executable, str(Path(__file__).with_name("aer_reference.py")), str(shots)],
                         input=json.dumps(source).encode(),
                         timeout=30,
+                        env=environment,
                     )
                 )
             else:

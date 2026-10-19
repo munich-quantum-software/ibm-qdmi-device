@@ -24,6 +24,7 @@ import subprocess
 import sys
 from importlib.util import find_spec
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -49,6 +50,31 @@ def test_reference_service_does_not_load_core() -> None:
         check=True,
         capture_output=True,
     )
+
+
+def test_aer_preloads_its_wheel_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preload the matching OpenMP library only in the Linux reference child."""
+    import qiskit_service as service  # ruff: ignore[import-outside-top-level]
+
+    circuit = QuantumCircuit(2, 2)
+    with circuit.if_test((circuit.clbits[0], True)):
+        circuit.x(1)
+    library = Path("qiskit_aer.libs/libgomp-wheel.so.1")
+    aer = SimpleNamespace(files=[library], locate_file=lambda path: Path("/installed") / path)
+    monkeypatch.setattr(service, "distribution", lambda _name: aer)
+    monkeypatch.setattr(service, "submitted_circuit", lambda _source: circuit)
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("LD_PRELOAD", "existing-library.so")
+
+    def reference(*_args: object, **kwargs: object) -> bytes:
+        environment = kwargs["env"]
+        assert isinstance(environment, dict)
+        assert environment["LD_PRELOAD"] == f"{aer.locate_file(library)} existing-library.so"
+        return b'["11"]'
+
+    monkeypatch.setattr(service.subprocess, "check_output", reference)
+    result = service.Runtime.simulate({"params": {"pubs": [["source", None, 1]]}})
+    assert result["results"][0]["data"]["c"]["samples"] == ["0x3"]
 
 
 def test_qpy_preserves_condition_and_physical_width(runtime: RuntimeProxy) -> None:
