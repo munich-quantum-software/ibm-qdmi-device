@@ -29,20 +29,21 @@ from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qpy
 from qiskit.circuit.classical import expr
 from qiskit_service import open_backend, submitted_circuit
 
-from ibm.qdmi.serializers import qiskit_to_qpy
-
 if TYPE_CHECKING:
     from qiskit_service import RuntimeProxy
 
 
-def test_qpy_preserves_condition_and_physical_width() -> None:
+def test_qpy_preserves_condition_and_physical_width(runtime: RuntimeProxy) -> None:
     """The serializer retains condition bits while adding physical idle qubits."""
     circuit = QuantumCircuit(2, 2)
     circuit.measure(0, 0)
     with circuit.if_test((circuit.clbits[0], True)):
         circuit.x(1)
     circuit.measure(1, 1)
-    encoded = qiskit_to_qpy(circuit, 5)
+    backend = open_backend(runtime)
+    encoded, program_format = backend._serialize_circuit(circuit, [ProgramFormat.QPY])  # ruff: ignore[private-member-access]
+    assert program_format == ProgramFormat.QPY
+    assert circuit.num_qubits == 2
     assert isinstance(encoded, bytes)
     (decoded,) = qpy.load(io.BytesIO(encoded))
     assert decoded.num_qubits == 5
@@ -51,10 +52,33 @@ def test_qpy_preserves_condition_and_physical_width() -> None:
     assert decoded.data[1].qubits == (decoded.qubits[1],)
 
 
-def test_qpy_rejects_insufficient_physical_width() -> None:
-    """The public serializer rejects circuits that cannot fit the backend."""
-    with pytest.raises(ValueError, match="physical backend width"):
-        qiskit_to_qpy(QuantumCircuit(2, 1), 1)
+def test_qpy_uses_core_serializer(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+    """IBM pads a copy and delegates encoding to Core's serializer registry."""
+    from mqt.core.plugins.qiskit import backend as core_backend  # ruff: ignore[import-outside-top-level]
+
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(2, 1)
+    circuit.measure(1, 0)
+    observed: list[QuantumCircuit] = []
+
+    def serialize(prepared: QuantumCircuit, target: object) -> bytes:
+        assert target is backend
+        observed.append(prepared)
+        stream = io.BytesIO()
+        qpy.dump(prepared, stream, version=17)
+        return stream.getvalue()
+
+    monkeypatch.setattr(core_backend, "program_serializer", lambda _format: serialize)
+    encoded, program_format = backend._serialize_circuit(  # ruff: ignore[private-member-access]
+        circuit, [ProgramFormat.QASM3, ProgramFormat.QPY]
+    )
+    assert program_format == ProgramFormat.QPY
+    assert isinstance(encoded, bytes)
+    assert len(observed) == 1
+    assert observed[0].num_qubits == 5
+    assert circuit.num_qubits == 2
+    (decoded,) = qpy.load(io.BytesIO(encoded))
+    assert decoded.num_qubits == 5
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])

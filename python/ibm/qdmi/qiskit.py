@@ -31,11 +31,11 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import Barrier, ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit
+from qiskit.circuit import Barrier, ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit, Qubit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
-from .serializers import qiskit_to_qasm3, qiskit_to_qpy
+from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableSet, Sequence
@@ -193,9 +193,11 @@ class IBMBackend(QDMIBackend):
         Returns:
             QPY when supported, otherwise IBM-compatible OpenQASM 3.
         """
-        formats = set(supported_program_formats)
+        formats = tuple(supported_program_formats)
         if ProgramFormat.QPY in formats:
-            return qiskit_to_qpy(circuit, self.num_qubits), ProgramFormat.QPY
+            translated = circuit.copy()
+            translated.add_bits([Qubit() for _ in range(self.num_qubits - circuit.num_qubits)])
+            return super()._serialize_circuit(translated, formats)
         assert ProgramFormat.QASM3 in formats
         return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
 

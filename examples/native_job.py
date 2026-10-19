@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 from mqt.core.qdmi import Job, ProgramFormat
@@ -59,14 +60,14 @@ def run(
         msg = "Shots, timeout, and device width must be positive."
         raise ValueError(msg)
     if program_format == ProgramFormat.QPY:
-        from qiskit import QuantumCircuit  # ruff: ignore[import-outside-top-level]
-
-        from ibm.qdmi.serializers import qiskit_to_qpy  # ruff: ignore[import-outside-top-level]
+        from qiskit import QuantumCircuit, qpy  # ruff: ignore[import-outside-top-level]
 
         circuit = QuantumCircuit(width, 1)
         circuit.x(0)
         circuit.measure(0, 0)
-        program = qiskit_to_qpy(circuit, width)
+        with BytesIO() as stream:
+            qpy.dump(circuit, stream, version=min(qpy.QPY_VERSION, 17))
+            program = stream.getvalue()
     elif program_format == ProgramFormat.QASM3:
         program = f'OPENQASM 3.0; include "stdgates.inc"; qubit[{width}] q; bit[1] c; x q[0]; c[0] = measure q[0];'
     else:

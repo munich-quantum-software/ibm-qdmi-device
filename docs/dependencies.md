@@ -34,14 +34,17 @@ It declares no mandatory Python runtime dependencies. Optional integrations
 install MQT Core in the Python environment; they are not bundled into this
 project's wheel.
 
-| Extra       | Requirement                                             | Purpose                                     |
-| :---------- | :------------------------------------------------------ | :------------------------------------------ |
-| `qiskit`    | `mqt-core[qiskit]~=4.1.1`                               | Qiskit backend and primitives               |
-| `executor`  | `mqt-core[qiskit]~=4.1.1`, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
-| `pennylane` | `mqt-core[pennylane,qiskit]~=4.1.1`                     | PennyLane devices and circuit serialization |
+| Extra       | Requirement                                        | Purpose                                     |
+| :---------- | :------------------------------------------------- | :------------------------------------------ |
+| `qiskit`    | MQT Core with Qiskit                               | Qiskit backend and primitives               |
+| `executor`  | MQT Core with Qiskit, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
+| `pennylane` | MQT Core with PennyLane and Qiskit                 | PennyLane devices and circuit serialization |
 
 Follow [Python installation](installation.md#python-package) to select extras.
-MQT Core defines their transitive Qiskit and PennyLane requirements.
+MQT Core is pinned to commit `e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394`. Its
+source build downloads LLVM/MLIR when needed. Core defines the transitive Qiskit
+and PennyLane requirements. Replace this Git dependency with a released Core
+version before publishing to PyPI.
 
 ## Build and development tools
 
