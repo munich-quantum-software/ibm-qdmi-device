@@ -22,11 +22,14 @@ from __future__ import annotations
 import base64
 import io
 import json
+import subprocess
+import sys
 import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from multiprocessing import get_context
 from multiprocessing.managers import BaseManager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from offline_service import CRN, serve
@@ -129,17 +132,22 @@ class Runtime:
         for source, parameters, shots in request["params"]["pubs"]:
             assert parameters is None
             circuit = submitted_circuit(source)
-            simulator = BasicSimulator()
             if any(isinstance(item.operation, ControlFlowOp) for item in circuit.data):
-                from qiskit_aer import AerSimulator  # ruff: ignore[import-outside-top-level]
-
-                simulator = AerSimulator()
-            memory = (
-                simulator
-                .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
-                .result()
-                .get_memory()
-            )
+                # Start Aer before other native runtimes can exhaust static TLS.
+                memory = json.loads(
+                    subprocess.check_output(  # ruff: ignore[subprocess-without-shell-equals-true] Fixed reference; payload uses stdin.
+                        [sys.executable, str(Path(__file__).with_name("aer_reference.py")), str(shots)],
+                        input=json.dumps(source).encode(),
+                        timeout=30,
+                    )
+                )
+            else:
+                memory = (
+                    BasicSimulator()
+                    .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
+                    .result()
+                    .get_memory()
+                )
             data = {}
             for register in reversed(circuit.cregs):
                 samples = []
