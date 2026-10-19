@@ -139,6 +139,8 @@ def chemistry(session: nox.Session) -> None:
     """Exercise the complete H2 chemistry workflow on the local simulator."""
     if sys.platform == "win32":
         session.skip("PySCF requires Linux or macOS.")
+    # PySCF's OpenMP library needs static TLS space after the other native imports.
+    session.env["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=16384"
     _run_tests(
         session,
         dependency_groups=["chemistry"],
