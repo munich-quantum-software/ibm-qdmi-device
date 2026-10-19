@@ -181,6 +181,7 @@ test-sources = [ "pyproject.toml", "test" ]
 [tool.cibuildwheel.linux]
 environment = { CMAKE_INCLUDE_PATH = "/usr/include/openssl3", CMAKE_LIBRARY_PATH = "/usr/lib64/openssl3" }
 before-all = "yum install -y openssl3-devel"
+test-environment = { GLIBC_TUNABLES = "glibc.rtld.optional_static_tls=16384" }
 
 [tool.cibuildwheel.macos]
 environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }

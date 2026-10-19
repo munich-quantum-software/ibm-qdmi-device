@@ -22,16 +22,11 @@ from __future__ import annotations
 import base64
 import io
 import json
-import os
-import subprocess
-import sys
 import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from importlib.metadata import distribution
 from multiprocessing import get_context
 from multiprocessing.managers import BaseManager
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from offline_service import CRN, serve
@@ -125,7 +120,7 @@ class Runtime:
 
     @staticmethod
     def simulate(request: dict[str, Any]) -> dict[str, Any]:
-        """Simulate the actual submitted OpenQASM and encode IBM-shaped results.
+        """Simulate the submitted circuit and encode IBM-shaped results.
 
         Returns:
             Classified per-register samples in deliberately reversed key order.
@@ -135,33 +130,17 @@ class Runtime:
             assert parameters is None
             circuit = submitted_circuit(source)
             if any(isinstance(item.operation, ControlFlowOp) for item in circuit.data):
-                environment = os.environ.copy()
-                if sys.platform == "linux":
-                    # Allocate TLS for the wheel's OpenMP runtime at process startup.
-                    aer = distribution("qiskit-aer")
-                    libraries = [
-                        str(aer.locate_file(path))
-                        for path in aer.files or ()
-                        if path.parent.name == "qiskit_aer.libs"
-                        and path.name.startswith("libgomp")
-                        and ".so" in path.name
-                    ]
-                    environment["LD_PRELOAD"] = " ".join([*libraries, environment.get("LD_PRELOAD", "")]).strip()
-                memory = json.loads(
-                    subprocess.check_output(  # ruff: ignore[subprocess-without-shell-equals-true] Fixed reference; payload uses stdin.
-                        [sys.executable, str(Path(__file__).with_name("aer_reference.py")), str(shots)],
-                        input=json.dumps(source).encode(),
-                        timeout=30,
-                        env=environment,
-                    )
-                )
+                from qiskit_aer import AerSimulator  # ruff: ignore[import-outside-top-level]
+
+                simulator = AerSimulator()
             else:
-                memory = (
-                    BasicSimulator()
-                    .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
-                    .result()
-                    .get_memory()
-                )
+                simulator = BasicSimulator()
+            memory = (
+                simulator
+                .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
+                .result()
+                .get_memory()
+            )
             data = {}
             for register in reversed(circuit.cregs):
                 samples = []
