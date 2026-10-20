@@ -24,17 +24,23 @@
 #include <algorithm>
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/auth/signer/AWSAuthV4Signer.h>
 #include <aws/core/client/ClientConfiguration.h>
+#include <aws/core/endpoint/AWSEndpoint.h>
+#include <aws/core/http/HttpRequest.h>
 #include <aws/core/http/HttpTypes.h>
+#include <aws/core/http/standard/StandardHttpRequest.h>
 #include <aws/core/utils/UUID.h>
-#include <aws/s3/S3Client.h>
+#include <aws/s3/S3ClientConfiguration.h>
+#include <aws/s3/S3EndpointProvider.h>
 #include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <ibm_qdmi/constants.h>
 #include <ios>
+#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -138,18 +144,29 @@ std::string storageUrl(const StorageConfiguration& configuration,
   const Aws::Auth::AWSCredentials credentials(configuration.accessKey,
                                               configuration.secretKey,
                                               configuration.sessionToken);
-  // Only presigning runs in the SDK; requests retain our TLS and timeout
-  // policy.
-  Aws::S3::S3Client client(
-      credentials, config,
-      Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
-  const auto result = client.GeneratePresignedUrl(
-      configuration.bucket, key,
-      put ? Aws::Http::HttpMethod::HTTP_PUT : Aws::Http::HttpMethod::HTTP_GET,
-      86400);
-  if (result.empty()) {
+  Aws::S3::Endpoint::S3EndpointProvider endpoints;
+  endpoints.InitBuiltInParameters(Aws::S3::S3ClientConfiguration(
+      config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+      false));
+  endpoints.AccessClientContextParameters().SetForcePathStyle(true);
+  auto resolved = endpoints.ResolveEndpoint({{"Bucket", configuration.bucket}});
+  if (!resolved.IsSuccess()) {
     throw Failure{QDMI_ERROR_FATAL};
   }
+  resolved.GetResult().AddPathSegments(key);
+  Aws::Http::Standard::StandardHttpRequest request(
+      resolved.GetResult().GetURI(),
+      put ? Aws::Http::HttpMethod::HTTP_PUT : Aws::Http::HttpMethod::HTTP_GET);
+  const auto provider =
+      std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(credentials);
+  // Use the SDK's S3 resolver and signer without constructing a network client.
+  const Aws::Client::AWSAuthV4Signer signer(
+      provider, "s3", configuration.region,
+      Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
+  if (!signer.PresignRequest(request, 86400)) {
+    throw Failure{QDMI_ERROR_FATAL};
+  }
+  const auto result = request.GetURIString();
   return {result.data(), result.size()};
 }
 std::string newJobId() {

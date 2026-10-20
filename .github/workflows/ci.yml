@@ -6,6 +6,9 @@ permissions:
 jobs:
   combined:
     runs-on: ubuntu-26.04
+    env:
+      GLIBC_TUNABLES: glibc.rtld.optional_static_tls=16384
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -16,6 +19,7 @@ jobs:
       - name: Build combined native wheel and tests
         run: |
           uv run --locked --only-group build python -m build --wheel --outdir build/dist -Cbuild-dir=build/native -Ccmake.define.BUILD_IBM_QDMI_TESTS=ON
+          cmake --build build/native --target unit_tests integration_tests ibm-qdmi-native-example -j 2
           ctest --test-dir build/native --output-on-failure -j 2
           uv venv build/client
           uv export --locked --only-group test --no-emit-project --output-file build/requirements.txt

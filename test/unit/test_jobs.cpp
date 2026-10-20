@@ -210,6 +210,12 @@ TEST(QuantumSystem, SignsClientAndServiceEndpointsWithoutLeakingSecrets) {
     EXPECT_NE(client.substr(client.find("X-Amz-Signature=")),
               service.substr(service.find("X-Amz-Signature=")));
   }
+  auto prefixed = config;
+  prefixed.endpoint += "/storage";
+  EXPECT_TRUE(
+      ibm::storageUrl(prefixed, "input_id.json", false, false)
+          .starts_with(
+              "http://127.0.0.1:9000/storage/synthetic/input_id.json?"));
   EXPECT_NE(ibm::storageUrl(config, "input_id.json", false, false),
             ibm::storageUrl(config, "input_id.json", true, false));
 }

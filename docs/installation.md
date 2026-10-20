@@ -48,7 +48,8 @@ library without Python, build it from a source checkout as described below.
 
 Building requires a C++20 compiler, CMake 3.24 or newer, Git, and Python 3.11 or
 newer for Python packaging. Linux builds require OpenSSL development headers.
-Dependency downloads need network access.
+Dependency downloads need network access. On Windows, enable long paths in Git
+with `git config --global core.longpaths true` before downloading the SDK.
 
 Clone the repository and build the native package:
 

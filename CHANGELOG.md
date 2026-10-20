@@ -13,7 +13,8 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Add native Quantum System API access with S3 storage beside cloud access,
-  with offline simulator execution and retrieval checks.
+  with offline simulator execution and retrieval checks. ([#81])
+  ([**@marcelwa**])
 - ✨ Add binary QPY submission and retrieval, prefer QPY in Qiskit, and support
   measurement-based conditional gates with offline examples and regression
   tests. ([#71]) ([**@marcelwa**])
@@ -106,3 +107,5 @@ _This is the initial release of the IBM QDMI Device._
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [documentation]: https://ibm-qdmi-device.readthedocs.io/en/latest/
+
+[#81]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/81

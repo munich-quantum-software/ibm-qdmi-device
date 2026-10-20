@@ -84,7 +84,10 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
       CACHE BOOL "Disable AWS tests" FORCE)
   set(USE_CRT_HTTP_CLIENT
       ON
-      CACHE BOOL "Avoid a second curl dependency in the signing SDK" FORCE)
+      CACHE BOOL "Use CRT for SDK initialization without a second curl" FORCE)
+  set(NO_HTTP_CLIENT
+      OFF
+      CACHE BOOL "SDK initialization requires a client factory" FORCE)
   set(AUTORUN_UNIT_TESTS
       OFF
       CACHE BOOL "Disable AWS test execution" FORCE)
@@ -103,6 +106,16 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     GIT_TAG 1.11.700 # c9374f0f1f12b6817cb46bb38f298bef6738ada3
     GIT_SHALLOW TRUE)
   FetchContent_MakeAvailable(aws_sdk)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+    # The SDK's clang-cl AVX512 flags omit crc32 needed by this fallback.
+    set_property(
+      SOURCE
+        "${aws_sdk_SOURCE_DIR}/crt/aws-crt-cpp/crt/aws-checksums/source/intel/intrin/crc32c_sse42_avx512.c"
+        TARGET_DIRECTORY
+        aws-checksums
+      APPEND
+      PROPERTY COMPILE_OPTIONS "/clang:-mcrc32")
+  endif()
   # Ship only the device's install components, not the private SDK's headers.
   set_property(DIRECTORY "${aws_sdk_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
   if(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
