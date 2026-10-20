@@ -19,9 +19,9 @@ CMake downloads the configured sources.
 | AWS SDK for C++ | 1.11.700        | S3 URL signing; only core/S3 components are built |
 | GoogleTest      | 1.17.0          | Native tests, when enabled                        |
 
-The signing SDK is initialized and shut down on the signing thread. Its CRT HTTP
-client satisfies SDK construction; object transfers use the device HTTP
-transport.
+The signing SDK is initialized and shut down on the signing thread. Its CRT
+backend supports SDK initialization; S3 URLs use the SDK endpoint resolver and
+SigV4 presigner. Object transfers use the device HTTP transport.
 
 The default build uses static CPR and curl dependencies. Linux builds require
 OpenSSL development headers; macOS wheels use Apple's native TLS backend.

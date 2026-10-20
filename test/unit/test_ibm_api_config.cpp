@@ -28,8 +28,6 @@
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
 #include <ios>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <utility>
@@ -260,12 +258,9 @@ TEST_F(ConfigurationFileTest, StorageConfigurationIsValidatedAndSnapshotted) {
 TEST_F(ConfigurationFileTest, RejectsStorageQueriesAndFragments) {
   for (const auto* endpoint :
        {"http://127.0.0.1:9000?", "http://127.0.0.1:9000#"}) {
-    write(nlohmann::json{{"endpoint", endpoint},
-                         {"bucket", "synthetic"},
-                         {"region", "us-east-1"},
-                         {"access_key", "synthetic"},
-                         {"secret_key", "synthetic-secret"}}
-              .dump());
+    write(
+        R"({"endpoint":")" + std::string(endpoint) +
+        R"(","bucket":"synthetic","region":"us-east-1","access_key":"synthetic","secret_key":"synthetic-secret"})");
     expectFailure([&] { (void)ibm::readStorageConfiguration(path.string()); },
                   QDMI_ERROR_INVALIDARGUMENT);
   }

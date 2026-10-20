@@ -299,6 +299,8 @@ jobs:
           uv venv --python 3.12 build/qsa-sim/.venv
           uv pip install --python build/qsa-sim/.venv/bin/python -r build/qsa-sim/requirements.txt "moto[server]==5.2.3"
       - name: Test candidate against Quantum System API and S3
+        env:
+          GLIBC_TUNABLES: glibc.rtld.optional_static_tls=16384
         run: |
           build/qsa-sim/.venv/bin/python -m moto.server -H 127.0.0.1 -p 9000 > build/qsa-sim/moto.log 2>&1 &
           storage_pid=$!

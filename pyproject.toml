@@ -211,6 +211,7 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
 "cmake.define.CURL_USE_LIBSSH2" = "OFF"
 
 [tool.cibuildwheel.windows]
+before-all = "git config --global core.longpaths true"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg ibm"
 
 [[tool.cibuildwheel.overrides]]
