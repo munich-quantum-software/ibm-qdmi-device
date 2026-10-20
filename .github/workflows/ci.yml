@@ -255,6 +255,8 @@ jobs:
           SKBUILD_BUILD_DIR: build/candidate/wheel/{wheel_tag}/{build_type}
         run: uv run --locked --only-group build python -m build --outdir build/candidate/dist
       - name: Test the installed candidate offline
+        env:
+          GLIBC_TUNABLES: glibc.rtld.optional_static_tls=16384
         run: |
           uv venv build/candidate/venv
           uv export --locked --only-group test --no-emit-project --output-file build/candidate/requirements.txt
