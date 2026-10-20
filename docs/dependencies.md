@@ -11,12 +11,13 @@ CMake's defaults are defined in
 Compatible installed packages can satisfy its `find_package` checks; otherwise,
 CMake downloads the configured sources.
 
-| Dependency    | Default version | Purpose                                   |
-| :------------ | :-------------- | :---------------------------------------- |
-| QDMI          | 1.4.0           | Interface headers and device declarations |
-| nlohmann/json | 3.12.0          | JSON parsing and serialization            |
-| CPR           | 1.14.2          | HTTP requests through libcurl             |
-| GoogleTest    | 1.17.0          | Native tests, when enabled                |
+| Dependency      | Default version | Purpose                                           |
+| :-------------- | :-------------- | :------------------------------------------------ |
+| QDMI            | 1.4.0           | Interface headers and device declarations         |
+| nlohmann/json   | 3.12.0          | JSON parsing and serialization                    |
+| CPR             | 1.14.2          | HTTP requests through libcurl                     |
+| AWS SDK for C++ | 1.11.700        | S3 URL signing; only core/S3 components are built |
+| GoogleTest      | 1.17.0          | Native tests, when enabled                        |
 
 The default build uses static CPR and curl dependencies. Linux builds require
 OpenSSL development headers; macOS wheels use Apple's native TLS backend.

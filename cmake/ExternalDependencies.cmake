@@ -19,6 +19,12 @@ include(FetchContent)
 include(GNUInstallDirs)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
+  if(WIN32)
+    # Both curl and AWS read this legacy option; use Windows crypto by default.
+    set(USE_OPENSSL
+        OFF
+        CACHE BOOL "Use OpenSSL for AWS crypto" FORCE)
+  endif()
   set(ENABLE_COVERAGE ${IBM_QDMI_ENABLE_COVERAGE})
   set(QDMI_MINIMUM_VERSION
       1.4.0
@@ -69,6 +75,36 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     GIT_TAG 1.14.2
     FIND_PACKAGE_ARGS 1.14.2)
   FetchContent_MakeAvailable(nlohmann_json cpr)
+  # Build only S3; the device uses its signer and retains its own HTTP transport.
+  set(BUILD_ONLY
+      "s3"
+      CACHE STRING "AWS services" FORCE)
+  set(ENABLE_TESTING
+      OFF
+      CACHE BOOL "Disable AWS tests" FORCE)
+  set(USE_CRT_HTTP_CLIENT
+      ON
+      CACHE BOOL "Avoid a second curl dependency in the signing SDK" FORCE)
+  set(AUTORUN_UNIT_TESTS
+      OFF
+      CACHE BOOL "Disable AWS test execution" FORCE)
+  set(BUILD_OPTEL
+      OFF
+      CACHE BOOL "Disable AWS telemetry" FORCE)
+  set(ENABLE_UNITY_BUILD
+      ON
+      CACHE BOOL "Reduce AWS compilation time" FORCE)
+  set(AWS_SDK_WARNINGS_ARE_ERRORS
+      OFF
+      CACHE BOOL "Keep vendor warnings visible" FORCE)
+  FetchContent_Declare(
+    aws_sdk
+    GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
+    GIT_TAG 1.11.700 # c9374f0f1f12b6817cb46bb38f298bef6738ada3
+    GIT_SHALLOW TRUE)
+  FetchContent_MakeAvailable(aws_sdk)
+  # Ship only the device's install components, not the private SDK's headers.
+  set_property(DIRECTORY "${aws_sdk_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
      AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
      AND TARGET cpr)

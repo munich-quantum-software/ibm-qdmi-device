@@ -20,10 +20,12 @@
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Job.hpp"
+#include "Storage.hpp"
 
 #include <chrono>
 #include <cstddef>
 #include <gtest/gtest.h>
+#include <ibm-qdmi-device/constants.h>
 #include <ibm_qdmi/constants.h>
 #include <limits>
 #include <nlohmann/json.hpp>
@@ -106,6 +108,202 @@ TEST(Results, PreservesShotsAndClassicalBitOrder) {
   EXPECT_EQ(decoded.shots, "101,000,101");
   EXPECT_EQ(decoded.keys, "000,101");
   EXPECT_EQ(decoded.counts, (std::vector<std::size_t>{1, 2}));
+}
+TEST(QuantumSystem, StorageSubmissionRetrievalAndCredentialIsolation) {
+  auto config = configuration();
+  config.accessMode = "quantum-system";
+  config.storage =
+      ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
+                                .bucket = "synthetic",
+                                .region = "us-east-1",
+                                .accessKey = "synthetic-access",
+                                .secretKey = "synthetic-secret"};
+  nlohmann::json input;
+  nlohmann::json submitted;
+  int submissions = 0;
+  int uploads = 0;
+  ibm::Auth auth(config, [&](const ibm::Request& request) {
+    if (request.presigned) {
+      EXPECT_FALSE(request.headers.contains("Authorization"));
+      EXPECT_FALSE(request.headers.contains("Service-CRN"));
+      EXPECT_NE(request.url.find("X-Amz-Signature="), std::string::npos);
+      if (request.put) {
+        ++uploads;
+        input = nlohmann::json::parse(request.body);
+        return ibm::Response{.status = 200};
+      }
+      return ibm::Response{.status = 200,
+                           .body =
+                               request.url.find("/input_") != std::string::npos
+                                   ? input.dump()
+                                   : results().dump()};
+    }
+    if (!request.form.empty()) {
+      return ibm::Response{
+          .status = 200,
+          .body = R"({"access_token":"synthetic","expires_in":3600})"};
+    }
+    EXPECT_TRUE(request.headers.contains("Authorization"));
+    if (request.post) {
+      ++submissions;
+      submitted = nlohmann::json::parse(request.body);
+      return ibm::Response{.status = 204};
+    }
+    return ibm::Response{.status = 200,
+                         .body = nlohmann::json{{"id", submitted.at("id")},
+                                                {"backend", "ibm_test"},
+                                                {"program_id", "sampler"},
+                                                {"status", "Completed"}}
+                                     .dump()};
+  });
+  ibm::Job job(auth, "ibm_test", 2);
+  fails([&] { job.checkProgramSupport(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, 1); },
+        QDMI_ERROR_NOTSUPPORTED);
+  configure(job);
+  job.submit();
+  EXPECT_EQ(submitted.at("id"), job.id);
+  EXPECT_EQ(submitted.at("timeout_secs"), 60);
+  EXPECT_FALSE(submitted.contains("params"));
+  EXPECT_EQ(input.at("pubs").size(), 1);
+  EXPECT_EQ(job.results(0).shots, "101,000,101");
+  ibm::Job restored(auth, "ibm_test", 2);
+  restored.retrieve(job.id);
+  EXPECT_EQ(restored.programs, job.programs);
+  EXPECT_EQ(restored.results(0).shots, job.results(0).shots);
+  fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(submissions, 1);
+  EXPECT_EQ(uploads, 1);
+}
+
+TEST(QuantumSystem, SignsClientAndServiceEndpointsWithoutLeakingSecrets) {
+  const ibm::StorageConfiguration config{.endpoint = "http://127.0.0.1:9000",
+                                         .bucket = "synthetic",
+                                         .region = "us-east-1",
+                                         .accessKey = "synthetic-access",
+                                         .secretKey = "synthetic-secret",
+                                         .sessionToken = "synthetic-token",
+                                         .serviceEndpoint =
+                                             "http://localhost:9000"};
+  for (const bool put : {false, true}) {
+    const auto client = ibm::storageUrl(config, "input_id.json", put, false);
+    const auto service = ibm::storageUrl(config, "input_id.json", put, true);
+    EXPECT_TRUE(
+        client.starts_with("http://127.0.0.1:9000/synthetic/input_id.json?"));
+    EXPECT_TRUE(
+        service.starts_with("http://localhost:9000/synthetic/input_id.json?"));
+    for (const auto* url : {&client, &service}) {
+      EXPECT_NE(url->find("X-Amz-Expires=86400"), std::string::npos);
+      EXPECT_NE(url->find("X-Amz-SignedHeaders=host"), std::string::npos);
+      EXPECT_NE(url->find("X-Amz-Security-Token=synthetic-token"),
+                std::string::npos);
+      EXPECT_NE(url->find("X-Amz-Credential=synthetic-access%2F"),
+                std::string::npos);
+      EXPECT_EQ(url->find("synthetic-secret"), std::string::npos);
+    }
+    EXPECT_NE(client.substr(client.find("X-Amz-Signature=")),
+              service.substr(service.find("X-Amz-Signature=")));
+  }
+  EXPECT_NE(ibm::storageUrl(config, "input_id.json", false, false),
+            ibm::storageUrl(config, "input_id.json", true, false));
+}
+
+TEST(QuantumSystem, StorageFailurePreventsSubmission) {
+  auto config = configuration();
+  config.accessMode = "quantum-system";
+  config.storage =
+      ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
+                                .bucket = "synthetic",
+                                .region = "us-east-1",
+                                .accessKey = "synthetic-access",
+                                .secretKey = "synthetic-secret"};
+  int requests = 0;
+  ibm::Auth auth(config, [&](const ibm::Request& request) {
+    ++requests;
+    EXPECT_TRUE(request.presigned);
+    EXPECT_TRUE(request.put);
+    return ibm::Response{.status = 403};
+  });
+  ibm::Job job(auth, "ibm_test", 2);
+  configure(job);
+  fails([&] { job.submit(); }, QDMI_ERROR_PERMISSIONDENIED);
+  fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(requests, 1);
+}
+
+TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
+  for (const bool completed : {false, true}) {
+    auto config = configuration();
+    config.accessMode = "quantum-system";
+    config.storage =
+        ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
+                                  .bucket = "synthetic",
+                                  .region = "us-east-1",
+                                  .accessKey = "synthetic-access",
+                                  .secretKey = "synthetic-secret"};
+    std::string id;
+    ibm::Auth auth(config, [&](const ibm::Request& request) {
+      if (!request.form.empty()) {
+        return ibm::Response{
+            .status = 200,
+            .body = R"({"access_token":"synthetic","expires_in":3600})"};
+      }
+      if (request.presigned) {
+        return ibm::Response{.status = 200};
+      }
+      if (request.url.ends_with("/cancel")) {
+        return ibm::Response{.status = completed ? 409 : 204};
+      }
+      if (request.post) {
+        id = nlohmann::json::parse(request.body).at("id").get<std::string>();
+        return ibm::Response{.status = 204};
+      }
+      return ibm::Response{.status = 200,
+                           .body = nlohmann::json{{"id", id},
+                                                  {"backend", "ibm_test"},
+                                                  {"status", "Completed"}}
+                                       .dump()};
+    });
+    ibm::Job job(auth, "ibm_test", 2);
+    configure(job);
+    job.submit();
+    if (completed) {
+      fails([&] { job.cancel(); }, QDMI_ERROR_INVALIDARGUMENT);
+      EXPECT_EQ(job.check(), QDMI_JOB_STATUS_DONE);
+    } else {
+      job.cancel();
+      EXPECT_EQ(job.check(), QDMI_JOB_STATUS_CANCELED);
+      job.cancel();
+    }
+  }
+}
+
+TEST(QuantumSystem, LostSubmissionCannotBeRetried) {
+  auto config = configuration();
+  config.accessMode = "quantum-system";
+  config.storage =
+      ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
+                                .bucket = "synthetic",
+                                .region = "us-east-1",
+                                .accessKey = "synthetic-access",
+                                .secretKey = "synthetic-secret"};
+  int submissions = 0;
+  ibm::Auth auth(config, [&](const ibm::Request& request) {
+    if (!request.form.empty()) {
+      return ibm::Response{
+          .status = 200,
+          .body = R"({"access_token":"synthetic","expires_in":3600})"};
+    }
+    if (request.presigned) {
+      return ibm::Response{.status = 200};
+    }
+    ++submissions;
+    return ibm::Response{.timedOut = true};
+  });
+  ibm::Job job(auth, "ibm_test", 2);
+  configure(job);
+  fails([&] { job.submit(); }, QDMI_ERROR_TIMEOUT);
+  fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
+  EXPECT_EQ(submissions, 1);
 }
 TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   for (const auto* sample : {"0x4", "0xg", "0x", "10", "-1"}) {

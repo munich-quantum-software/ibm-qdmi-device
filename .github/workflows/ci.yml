@@ -204,6 +204,7 @@ jobs:
         documentation,
         slurm-tests,
         candidate-wheel,
+        simulator,
       ]
     runs-on: ubuntu-slim
     steps:
@@ -264,6 +265,66 @@ jobs:
           path: build/candidate/dist/*.whl
           if-no-files-found: error
           retention-days: 7
+
+  simulator:
+    name: Quantum System simulator
+    needs: candidate-wheel
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.candidate-wheel.outputs.artifact-id }}
+          path: build/candidate/dist
+      - name: Install the tested candidate
+        run: |
+          uv venv build/candidate/venv
+          uv export --locked --only-group test --no-emit-project --output-file build/candidate/requirements.txt
+          uv pip install --python build/candidate/venv/bin/python -r build/candidate/requirements.txt build/candidate/dist/*.whl
+      - name: Check out Simulated Quantum Resource
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: qrmi-community/simulated_quantum_resource
+          ref: 0d547e7d329b8bd3315392e9117f116dc1661ddd
+          path: build/qsa-sim
+          persist-credentials: false
+      - name: Install simulator dependencies
+        run: |
+          uv venv --python 3.12 build/qsa-sim/.venv
+          uv pip install --python build/qsa-sim/.venv/bin/python -r build/qsa-sim/requirements.txt "moto[server]==5.2.3"
+      - name: Test candidate against Quantum System API and S3
+        run: |
+          build/qsa-sim/.venv/bin/python -m moto.server -H 127.0.0.1 -p 9000 > build/qsa-sim/moto.log 2>&1 &
+          storage_pid=$!
+          (
+            cd build/qsa-sim
+            exec .venv/bin/python -m qsa_sim.app ../../test/fixtures/simulator.yaml
+          ) > build/qsa-sim/service.log 2>&1 &
+          simulator_pid=$!
+          cleanup() {
+            result=$?
+            kill "$simulator_pid" "$storage_pid" 2>/dev/null || true
+            wait "$simulator_pid" "$storage_pid" 2>/dev/null || true
+            if [ "$result" -ne 0 ]; then
+              tail -n 100 build/qsa-sim/service.log build/qsa-sim/moto.log
+            fi
+          }
+          trap cleanup EXIT
+          curl --noproxy '*' -sf --max-time 2 --retry 30 --retry-max-time 60 \
+            --retry-all-errors --retry-delay 1 http://127.0.0.1:9000/moto-api/ > /dev/null
+          build/qsa-sim/.venv/bin/python -c "import boto3; boto3.client('s3',
+            endpoint_url='http://127.0.0.1:9000', aws_access_key_id='synthetic-access',
+            aws_secret_access_key='synthetic-secret', region_name='us-east-1').create_bucket(Bucket='qdmi-e2e')"
+          curl --noproxy '*' -sf --max-time 2 --retry 30 --retry-max-time 60 \
+            --retry-all-errors --retry-delay 1 http://127.0.0.1:8290/version
+          build/candidate/venv/bin/python -m pytest -m "simulator and integration" -n 0 --simulator-url http://127.0.0.1:8290
+          build/candidate/venv/bin/python -m pytest -m "simulator and not integration" -n 0 --simulator-url http://127.0.0.1:8290
 
   hardware:
     name: IBM quantum execution

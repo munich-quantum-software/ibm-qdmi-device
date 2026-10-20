@@ -20,6 +20,7 @@
 #include "Auth.hpp"
 
 #include "Http.hpp"
+#include "Storage.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -45,6 +46,7 @@
 #include <vector>
 
 #ifdef _MSC_VER
+#include <cerrno>
 // MSVC declares _dupenv_s in its C extension header.
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers)
 #endif
@@ -114,6 +116,20 @@ std::chrono::milliseconds parseRequestTimeout(std::string_view value) {
 }
 
 Configuration resolve(Configuration configuration) {
+  const bool system = configuration.accessMode == "quantum-system";
+  if ((!system && configuration.accessMode != "cloud") ||
+      (!system && configuration.storageFile)) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+  }
+  if (system) {
+    if (configuration.baseUrl.empty() || !configuration.storageFile ||
+        (!configuration.authUrlConfigured &&
+         configuration.authUrl == "https://iam.cloud.ibm.com/identity/token")) {
+      throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+    }
+    configuration.storage =
+        readStorageConfiguration(*configuration.storageFile);
+  }
   if (!configuration.apiKeyConfigured && configuration.apiKey.empty()) {
     configuration.apiKey = configuration.authFile
                                ? readApiKey(*configuration.authFile)
@@ -133,7 +149,9 @@ Configuration resolve(Configuration configuration) {
                            [](unsigned char value) {
                              return std::isalnum(value) != 0 || value == '_';
                            }) ||
-      configuration.crn.find_first_of("\r\n") != std::string::npos) {
+      std::ranges::any_of(configuration.crn, [](unsigned char ch) {
+        return ch < 32 || ch == 127;
+      })) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   std::vector<std::string> parts;
@@ -144,8 +162,9 @@ Configuration resolve(Configuration configuration) {
     start = end + 1;
   }
   parts.push_back(configuration.crn.substr(start));
-  if (parts.size() != 10 || parts[0] != "crn" || parts[1] != "v1" ||
-      parts[4] != "quantum-computing" || parts[6].empty() || parts[7].empty()) {
+  if (!system && (parts.size() != 10 || parts[0] != "crn" || parts[1] != "v1" ||
+                  parts[4] != "quantum-computing" || parts[6].empty() ||
+                  parts[7].empty())) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   if (configuration.baseUrl.empty()) {
@@ -172,6 +191,46 @@ Auth::Auth(Configuration configurationValue, Transport transportValue,
     : configuration(std::move(configurationValue)),
       transport(std::move(transportValue)), clock(std::move(clockValue)),
       sleepUntil(std::move(sleepUntilValue)) {}
+
+bool Auth::quantumSystem() const {
+  return configuration.accessMode == "quantum-system";
+}
+std::string Auth::serviceStorageUrl(const std::string& key, bool put) const {
+  if (!configuration.storage) {
+    throw Failure{QDMI_ERROR_BADSTATE};
+  }
+  return storageUrl(*configuration.storage, key, put, true);
+}
+std::string Auth::storageGet(const std::string& key, Deadline deadline) {
+  if (!configuration.storage) {
+    throw Failure{QDMI_ERROR_BADSTATE};
+  }
+  deadline = std::min(deadline, clock() + configuration.requestTimeout);
+  const auto response =
+      transport({.url = storageUrl(*configuration.storage, key, false),
+                 .headers = {},
+                 .form = {},
+                 .body = {},
+                 .timeout = remaining(deadline),
+                 .presigned = true});
+  checkResponse(response);
+  return response.body;
+}
+void Auth::storagePut(const std::string& key, const std::string& body) {
+  if (!configuration.storage) {
+    throw Failure{QDMI_ERROR_BADSTATE};
+  }
+  const auto deadline = clock() + configuration.requestTimeout;
+  const auto response =
+      transport({.url = storageUrl(*configuration.storage, key, true),
+                 .headers = {{"Content-Type", "application/json"}},
+                 .form = {},
+                 .body = body,
+                 .timeout = remaining(deadline),
+                 .put = true,
+                 .presigned = true});
+  checkResponse(response);
+}
 
 std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
   const auto now = clock();

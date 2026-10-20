@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Add native Quantum System API access with S3 storage beside cloud access,
+  with offline simulator execution and retrieval checks.
+
 ### Fixed
 
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])

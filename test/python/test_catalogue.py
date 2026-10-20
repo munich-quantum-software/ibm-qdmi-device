@@ -38,9 +38,26 @@ from offline_service import CRN
 from qiskit_service import configure
 
 from ibm import qdmi
+from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name]
 
 if TYPE_CHECKING:
     from offline_service import Service
+
+
+def test_quantum_system_session_parameters() -> None:
+    """Forward on-premises settings without selecting a local mock."""
+    result = session_parameters(
+        backend_name="fake_lagos",
+        api_key="synthetic",
+        instance_crn="local",
+        base_url="http://127.0.0.1:8290",
+        auth_url="http://127.0.0.1:8290/identity/token",
+        access_mode="quantum-system",
+        storage_config="storage.json",
+    )
+    assert result["custom4"] == "quantum-system"
+    assert result["custom5"] == "storage.json"
+    assert result["custom1"] == "fake_lagos"
 
 
 def test_adapter_credential_precedence(service: Service, tmp_path: Path) -> None:

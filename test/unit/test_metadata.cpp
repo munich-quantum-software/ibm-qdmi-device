@@ -60,6 +60,17 @@ TEST(Metadata, ConvertsUnitsAndPreservesDirectedTuples) {
   EXPECT_EQ(operation.calibrations.at({0, 1}).duration, 35556);
   EXPECT_DOUBLE_EQ(*operation.calibrations.at({0, 1}).fidelity, 0.98);
 }
+TEST(Metadata, QuantumSystemRecognizesOmittedFixedGateDefinitions) {
+  auto data = fixture();
+  data["configuration"]["gates"] = nlohmann::json::array();
+  const auto cloud =
+      ibm::parseMetadata(data["configuration"], data["properties"]);
+  EXPECT_FALSE(cloud.operations[2].parameters);
+  const auto system =
+      ibm::parseMetadata(data["configuration"], data["properties"], true);
+  EXPECT_EQ(system.operations[2].parameters, 0);
+  EXPECT_FALSE(system.operations[1].parameters);
+}
 TEST(Metadata, MissingAndInvalidCalibrationIsNotZero) {
   auto data = fixture();
   EXPECT_FALSE(

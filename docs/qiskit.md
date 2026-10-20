@@ -16,6 +16,33 @@ checks pass.
 
 ## Select a backend
 
+For an on-premises Quantum System API service, provide the protocol and storage
+configuration explicitly:
+
+```python
+import os
+from ibm.qdmi.qiskit import IBMBackend
+
+backend = IBMBackend(
+    backend_name=os.environ["IBM_QUANTUM_BACKEND"],
+    api_key=os.environ["IBM_QUANTUM_API_KEY"],
+    instance_crn=os.environ["IBM_QUANTUM_INSTANCE_CRN"],
+    base_url=os.environ["IBM_QUANTUM_SYSTEM_URL"],
+    auth_url=os.environ["IBM_QUANTUM_AUTH_URL"],
+    access_mode="quantum-system",
+    storage_config=os.environ["IBM_QUANTUM_STORAGE_CONFIG"],
+)
+```
+
+These environment names configure this example; endpoint and storage values are
+passed as explicit session settings. `IBMDevice` accepts the same arguments. See
+[Quantum System configuration](api.md#quantum-system-api) for the private
+storage file and supported features. Ordinary cloud construction stays
+unchanged.
+
+The runnable `examples/quantum_system.py` example transpiles and executes a Bell
+circuit using these settings.
+
 Supply `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the process
 environment or a secret manager. Keep their values out of source code.
 

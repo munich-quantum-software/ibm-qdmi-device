@@ -163,11 +163,15 @@ bool validEndpoint(const std::string& url) {
 }
 
 Response send(const Request& request) {
-  if (!validEndpoint(request.url)) {
+  // Presigned URLs originate from our validated storage configuration.
+  const auto endpoint = request.presigned
+                            ? request.url.substr(0, request.url.find('?'))
+                            : request.url;
+  if (!validEndpoint(endpoint)) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   cpr::Session client;
-  if (request.form.empty() && !request.post) {
+  if (request.form.empty() && !request.post && !request.put) {
     // Connection sharing across concurrent threads is unsupported by libcurl.
     // Fresh sessions share only this thread's read connections, never cookies.
     thread_local const cpr::ConnectionPool CONNECTIONS;
@@ -202,7 +206,10 @@ Response send(const Request& request) {
   headers.insert(request.headers.begin(), request.headers.end());
   client.SetHeader(headers);
   cpr::Response response;
-  if (request.form.empty() && !request.post) {
+  if (request.put) {
+    client.SetBody(cpr::Body{request.body});
+    response = client.Put();
+  } else if (request.form.empty() && !request.post) {
     response = client.Get();
   } else if (request.form.empty()) {
     client.SetBody(cpr::Body{request.body});

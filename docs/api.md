@@ -17,9 +17,75 @@ implemented device functions, types, and IBM-specific constants.
 
 ## Session configuration
 
+Cloud access remains the default. Select `quantum-system` for an on-premises IBM
+Quantum System API service. Both modes use this library's `IBM_` interface.
+
 The repository's `.env.example` lists connection variables and optional client
 settings. The device reads process environment values; it does not load `.env`
 files.
+
+### Quantum System API
+
+Set `IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE` to `quantum-system`. Provide
+`BASEURL`, `AUTHURL` (including `/identity/token`), a backend name, an IAM API
+key, and the service identifier through the existing parameters. The service
+identifier need not have the cloud CRN structure. Set
+`IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG` to a private UTF-8 JSON file
+with these fields:
+
+| Field                      | Meaning                                              |
+| -------------------------- | ---------------------------------------------------- |
+| `endpoint`                 | S3-compatible endpoint reachable from the client.    |
+| `bucket`                   | Existing bucket; the device does not create buckets. |
+| `region`                   | Region used for S3 signing.                          |
+| `access_key`, `secret_key` | Credentials supplied by the administrator.           |
+| `session_token`            | Optional token for temporary S3 credentials.         |
+| `service_endpoint`         | Optional S3 endpoint reachable from the QPU service. |
+
+The device snapshots the file during session initialization. Keep it outside
+version control and restrict its permissions. Credentials and signed URLs are
+never exposed through device diagnostics. No AWS credential discovery occurs.
+Production endpoints require HTTPS; HTTP is restricted to loopback testing.
+
+The device uploads Sampler parameters, submits storage descriptors, and reads
+results through S3. Objects use `input_<job-id>.json`, `results_<job-id>.json`,
+and `logs_<job-id>.json`. Retrieval expects this naming convention. Presigned
+URLs last 24 hours; temporary credentials may expire sooner. Storage must remain
+available through execution and retrieval. Configure bucket lifecycle rules for
+retention; freeing a QDMI handle deletes neither jobs nor objects.
+
+Quantum System mode supports OpenQASM 3 Sampler jobs. Executor is unsupported
+and rejected before storage access. Backend status uses the service's backend
+details; queue length is unsupported. Cloud program formats, queue queries, and
+execution behavior remain unchanged.
+
+An administrator can register the same native library for an on-premises device:
+
+```json
+{
+  "schema-version": 1,
+  "qdmi": {
+    "devices": [{
+      "id": "ibm.onprem",
+      "library": "/opt/ibm/lib/libibm-qdmi-device.so",
+      "prefix": "IBM",
+      "enabled": true,
+      "session": {
+        "base-url": "https://quantum-system.example",
+        "auth-url": "https://iam.example/identity/token",
+        "auth-file": "/etc/ibm/iam-api-key",
+        "custom1": "backend_name",
+        "custom2": "service_identifier",
+        "custom4": "quantum-system",
+        "custom5": "/etc/ibm/storage.json"
+      }
+    }]
+  }
+}
+```
+
+Replace the example paths and service values with the deployment's settings. Use
+`IBMBackend("ibm.onprem")` or select this ID through native QDMI clients.
 
 Include `ibm_qdmi/device.h` and `ibm-qdmi-device/constants.h`. Set parameters
 before initializing a session. Strings include the terminating null byte in
