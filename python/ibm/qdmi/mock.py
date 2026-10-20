@@ -69,11 +69,12 @@ class _Runtime:
             The local job identifier.
 
         Raises:
+            TypeError: The decoded value is not a circuit.
             ValueError: The program or its options are unsupported.
         """
-        from qiskit import qasm3  # ruff: ignore[import-outside-top-level]
+        from qiskit import QuantumCircuit, qasm3  # ruff: ignore[import-outside-top-level]
         from qiskit.primitives.containers import SamplerPub  # ruff: ignore[import-outside-top-level]
-        from qiskit_ibm_runtime import Executor, SamplerV2  # ruff: ignore[import-outside-top-level]
+        from qiskit_ibm_runtime import Executor, RuntimeDecoder, SamplerV2  # ruff: ignore[import-outside-top-level]
 
         if request["backend"] != self.backend.name:
             msg = "Wrong backend."
@@ -96,7 +97,21 @@ class _Runtime:
                 if bindings not in (None, []) or isinstance(shots, bool) or not isinstance(shots, int) or shots <= 0:
                     msg = "Invalid Sampler PUB."
                     raise ValueError(msg)
-                pubs.append(SamplerPub(qasm3.loads(source), shots=shots))
+                if isinstance(source, str):
+                    circuit = qasm3.loads(source)
+                elif (
+                    isinstance(source, dict)
+                    and source.get("__type__") == "QuantumCircuit"
+                    and isinstance(source.get("__value__"), str)
+                ):
+                    circuit = RuntimeDecoder().object_hook(source)
+                else:
+                    msg = "Unsupported Sampler circuit."
+                    raise ValueError(msg)
+                if not isinstance(circuit, QuantumCircuit):
+                    msg = "Unsupported Sampler circuit."
+                    raise TypeError(msg)
+                pubs.append(SamplerPub(circuit, shots=shots))
             if not pubs:
                 msg = "Empty Sampler request."
                 raise ValueError(msg)
