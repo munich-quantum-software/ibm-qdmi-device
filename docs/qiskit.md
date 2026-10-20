@@ -64,9 +64,10 @@ defaults. PennyLane's `IBMDevice` and offloader workers accept the same
 
 Names come from Runtime's
 [fake provider](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider).
-Unknown names fail locally. Explicit credentials and endpoint overrides cannot
-be combined with automatic mock selection; inherited cloud credentials are
-ignored. Other backend names retain their existing cloud behavior.
+Unknown mock names fail locally. Explicit credentials or endpoint overrides
+select a remote connection, including services with names such as `fake_lagos`.
+Automatic mock selection ignores inherited cloud credentials. Other backend
+names retain their existing cloud behavior.
 
 Fakes use bundled device snapshots and noisy local simulation. They do not
 represent current hardware calibration. Snapshots are never refreshed
