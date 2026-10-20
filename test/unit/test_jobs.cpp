@@ -210,6 +210,12 @@ TEST(QuantumSystem, SignsClientAndServiceEndpointsWithoutLeakingSecrets) {
     EXPECT_NE(client.substr(client.find("X-Amz-Signature=")),
               service.substr(service.find("X-Amz-Signature=")));
   }
+  for (const auto* bucket : {"data--x-s3", "data--use1-az1--x-s3"}) {
+    auto express = config;
+    express.bucket = bucket;
+    EXPECT_THROW((void)ibm::storageUrl(express, "input_id.json", false, false),
+                 ibm::Failure);
+  }
   auto prefixed = config;
   prefixed.endpoint += "/storage";
   EXPECT_TRUE(

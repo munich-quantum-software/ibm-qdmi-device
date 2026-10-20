@@ -65,6 +65,7 @@ class Service:
     url: str = ""
     respond: Callable[[str, bytes], tuple[int, Any]] | None = None
     before_respond: Callable[[str], None] | None = None
+    puts: list[str] = field(default_factory=list)
 
     @property
     def parameters(self) -> dict[int, str]:
@@ -122,6 +123,11 @@ def serve(
         def do_GET(self) -> None:
             """Handle a backend query."""
             self.respond(b"")
+
+        def do_PUT(self) -> None:
+            """Handle and record an object upload."""
+            state.puts.append(self.path)
+            self.do_POST()
 
         def do_POST(self) -> None:
             """Handle the IAM form exchange."""

@@ -28,7 +28,7 @@
 #include <aws/core/auth/signer/AWSAuthV4Signer.h>
 #include <aws/core/client/ClientConfiguration.h>
 #include <aws/core/endpoint/AWSEndpoint.h>
-#include <aws/core/http/HttpRequest.h>
+#include <aws/core/endpoint/internal/AWSEndpointAttribute.h>
 #include <aws/core/http/HttpTypes.h>
 #include <aws/core/http/standard/StandardHttpRequest.h>
 #include <aws/core/utils/UUID.h>
@@ -151,6 +151,17 @@ std::string storageUrl(const StorageConfiguration& configuration,
   endpoints.AccessClientContextParameters().SetForcePathStyle(true);
   auto resolved = endpoints.ResolveEndpoint({{"Bucket", configuration.bucket}});
   if (!resolved.IsSuccess()) {
+    throw Failure{QDMI_ERROR_FATAL};
+  }
+  const auto& attributes = resolved.GetResult().GetAttributes();
+  if (!attributes ||
+      attributes->authScheme.GetName() !=
+          static_cast<const char*>(Aws::Auth::SIGV4_SIGNER) ||
+      attributes->authScheme.GetSigningRegionSet() ||
+      (attributes->authScheme.GetSigningName() &&
+       *attributes->authScheme.GetSigningName() != "s3") ||
+      (attributes->authScheme.GetSigningRegion() &&
+       *attributes->authScheme.GetSigningRegion() != configuration.region)) {
     throw Failure{QDMI_ERROR_FATAL};
   }
   resolved.GetResult().AddPathSegments(key);
