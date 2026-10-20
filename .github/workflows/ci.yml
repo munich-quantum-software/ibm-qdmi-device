@@ -14,7 +14,7 @@ permissions:
 jobs:
   change-detection:
     name: 🔍 Change
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-change-detection.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-change-detection.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
     with:
       additional-cpp-files: |
         .github/workflows/cpp-*.yml
@@ -140,7 +140,7 @@ jobs:
     name: 🐍 Lint
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-linter)
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
     with:
       enable-ty: true
       enable-mypy: false
@@ -153,7 +153,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: "3.14"
       - run: uvx nox -s tests minimums native_tests mock_tests examples chemistry
@@ -161,7 +161,7 @@ jobs:
     name: 🚀 CD
     needs: change-detection
     if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
   build-wheel:
     name: 🚀 CD
     needs: change-detection
@@ -177,7 +177,7 @@ jobs:
             windows-2025,
             windows-11-arm,
           ]
-    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@fd3d75dece69c363989347869529a5e99cdcfffc # v2.5.1
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-wheel-cibuildwheel.yml@6c933678406ab1887a137839dfd0e290f12917da # v2.5.2
     with:
       runs-on: ${{ matrix.runs-on }}
   slurm-tests:
@@ -247,7 +247,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: "3.14"
       - name: Build an sdist and its wheel
@@ -261,7 +261,7 @@ jobs:
           uv pip install --python build/candidate/venv/bin/python -r build/candidate/requirements.txt build/candidate/dist/*.whl
           build/candidate/venv/bin/python -m pytest -m integration -n 0
           build/candidate/venv/bin/python -m pytest
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: candidate
         with:
           name: hardware-candidate-${{ github.sha }}-${{ github.run_attempt }}
