@@ -48,6 +48,7 @@ from samplomatic.transpiler import generate_boxing_pass_manager
 
 from ibm.qdmi import _mock_runtime  # ruff: ignore[import-private-name]
 from ibm.qdmi._backends import build_sampler  # ruff: ignore[import-private-name]
+from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name]
 from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
 
@@ -100,16 +101,17 @@ def test_unknown_fake_fails_locally() -> None:
 
 
 @pytest.mark.parametrize("override", ["api_key", "instance_crn", "base_url", "auth_url"])
-def test_fake_rejects_connection_overrides(override: str) -> None:
-    """Explicit cloud connection settings cannot be mixed with automatic mocks."""
-    with pytest.raises(ValueError, match="connection overrides"):
-        IBMBackend(
-            backend_name="fake_manila",
-            api_key="invalid" if override == "api_key" else None,
-            instance_crn="invalid" if override == "instance_crn" else None,
-            base_url="invalid" if override == "base_url" else None,
-            auth_url="invalid" if override == "auth_url" else None,
-        )
+def test_fake_connection_overrides_select_remote_service(override: str) -> None:
+    """Explicit connections can target services with fake-prefixed backend names."""
+    parameters = session_parameters(
+        backend_name="fake_lagos",
+        api_key="synthetic" if override == "api_key" else None,
+        instance_crn="synthetic" if override == "instance_crn" else None,
+        base_url="http://127.0.0.1:8290" if override == "base_url" else None,
+        auth_url="http://127.0.0.1:8290/identity/token" if override == "auth_url" else None,
+    )
+    assert parameters["custom1"] == "fake_lagos"
+    assert parameters["base_url"] == ("http://127.0.0.1:8290" if override == "base_url" else None)
 
 
 def test_mock_metadata_and_environment_selection(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -40,23 +40,21 @@ def session_parameters(
     Returns:
         Explicit overrides; native session initialization resolves omitted values.
 
-    Raises:
-        ValueError: A fake backend conflicts with explicit connection settings.
     """
-    selected = backend_name
-    if selected is None and device_id == "ibm.default":
-        selected = os.getenv("IBM_QUANTUM_BACKEND")
-    if selected is not None and selected.startswith("fake_"):
-        if any(value is not None for value in (api_key, instance_crn, base_url, auth_url)):
-            msg = "Fake backends are exclusive with connection overrides."
-            raise ValueError(msg)
-        from ._mock_runtime import connection  # ruff: ignore[import-outside-top-level]
-
-        return connection(selected)
-    return {
+    parameters: QDMISessionParameters = {
         "token": api_key,
         "custom2": instance_crn,
         "custom1": backend_name,
         "base_url": base_url,
         "auth_url": auth_url,
     }
+
+    selected = backend_name
+    if selected is None and device_id == "ibm.default":
+        selected = os.getenv("IBM_QUANTUM_BACKEND")
+    remote = any(value is not None for key, value in parameters.items() if key != "custom1")
+    if selected is not None and selected.startswith("fake_") and not remote:
+        from ._mock_runtime import connection  # ruff: ignore[import-outside-top-level]
+
+        return connection(selected)
+    return parameters
