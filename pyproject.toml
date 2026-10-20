@@ -222,6 +222,7 @@ test-groups = [ "test" ]
 test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]
+environment = { GLIBC_TUNABLES = "glibc.rtld.optional_static_tls=16384" }
 before-all = "yum install -y openssl-devel"
 test-environment = { GLIBC_TUNABLES = "glibc.rtld.optional_static_tls=16384" }
 
@@ -246,6 +247,7 @@ select = "cp315-manylinux_*"
 environment = { PATH = "$HOME/.cargo/bin:$PATH" }
 before-all = "curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
 inherit.before-all = "append"
+inherit.environment = "append"
 
 
 [tool.ruff]
