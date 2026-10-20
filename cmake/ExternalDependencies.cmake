@@ -105,6 +105,11 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   FetchContent_MakeAvailable(aws_sdk)
   # Ship only the device's install components, not the private SDK's headers.
   set_property(DIRECTORY "${aws_sdk_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
+  if(TARGET zlib AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlib)
+  elseif(NOT TARGET ZLIB::ZLIB)
+    find_package(ZLIB REQUIRED)
+  endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
      AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
      AND TARGET cpr)

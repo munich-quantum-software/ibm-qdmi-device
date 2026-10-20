@@ -116,9 +116,13 @@ recorded account data is used.
 
 Qiskit tests use the released MQT Core driver and installed native library. A
 separate local process hosts the synthetic server because native session
-creation can hold Python's GIL. The fixture simulates submitted OpenQASM with
-Qiskit's basic simulator. It checks layouts, registers, batches, cancellation,
-retrieval, sampler broadcasting, and estimator precision without IBM access:
+creation can hold Python's GIL. The fixture decodes OpenQASM and QPY with Qiskit
+and simulates static circuits with its basic simulator. Conditional execution
+uses the test-only Aer simulator where wheels are available (Python below 3.15,
+excluding Windows ARM64 and Linux ARM64 on Python 3.14). Linux x86_64 Python
+3.14 CI runs these semantic tests. The fixture checks layouts, registers,
+batches, cancellation, retrieval, sampler broadcasting, and estimator precision
+without IBM access:
 
 ```console
 uvx nox -s tests-3.14 -- test/python/test_qiskit_backend.py

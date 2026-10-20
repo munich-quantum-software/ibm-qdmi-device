@@ -19,9 +19,14 @@
 
 #include "Http.hpp"
 #include "Job.hpp"
+#include "Qpy.hpp"
 
+#include <cstddef>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
+#include <ios>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -108,4 +113,42 @@ TEST(Program, PreservesResultsAcrossStaticGateDefinitions) {
     fails([&] { (void)ibm::outputRegisters(program, 5); },
           QDMI_ERROR_INVALIDARGUMENT);
   }
+}
+
+TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
+  for (int version = 13; version <= 17; ++version) {
+    std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/v" +
+                           std::to_string(version) + ".qpy",
+                       std::ios::binary);
+    const std::string program{std::istreambuf_iterator<char>(file), {}};
+    ASSERT_FALSE(program.empty());
+    const auto registers = ibm::qpyRegisters(program, 5);
+    ASSERT_EQ(registers.size(), 2);
+    EXPECT_EQ(registers[0].name, "z");
+    EXPECT_EQ(registers[0].width, 2);
+    EXPECT_EQ(registers[1].name, "a");
+    EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(program)), program);
+    for (std::size_t length = 0; length < 40; ++length) {
+      fails([&] { ibm::qpyRegisters(program.substr(0, length), 5); },
+            QDMI_ERROR_INVALIDARGUMENT);
+    }
+    fails([&] { ibm::qpyRegisters(program, 1); }, QDMI_ERROR_INVALIDARGUMENT);
+    auto invalid = program;
+    invalid[6] = 18;
+    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
+    invalid = program;
+    invalid[17] = 2;
+    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
+    invalid = program;
+    const auto name = invalid.find("physical");
+    ASSERT_NE(name, std::string::npos);
+    invalid[name] = static_cast<char>(0xff);
+    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
+    invalid = program;
+    invalid[version >= 16 ? 49 : 41] = static_cast<char>(0xff);
+    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
+  }
+  fails([] { ibm::decodeQpy("invalid!"); }, QDMI_ERROR_INVALIDARGUMENT);
+  fails([] { ibm::decodeQpy("AAAA"); }, QDMI_ERROR_INVALIDARGUMENT);
+  fails([] { ibm::decodeQpy("AB=="); }, QDMI_ERROR_INVALIDARGUMENT);
 }

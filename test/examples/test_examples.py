@@ -24,10 +24,11 @@ from typing import TYPE_CHECKING
 
 import pennylane as qml
 import pytest
-from examples import native_job, pennylane_qaoa, qiskit_workloads
+from examples import dynamic_circuit, native_job, pennylane_qaoa, qiskit_workloads
 from mqt.core.plugins.qiskit.backend import QDMIBackend
+from mqt.core.qdmi import ProgramFormat
 from offline_service import CRN
-from qiskit_service import remote_runtime
+from qiskit_service import open_backend, remote_runtime
 
 from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
@@ -57,6 +58,21 @@ def test_native_job(backend: QDMIBackend) -> None:
     """Direct QDMI submission returns the measured X state."""
     width = backend.num_qubits if isinstance(backend, IBMBackend) else 1
     assert native_job.run(backend.device, 17, qubits=width) == {"1": 17}
+
+
+def test_native_qpy_job() -> None:
+    """The direct QPY example returns counts through the installed IBM device."""
+    with remote_runtime() as runtime:
+        backend = open_backend(runtime)
+        assert native_job.run(backend.device, 17, program_format=ProgramFormat.QPY) == {"1": 17}
+
+
+def test_dynamic_feedforward_example() -> None:
+    """The local use case follows both measurement outcomes through feedforward."""
+    simulator = pytest.importorskip("qiskit_aer").AerSimulator()
+    counts = dynamic_circuit.run(simulator, 128)
+    assert sum(counts.values()) == 128
+    assert set(counts) == {"00", "11"}
 
 
 def test_bell_sampler(backend: QDMIBackend) -> None:

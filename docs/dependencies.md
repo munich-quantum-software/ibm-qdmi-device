@@ -18,8 +18,10 @@ CMake downloads the configured sources.
 | CPR             | 1.14.2          | HTTP requests through libcurl                     |
 | AWS SDK for C++ | 1.11.700        | S3 URL signing; only core/S3 components are built |
 | GoogleTest      | 1.17.0          | Native tests, when enabled                        |
+| zlib | zlib-ng 2.1.3 | QPY compression and decompression |
 
-The default build uses static CPR and curl dependencies. Linux builds require
+The default build uses static CPR, curl, and zlib dependencies. An installed CPR
+build also requires an installed zlib development package. Linux builds require
 OpenSSL development headers; macOS wheels use Apple's native TLS backend.
 GoogleTest is not installed with the device. See
 [installation](installation.md#building-from-source) for the runtime and
@@ -33,14 +35,17 @@ It declares no mandatory Python runtime dependencies. Optional integrations
 install MQT Core in the Python environment; they are not bundled into this
 project's wheel.
 
-| Extra       | Requirement                                             | Purpose                                     |
-| :---------- | :------------------------------------------------------ | :------------------------------------------ |
-| `qiskit`    | `mqt-core[qiskit]~=4.1.1`                               | Qiskit backend and primitives               |
-| `executor`  | `mqt-core[qiskit]~=4.1.1`, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
-| `pennylane` | `mqt-core[pennylane,qiskit]~=4.1.1`                     | PennyLane devices and circuit serialization |
+| Extra       | Requirement                                        | Purpose                                     |
+| :---------- | :------------------------------------------------- | :------------------------------------------ |
+| `qiskit`    | MQT Core with Qiskit                               | Qiskit backend and primitives               |
+| `executor`  | MQT Core with Qiskit, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
+| `pennylane` | MQT Core with PennyLane and Qiskit                 | PennyLane devices and circuit serialization |
 
 Follow [Python installation](installation.md#python-package) to select extras.
-MQT Core defines their transitive Qiskit and PennyLane requirements.
+MQT Core is pinned to commit `e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394`. Its
+source build downloads LLVM/MLIR when needed. Core defines the transitive Qiskit
+and PennyLane requirements. Replace this Git dependency with a released Core
+version before publishing to PyPI.
 
 ## Build and development tools
 

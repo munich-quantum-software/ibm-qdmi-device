@@ -21,7 +21,8 @@ API services to the
 [Quantum Device Management Interface (QDMI)](https://github.com/Munich-Quantum-Software-Stack/QDMI),
 a vendor-neutral C API for quantum hardware. The C++20 library handles API-key
 authentication, calibration queries, and the job lifecycle. It submits OpenQASM
-3 circuits and returns ordered shots and histograms. Optional Qiskit and
+3 and QPY circuits and returns ordered shots and histograms. Qiskit submissions
+prefer QPY and support measurement-based conditional gates. Optional Qiskit and
 PennyLane integrations use the same native interface.
 
 Live metadata validation has passed; quantum execution has not yet been
@@ -61,14 +62,15 @@ through the process environment or a secret manager; the device does not load
 
 ## Where to Start
 
-| I want to…                                   | Guide                                                                                    |
-| :------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)       |
-| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html) |
-| Walk through end-to-end workloads            | [Examples](https://ibm-qdmi-device.readthedocs.io/en/latest/examples.html)               |
-| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                 |
-| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)   |
-| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)       |
+| I want to…                                   | Guide                                                                                               |
+| :------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
+| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)                  |
+| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html)            |
+| Walk through end-to-end workloads            | [Examples](https://ibm-qdmi-device.readthedocs.io/en/latest/examples.html)                          |
+| Use QPY and conditional feedforward          | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html#dynamic-circuits) |
+| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                            |
+| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)              |
+| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)                  |
 
 ## Contributing
 
@@ -84,6 +86,7 @@ The core C++ library and Python package are licensed under the
 [LICENSE](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/LICENSE)
 for the license text.
 
-Binary wheels statically link libcurl, cpr, and nlohmann/json; Linux wheels also
-bundle OpenSSL. Their license texts ship with each wheel and are available in
+Binary wheels statically link libcurl, cpr, zlib, and nlohmann/json; Linux
+wheels also bundle OpenSSL. Their license texts ship with each wheel and are
+available in
 [`licenses/`](https://github.com/munich-quantum-software/ibm-qdmi-device/tree/main/licenses).

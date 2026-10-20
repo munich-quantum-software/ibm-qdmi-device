@@ -22,6 +22,7 @@
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Storage.hpp"
+#include "Qpy.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -34,6 +35,7 @@
 #include <map>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -175,12 +177,13 @@ void Job::checkProgramSupport(QDMI_Program_Format value,
   require(!auth->quantumSystem() || value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           QDMI_ERROR_NOTSUPPORTED);
   require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
+              value == QDMI_PROGRAM_FORMAT_QPY ||
               value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           QDMI_ERROR_NOTSUPPORTED);
   require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR ||
               (count == 1 && !samplerOptionsSet),
           QDMI_ERROR_NOTSUPPORTED);
-  if (value == QDMI_PROGRAM_FORMAT_QASM3) {
+  if (value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     checkSamplerExecutions(count, shots);
   }
 }
@@ -216,7 +219,9 @@ void Job::setPrograms(QDMI_Program_Format value,
   } else {
     layouts.reserve(sources.size());
     for (const auto& source : sources) {
-      layouts.push_back(outputRegisters(source, qubits));
+      layouts.push_back(value == QDMI_PROGRAM_FORMAT_QPY
+                            ? qpyRegisters(source, qubits)
+                            : outputRegisters(source, qubits));
     }
   }
   programs = std::move(sources);
@@ -276,10 +281,15 @@ void Job::submit() {
     payload["program_id"] = "executor";
     payload["params"] = nlohmann::json::parse(programs.front());
   }
-  if (format == QDMI_PROGRAM_FORMAT_QASM3) {
+  if (format != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     for (const auto& source : programs) {
+      const nlohmann::json circuit =
+          format == QDMI_PROGRAM_FORMAT_QPY
+              ? nlohmann::json{{"__type__", "QuantumCircuit"},
+                               {"__value__", encodeQpy(source)}}
+              : nlohmann::json(source);
       payload["params"]["pubs"].push_back(
-          nlohmann::json::array({source, nullptr, shots}));
+          nlohmann::json::array({circuit, nullptr, shots}));
     }
   }
   // Once submission starts, even a lost response must never permit a duplicate.
@@ -349,9 +359,11 @@ void Job::retrieve(const std::string& remoteId) {
   const auto& pubs = parameters.at("pubs");
   require(pubs.is_array() && !pubs.empty(), QDMI_ERROR_NOTSUPPORTED);
   std::vector<std::string> sources;
+  std::optional<QDMI_Program_Format> retrievedFormat;
   std::size_t commonShots = 0;
   for (const auto& pub : pubs) {
-    require(pub.is_array() && pub.size() == 3 && pub.at(0).is_string() &&
+    require(pub.is_array() && pub.size() == 3 &&
+                (pub.at(0).is_string() || pub.at(0).is_object()) &&
                 (pub.at(1).is_null() || pub.at(1).empty()),
             QDMI_ERROR_NOTSUPPORTED);
     const auto pubShots = positiveInteger(pub.at(2));
@@ -359,10 +371,24 @@ void Job::retrieve(const std::string& remoteId) {
       commonShots = pubShots;
     }
     require(pubShots == commonShots, QDMI_ERROR_NOTSUPPORTED);
-    sources.push_back(pub.at(0).get<std::string>());
+    const auto& circuit = pub.at(0);
+    const auto sourceFormat = circuit.is_string() ? QDMI_PROGRAM_FORMAT_QASM3
+                                                  : QDMI_PROGRAM_FORMAT_QPY;
+    require(!retrievedFormat || retrievedFormat == sourceFormat,
+            QDMI_ERROR_NOTSUPPORTED);
+    retrievedFormat = sourceFormat;
+    if (circuit.is_object()) {
+      require(circuit.value("__type__", "") == "QuantumCircuit" &&
+                  circuit.contains("__value__") &&
+                  circuit["__value__"].is_string(),
+              QDMI_ERROR_NOTSUPPORTED);
+      sources.push_back(decodeQpy(circuit["__value__"].get<std::string>()));
+    } else {
+      sources.push_back(circuit.get<std::string>());
+    }
   }
   setShots(commonShots);
-  setPrograms(QDMI_PROGRAM_FORMAT_QASM3, std::move(sources));
+  setPrograms(*retrievedFormat, std::move(sources));
   id = remoteId;
   attempted = true;
   status = parseJobStatus(data, auth->quantumSystem());
