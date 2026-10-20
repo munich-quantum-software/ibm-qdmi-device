@@ -38,7 +38,7 @@ from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult
 from qiskit.quantum_info import SparsePauliOp
-from qiskit_ibm_runtime import QuantumProgram
+from qiskit_ibm_runtime import QuantumProgram, RuntimeDecoder, RuntimeEncoder
 from qiskit_ibm_runtime.executor_sampler.prepare import prepare
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
@@ -49,6 +49,7 @@ from samplomatic.transpiler import generate_boxing_pass_manager
 from ibm.qdmi import _mock_runtime  # ruff: ignore[import-private-name]
 from ibm.qdmi._backends import build_sampler  # ruff: ignore[import-private-name]
 from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name]
+from ibm.qdmi.mock import _Runtime  # ruff: ignore[import-private-name]
 from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
 
@@ -98,6 +99,40 @@ def test_unknown_fake_fails_locally() -> None:
     """A misspelled fake cannot fall through to hardware."""
     with pytest.raises(ValueError, match="Unknown fake backend"):
         IBMBackend(backend_name="fake_does_not_exist")
+
+
+@pytest.mark.filterwarnings("ignore:The SamplerV2 class is deprecated:DeprecationWarning")
+def test_mock_accepts_runtime_qpy_encoding() -> None:
+    """Runtime-encoded circuits work when a native device advertises QPY."""
+    circuit = QuantumCircuit(5, 1)
+    circuit.x(0)
+    circuit.measure(0, 0)
+    source = json.loads(json.dumps(circuit, cls=RuntimeEncoder))
+    runtime = _Runtime("fake_manila")
+    identifier = runtime.submit({
+        "backend": "fake_manila",
+        "program_id": "sampler",
+        "params": {"version": 2, "support_qiskit": False, "pubs": [[source, None, 4]]},
+    })
+    result = runtime.result(runtime.jobs[identifier])
+    assert result["results"][0]["data"]["c"]["samples"] == ["0x1"] * 4
+
+
+@pytest.mark.parametrize("source", [None, [], {}, {"__type__": "settings", "__value__": {}}])
+def test_mock_rejects_other_runtime_types(source: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only circuit encodings may reach the Runtime decoder."""
+
+    def unexpected_decode(_decoder: object, _source: object) -> None:
+        pytest.fail("Unsupported source reached the Runtime decoder")
+
+    monkeypatch.setattr(RuntimeDecoder, "object_hook", unexpected_decode)
+    runtime = _Runtime("fake_manila")
+    with pytest.raises(ValueError, match="Unsupported Sampler circuit"):
+        runtime.submit({
+            "backend": "fake_manila",
+            "program_id": "sampler",
+            "params": {"version": 2, "support_qiskit": False, "pubs": [[source, None, 4]]},
+        })
 
 
 @pytest.mark.parametrize("override", ["api_key", "instance_crn", "base_url", "auth_url"])

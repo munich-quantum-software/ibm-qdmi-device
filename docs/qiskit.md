@@ -65,12 +65,13 @@ backend = IBMBackend(backend_name="fake_manila")
 ```
 
 The same transpilation, execution, Sampler, Estimator, and Executor interfaces
-work with this backend. Jobs pass through the installed native QDMI device to an
-automatically started loopback service. No IBM account or credentials are
-required. The generic device also accepts `IBM_QUANTUM_BACKEND=fake_manila`. An
-explicit backend name takes precedence. Concrete catalogue entries retain their
-defaults. PennyLane's `IBMDevice` and offloader workers accept the same
-`backend_name` selector.
+work with this backend. The service accepts QASM and Runtime-encoded QPY
+circuits when the native device supports them. Jobs pass through the installed
+native QDMI device to an automatically started loopback service. No IBM account
+or credentials are required. The generic device also accepts
+`IBM_QUANTUM_BACKEND=fake_manila`. An explicit backend name takes precedence.
+Concrete catalogue entries retain their defaults. PennyLane's `IBMDevice` and
+offloader workers accept the same `backend_name` selector.
 
 Names come from Runtime's
 [fake provider](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider).
