@@ -22,7 +22,7 @@ service_crn: "crn:v1:local:qsa_sim"
 auth:
   enabled: true
   iam_apikeys: [synthetic-key]
-are_options:
+aer_options:
   samplerV2:
     run_options:
       noise_model: null

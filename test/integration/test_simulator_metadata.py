@@ -110,8 +110,8 @@ def test_simulator_sampling_and_retrieval(native: Native, simulator_parameters: 
                 assert len(values) == 64
                 assert all(len(value) == 3 and set(value) <= {"0", "1"} for value in values)
                 expected.append(samples)
-            assert sum(value in {"000", "011"} for value in expected[0].split(",")) > 48
-            assert sum(value == "001" for value in expected[1].split(",")) > 48
+            assert set(expected[0].split(",")) <= {"000", "011"}
+            assert set(expected[1].split(",")) == {"001"}
         assert identifier is not None
         with native.session(simulator_parameters) as fresh:
             check(native.init(fresh), "fresh initialization")

@@ -304,7 +304,7 @@ TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
   ASSERT_EQ(initialized, QDMI_SUCCESS);
   EXPECT_EQ(handles<QDMI_Program_Format>(
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
-            (std::vector<QDMI_Program_Format>{QDMI_PROGRAM_FORMAT_QASM3}));
+            (std::vector<QDMI_Program_Format>{QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY}));
   for (const auto& [state, expected] :
        std::vector<std::pair<std::string, QDMI_Device_Status>>{
            {"online", QDMI_DEVICE_STATUS_IDLE},
@@ -326,7 +326,7 @@ TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
   EXPECT_EQ(handles<QDMI_Program_Format>(
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
             (std::vector<QDMI_Program_Format>{
-                QDMI_PROGRAM_FORMAT_QASM3, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
+                QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
 }
 
 TEST_F(DeviceTest, ForeignHandlesAndCalibrationSnapshots) {
