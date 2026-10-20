@@ -280,9 +280,7 @@ int IBM_QDMI_device_session_set_parameter(
       break;
     case QDMI_DEVICE_SESSION_PARAMETER_AUTHURL:
       destination = &session->configuration.authUrl;
-      if (value != nullptr) {
-        session->configuration.authUrlConfigured = true;
-      }
+      configured = &session->configuration.authUrlConfigured;
       break;
     case IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE:
       destination = &session->configuration.accessMode;

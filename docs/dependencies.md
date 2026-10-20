@@ -20,8 +20,11 @@ CMake downloads the configured sources.
 | GoogleTest      | 1.17.0          | Native tests, when enabled                        |
 | zlib | zlib-ng 2.1.3 | QPY compression and decompression |
 
-The default build uses static CPR, curl, and zlib dependencies. An installed CPR
-build also requires an installed zlib development package. Linux builds require
+The signing SDK is initialized and shut down on the signing thread. Its CRT HTTP
+client satisfies SDK construction; object transfers use the device HTTP
+transport.
+
+The default build uses static CPR and curl dependencies. Linux builds require
 OpenSSL development headers; macOS wheels use Apple's native TLS backend.
 GoogleTest is not installed with the device. See
 [installation](installation.md#building-from-source) for the runtime and

@@ -29,9 +29,10 @@ files.
 Set `IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE` to `quantum-system`. Provide
 `BASEURL`, `AUTHURL` (including `/identity/token`), a backend name, an IAM API
 key, and the service identifier through the existing parameters. The service
-identifier need not have the cloud CRN structure. Set
-`IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG` to a private UTF-8 JSON file
-with these fields:
+identifier need not have the cloud CRN structure. Omitted credentials still use
+`IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN`; set explicit values for
+the selected service. Set `IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG` to
+a private UTF-8 JSON file with these fields:
 
 | Field                      | Meaning                                              |
 | -------------------------- | ---------------------------------------------------- |
