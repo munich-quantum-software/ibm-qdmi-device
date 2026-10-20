@@ -40,6 +40,10 @@ if TYPE_CHECKING:
 nox.needs_version = ">=2026.8.10"
 nox.options.default_venv_backend = "uv"
 
+# Aer and PySCF load OpenMP runtimes after LLVM in test processes.
+if sys.platform == "linux":
+    os.environ.setdefault("GLIBC_TUNABLES", "glibc.rtld.optional_static_tls=16384")
+
 
 PYTHON_ALL_VERSIONS = ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
