@@ -193,7 +193,11 @@ TEST(QuantumSystem, SignsClientAndServiceEndpointsWithoutLeakingSecrets) {
         service.starts_with("http://localhost:9000/synthetic/input_id.json?"));
     for (const auto* url : {&client, &service}) {
       EXPECT_NE(url->find("X-Amz-Expires=86400"), std::string::npos);
-      EXPECT_NE(url->find("X-Amz-SignedHeaders=host"), std::string::npos);
+      const std::string header = "X-Amz-SignedHeaders=host";
+      const auto start = url->find(header);
+      ASSERT_NE(start, std::string::npos);
+      const auto end = start + header.size();
+      EXPECT_TRUE(end == url->size() || url->at(end) == '&');
       EXPECT_NE(url->find("X-Amz-Security-Token=synthetic-token"),
                 std::string::npos);
       EXPECT_NE(url->find("X-Amz-Credential=synthetic-access%2F"),

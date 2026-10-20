@@ -274,6 +274,10 @@ TEST_F(ConfigurationFileTest, RejectsStorageQueriesAndFragments) {
 TEST(QuantumSystem, ExplicitStorageIgnoresAmbientAwsSelection) {
   const ScopedEnvVar profile{"AWS_PROFILE", "unavailable-synthetic-profile"};
   const ScopedEnvVar endpoint{"AWS_ENDPOINT_URL", "http://wrong.invalid"};
+  const ScopedEnvVar serviceEndpoint{"AWS_ENDPOINT_URL_S3",
+                                     "http://wrong.invalid"};
+  const ScopedEnvVar region{"AWS_REGION", "wrong-region"};
+  const ScopedEnvVar defaultRegion{"AWS_DEFAULT_REGION", "wrong-region"};
   const ScopedEnvVar fips{"AWS_USE_FIPS_ENDPOINT", "true"};
   const ScopedEnvVar dual{"AWS_USE_DUALSTACK_ENDPOINT", "true"};
   const ScopedEnvVar arn{"AWS_S3_USE_ARN_REGION", "true"};

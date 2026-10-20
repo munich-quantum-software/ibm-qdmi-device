@@ -290,6 +290,21 @@ TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
         << R"({"endpoint":"http://127.0.0.1:9000","bucket":"synthetic","region":"us-east-1","access_key":"synthetic","secret_key":"synthetic"})";
     ASSERT_TRUE(file.good());
   }
+  IBM_QDMI_Device_Session invalid = nullptr;
+  ASSERT_EQ(IBM_QDMI_device_session_alloc(&invalid), QDMI_SUCCESS);
+  sessions.push_back(invalid);
+  set(invalid, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, "synthetic-key");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND, "ibm_test");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN, "local-service");
+  set(invalid, QDMI_DEVICE_SESSION_PARAMETER_BASEURL, "http://127.0.0.1:2");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE, "quantum-system");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG, path.string());
+  EXPECT_EQ(IBM_QDMI_device_session_set_parameter(
+                invalid, QDMI_DEVICE_SESSION_PARAMETER_AUTHURL, 1, "x"),
+            QDMI_ERROR_INVALIDARGUMENT);
+  const auto requests = http.requests().size();
+  EXPECT_EQ(IBM_QDMI_device_session_init(invalid), QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(http.requests().size(), requests);
   set(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE, "quantum-system");
   set(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG, path.string());
   set(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN, "local-service");

@@ -22,9 +22,11 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING
 
+import pennylane as qml
 import pytest
 from qiskit import QuantumCircuit, transpile
 
+from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
@@ -61,3 +63,24 @@ def test_quantum_system_qiskit(pytestconfig: pytest.Config, simulator_storage_fi
     assert restored.get_shots(0) == result.get_memory(0)
     output = backend.sampler().run([compiled], shots=16).result()
     assert sum(output[0].data["c"].get_counts().values()) == 16
+
+    device = IBMDevice(
+        wires=2,
+        backend_name="fake_lagos",
+        api_key="synthetic-key",
+        instance_crn="crn:v1:local:qsa_sim",
+        base_url=endpoint,
+        auth_url=endpoint + "/identity/token",
+        access_mode="quantum-system",
+        storage_config=str(simulator_storage_file),
+    )
+
+    @qml.qnode(device, shots=16)
+    def bell() -> qml.measurements.MeasurementProcess:
+        qml.Hadamard(0)
+        qml.CNOT([0, 1])
+        return qml.sample(wires=[0, 1])
+
+    samples = bell()
+    assert samples.shape == (16, 2)
+    assert all(sample[0] == sample[1] for sample in samples)
