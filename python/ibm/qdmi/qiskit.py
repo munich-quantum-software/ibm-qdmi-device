@@ -98,6 +98,7 @@ class IBMBackend(QDMIBackend):
         device = open_device(
             resolved_id,
             **session_parameters(
+                device_id=resolved_id,
                 backend_name=backend_name,
                 api_key=api_key,
                 instance_crn=instance_crn,
