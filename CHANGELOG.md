@@ -70,6 +70,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#81]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/81
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
@@ -97,5 +98,3 @@ _This is the initial release of the IBM QDMI Device._
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [documentation]: https://ibm-qdmi-device.readthedocs.io/en/latest/
-
-[#81]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/81
