@@ -18,13 +18,15 @@ releases may include breaking changes.
   measurement-based conditional gates with offline examples and regression
   tests. ([#71]) ([**@marcelwa**])
 
+- ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
+  access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
+  ([#72]) ([**@marcelwa**])
+
 ### Fixed
 
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
-- ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
-  access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
-  ([#72]) ([**@marcelwa**])
+
 
 ## [1.0.0] - 2026-10-14
 
