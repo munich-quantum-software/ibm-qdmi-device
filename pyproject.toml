@@ -280,7 +280,6 @@ extend-ignore-re = [
 ]
 
 [tool.typos.default.extend-words]
-certifi = "certifi"
 optin = "optin"
 
 

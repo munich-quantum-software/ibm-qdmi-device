@@ -109,9 +109,9 @@ Replace custom bundles selected through `CURL_CA_BUNDLE` or `SSL_CERT_FILE` too.
 Patched sources include the
 [curl CA bundle](https://curl.se/docs/caextract.html) dated 2026-10-20 or newer
 and
-[certifi 2026.10.19](https://github.com/certifi/python-certifi/releases/tag/2026.10.19)
-or newer. Installing certifi alone does not select its bundle for this device.
-Preserve any required private CAs when replacing a custom bundle.
+[Python CA bundle release 2026.10.19](https://github.com/certifi/python-certifi/releases/tag/2026.10.19)
+or newer. Installing this Python package alone does not select its bundle for
+this device. Preserve any required private CAs when replacing a custom bundle.
 
 On Windows and macOS, install the operating system's trust updates. Standard
 builds use Schannel and Secure Transport, respectively. Custom builds can use
