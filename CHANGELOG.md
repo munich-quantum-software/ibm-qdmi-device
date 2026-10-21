@@ -10,6 +10,10 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- 📝 Document runtime trust-store updates for the eMudhra CA compromise.
+
 ### Fixed
 
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])

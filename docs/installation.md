@@ -91,6 +91,46 @@ For a private CA or nonstandard location, set `CURL_CA_BUNDLE` to a PEM bundle.
 explicit paths fail requests; certificate and hostname verification remain
 enabled. These settings apply to both native and Python clients.
 
+### eMudhra compromise (October 2026)
+
+Update the trust stores used by every host and container running this device.
+The [eMudhra incident advisory](https://emudhra.we-have-a-problem.com/) lists
+compromised intermediate certificates that can impersonate any HTTPS service.
+This includes IBM authentication and API requests; the server's usual CA does
+not determine exposure.
+
+On Linux, install your distribution's patched `ca-certificates` package and
+regenerate its trust stores through the distribution's update procedure. Update
+both the CA bundle and hashed certificate directories. A custom PEM bundle does
+not override libcurl's compiled-in CA directory; stale roots there can still
+authorize a forged certificate.
+
+Replace custom bundles selected through `CURL_CA_BUNDLE` or `SSL_CERT_FILE` too.
+Patched sources include the
+[curl CA bundle](https://curl.se/docs/caextract.html) dated 2026-10-20 or newer
+and
+[certifi 2026.10.19](https://github.com/certifi/python-certifi/releases/tag/2026.10.19)
+or newer. Installing certifi alone does not select its bundle for this device.
+Preserve any required private CAs when replacing a custom bundle.
+
+On Windows and macOS, install the operating system's trust updates. Standard
+builds use Schannel and Secure Transport, respectively. Custom builds can use
+different TLS backends; update every configured bundle and CA directory too.
+Browser updates and reinstalling the device wheel alone do not update these
+runtime trust stores.
+
+Restart client processes after updating trust stores to discard cached trust and
+existing TLS connections. Keep certificate and hostname verification enabled. If
+no patched trust store is available, follow the advisory's platform-specific
+workaround before sending credentials or jobs.
+
+Check every active store with the advisory's offline certificate chains and
+OpenSSL instructions. A successful verification means that store still trusts a
+compromised chain. Certificate rejection must result from untrusted issuers, not
+a missing file or an unrelated setup error. Test all supplied chains; rejecting
+one does not prove protection against the others. Bundle-only checks do not
+establish that libcurl's other trust sources are safe.
+
 ## Device discovery
 
 The relocatable `ibm-qdmi-device.qdmi.json` catalogue lives beside the shared
