@@ -19,13 +19,12 @@
 
 #include "Http.hpp"
 
-#include <array>
+#include <cpr/session.h>
 #include <cstddef>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <exception>
 #include <iostream>
-#include <memory>
 #include <string>
 
 namespace {
@@ -42,42 +41,36 @@ int main(int argc, char** argv) try {
   std::cout << curl_version() << '\n';
   int result = 1;
   {
-    const std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> handle(
-        curl_easy_init(), curl_easy_cleanup);
-    if (!handle) {
+    cpr::Session session;
+    auto* handle = session.GetCurlHolder()->handle;
+    if (handle == nullptr) {
       return 1;
     }
     // Seed an alternate trust directory without changing the host's CA store.
     // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
-    std::array<char, CURL_ERROR_SIZE> error{};
-    if (curl_easy_setopt(handle.get(), CURLOPT_ERRORBUFFER, error.data()) !=
-        CURLE_OK) {
-      return 1;
-    }
-    const auto capath = curl_easy_setopt(handle.get(), CURLOPT_CAPATH, argv[3]);
+    const auto capath = curl_easy_setopt(handle, CURLOPT_CAPATH, argv[3]);
     if (capath == CURLE_NOT_BUILT_IN) {
       std::cout << "TLS backend does not support CA directories\n";
       return 125;
     }
     const auto controlBundle = std::string{argv[3]} + "/control.pem";
     if (capath != CURLE_OK ||
-        curl_easy_setopt(handle.get(), CURLOPT_CAINFO, controlBundle.c_str()) !=
+        curl_easy_setopt(handle, CURLOPT_CAINFO, controlBundle.c_str()) !=
             CURLE_OK ||
-        curl_easy_setopt(handle.get(), CURLOPT_URL, argv[1]) != CURLE_OK ||
-        curl_easy_setopt(handle.get(), CURLOPT_NOPROXY, "*") != CURLE_OK ||
-        curl_easy_setopt(handle.get(), CURLOPT_TIMEOUT, 5L) != CURLE_OK ||
-        curl_easy_setopt(handle.get(), CURLOPT_WRITEFUNCTION, discard) !=
-            CURLE_OK) {
+        curl_easy_setopt(handle, CURLOPT_URL, argv[1]) != CURLE_OK ||
+        curl_easy_setopt(handle, CURLOPT_NOPROXY, "*") != CURLE_OK ||
+        curl_easy_setopt(handle, CURLOPT_TIMEOUT, 5L) != CURLE_OK ||
+        curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, discard) != CURLE_OK) {
       return 1;
     }
     // NOLINTEND(cppcoreguidelines-pro-type-vararg)
     try {
       if (std::string{argv[2]} != "-") {
-        ibm::internal::configureCaBundle(handle.get(), argv[2]);
+        ibm::internal::configureCaBundle(session, argv[2]);
       }
-      result = static_cast<int>(curl_easy_perform(handle.get()));
+      result = static_cast<int>(curl_easy_perform(handle));
       if (result != 0) {
-        std::cout << error.data() << '\n';
+        std::cout << session.GetCurlHolder()->error.data() << '\n';
       }
     } catch (const ibm::Failure&) {
       return 1;

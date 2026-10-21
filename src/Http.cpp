@@ -102,7 +102,9 @@ std::string internal::resolveCaBundle() {
 #endif
 }
 
-void internal::configureCaBundle(CURL* handle, const std::string& bundle) {
+void internal::configureCaBundle(cpr::Session& session,
+                                 const std::string& bundle) {
+  auto* handle = session.GetCurlHolder()->handle;
   // A selected bundle is authoritative; CPR's SSL options enable native roots.
   // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
   const auto capath = curl_easy_setopt(handle, CURLOPT_CAPATH,
@@ -204,7 +206,7 @@ Response send(const Request& request) {
   client.SetRedirect(cpr::Redirect{false});
   client.SetVerifySsl(cpr::VerifySsl{true});
   if (const auto bundle = internal::resolveCaBundle(); !bundle.empty()) {
-    internal::configureCaBundle(client.GetCurlHolder()->handle, bundle);
+    internal::configureCaBundle(client, bundle);
   }
   cpr::Header headers;
   headers.insert(request.headers.begin(), request.headers.end());

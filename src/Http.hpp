@@ -21,13 +21,16 @@
 
 #include <chrono>
 #include <cstdint>
-#include <curl/curl.h>
 #include <functional>
 #include <ibm-qdmi-device/diagnostics.h>
 #include <map>
 #include <optional>
 #include <span>
 #include <string>
+
+namespace cpr {
+class Session;
+}
 
 namespace ibm {
 struct Request {
@@ -57,7 +60,7 @@ std::string findCaBundle(std::span<const char* const> candidates);
 /// Preserve invalid explicit paths so TLS fails; empty keeps platform defaults.
 std::string resolveCaBundle();
 /// Use a selected PEM bundle without alternate CA directories or native roots.
-void configureCaBundle(CURL* handle, const std::string& bundle);
+void configureCaBundle(cpr::Session& session, const std::string& bundle);
 std::optional<std::chrono::milliseconds>
 parseRetryAfter(const std::string& value);
 /// Internal dependencies shared by the device and hermetic native tests.
