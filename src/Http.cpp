@@ -109,9 +109,9 @@ void internal::configureCaBundle(cpr::Session& session,
   // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
   const auto capath = curl_easy_setopt(handle, CURLOPT_CAPATH,
                                        static_cast<const char*>(nullptr));
-  if ((capath != CURLE_OK && capath != CURLE_NOT_BUILT_IN) ||
-      curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, 0L) != CURLE_OK ||
-      curl_easy_setopt(handle, CURLOPT_CAINFO, bundle.c_str()) != CURLE_OK) {
+  if (curl_easy_setopt(handle, CURLOPT_CAINFO, bundle.c_str()) != CURLE_OK ||
+      (capath != CURLE_OK && capath != CURLE_NOT_BUILT_IN) ||
+      curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, 0L) != CURLE_OK) {
     throw Failure{QDMI_ERROR_FATAL};
   }
   // NOLINTEND(cppcoreguidelines-pro-type-vararg)
