@@ -163,6 +163,7 @@ std::string decodeQpy(const std::string& encoded) {
   require(!encoded.empty() && encoded.size() % 4 == 0 &&
           encoded.size() <= 2 * MAX_QPY_SIZE);
   std::vector<unsigned char> compressed;
+  compressed.reserve(encoded.size() / 4 * 3);
   for (std::size_t index = 0; index < encoded.size(); index += 4) {
     std::uint32_t word = 0;
     std::size_t padding = 0;

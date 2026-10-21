@@ -99,6 +99,33 @@ def test_qpy_uses_core_serializer(runtime: RuntimeProxy, monkeypatch: pytest.Mon
     assert decoded.num_qubits == 5
 
 
+def test_qpy_takes_precedence_over_custom_serializers(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A serializer for another device cannot redirect Sampler jobs to Executor."""
+    from mqt.core.plugins.qiskit import backend as core_backend  # ruff: ignore[import-outside-top-level]
+
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(2, 1)
+    circuit.measure(1, 0)
+    original = core_backend.program_serializer
+
+    def custom_serializer(_circuit: QuantumCircuit, _backend: object) -> str:
+        return "custom device program"
+
+    monkeypatch.setattr(
+        core_backend,
+        "program_serializer",
+        lambda fmt: custom_serializer if fmt == ProgramFormat.CUSTOM1 else original(fmt),
+    )
+    encoded, program_format = backend._serialize_circuit(  # ruff: ignore[private-member-access]
+        circuit, [ProgramFormat.QASM3, ProgramFormat.QPY, ProgramFormat.CUSTOM1]
+    )
+    assert program_format == ProgramFormat.QPY
+    assert isinstance(encoded, bytes)
+    (decoded,) = qpy.load(io.BytesIO(encoded))
+    assert decoded.num_qubits == 5
+    assert decoded.num_clbits == 1
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
 def test_nonfinite_angles_submit_nothing(runtime: RuntimeProxy, value: float) -> None:
     """Native gate parameters must be finite before QPY serialization."""
