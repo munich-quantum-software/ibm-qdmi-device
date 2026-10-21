@@ -197,7 +197,7 @@ class IBMBackend(QDMIBackend):
         if ProgramFormat.QPY in formats:
             translated = circuit.copy()
             translated.add_bits([Qubit() for _ in range(self.num_qubits - circuit.num_qubits)])
-            return super()._serialize_circuit(translated, formats)
+            return super()._serialize_circuit(translated, (ProgramFormat.QPY,))
         assert ProgramFormat.QASM3 in formats
         return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
 

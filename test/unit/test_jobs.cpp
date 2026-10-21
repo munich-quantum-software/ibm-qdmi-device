@@ -166,6 +166,21 @@ TEST(Job, QpySubmissionAndRetrievalPreserveBinaryBatch) {
   ibm::Job mixed(auth, "ibm_test", 2);
   fails([&] { mixed.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
 }
+TEST(Job, RejectsExcessiveRetrievedExecutionsBeforeDecodingQpy) {
+  Service service;
+  ibm::Auth auth(configuration(),
+                 [&](const auto& request) { return service(request); });
+  const nlohmann::json circuit = {{"__type__", "QuantumCircuit"},
+                                  {"__value__", "invalid!"}};
+  const auto pub = nlohmann::json::array({circuit, nullptr, 6'000'000});
+  service.submitted = {
+      {"params",
+       {{"version", 2}, {"support_qiskit", false}, {"pubs", {pub, pub}}}}};
+  ibm::Job job(auth, "ibm_test", 2);
+  fails([&] { job.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_TRUE(job.programs.empty());
+  EXPECT_TRUE(job.id.empty());
+}
 TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   for (const auto* sample : {"0x4", "0xg", "0x", "10", "-1"}) {
     auto data = results();

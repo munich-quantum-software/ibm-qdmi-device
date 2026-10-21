@@ -346,6 +346,7 @@ void Job::retrieve(const std::string& remoteId) {
             QDMI_ERROR_NOTSUPPORTED);
     const auto pubShots = positiveInteger(pub.at(2));
     if (sources.empty()) {
+      checkSamplerExecutions(pubs.size(), pubShots);
       commonShots = pubShots;
     }
     require(pubShots == commonShots, QDMI_ERROR_NOTSUPPORTED);
