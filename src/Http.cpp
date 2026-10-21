@@ -102,6 +102,19 @@ std::string internal::resolveCaBundle() {
 #endif
 }
 
+void internal::configureCaBundle(CURL* handle, const std::string& bundle) {
+  // A selected bundle is authoritative; CPR's SSL options enable native roots.
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
+  const auto capath = curl_easy_setopt(handle, CURLOPT_CAPATH,
+                                       static_cast<const char*>(nullptr));
+  if ((capath != CURLE_OK && capath != CURLE_NOT_BUILT_IN) ||
+      curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, 0L) != CURLE_OK ||
+      curl_easy_setopt(handle, CURLOPT_CAINFO, bundle.c_str()) != CURLE_OK) {
+    throw Failure{QDMI_ERROR_FATAL};
+  }
+  // NOLINTEND(cppcoreguidelines-pro-type-vararg)
+}
+
 std::optional<std::chrono::milliseconds>
 internal::parseRetryAfter(const std::string& value) {
   using Milliseconds = std::chrono::milliseconds;
@@ -191,12 +204,7 @@ Response send(const Request& request) {
   client.SetRedirect(cpr::Redirect{false});
   client.SetVerifySsl(cpr::VerifySsl{true});
   if (const auto bundle = internal::resolveCaBundle(); !bundle.empty()) {
-    // Set only CAINFO: CPR's SSL options also enable native-root fallback.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_CAINFO,
-                         bundle.c_str()) != CURLE_OK) {
-      throw Failure{QDMI_ERROR_FATAL};
-    }
+    internal::configureCaBundle(client.GetCurlHolder()->handle, bundle);
   }
   cpr::Header headers;
   headers.insert(request.headers.begin(), request.headers.end());

@@ -17,6 +17,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Use selected CA bundles without alternate trust sources. ([#82])
+  ([**@marcelwa**])
+
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
 

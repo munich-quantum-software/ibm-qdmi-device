@@ -18,6 +18,7 @@
     ".proto": "SLASH_STYLE"
   },
   "exclude": [
+    "^test/fixtures/tls/.*\\.(pem|key)$",
     "^docs/_static/logo-mqsc-(light|dark)\\.svg$",
     "^\\.[^/]+",
     "/\\.[^/]+",

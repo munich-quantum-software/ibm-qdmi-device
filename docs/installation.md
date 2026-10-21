@@ -89,7 +89,9 @@ Other platforms retain libcurl's default trust configuration.
 For a private CA or nonstandard location, set `CURL_CA_BUNDLE` to a PEM bundle.
 `SSL_CERT_FILE` is used when `CURL_CA_BUNDLE` is unset or empty. Invalid
 explicit paths fail requests; certificate and hostname verification remain
-enabled. These settings apply to both native and Python clients.
+enabled. A selected bundle replaces native CA stores and compiled certificate
+directories for server verification. These settings apply to both native and
+Python clients.
 
 ### eMudhra compromise (October 2026)
 
@@ -101,9 +103,7 @@ not determine exposure.
 
 On Linux, install your distribution's patched `ca-certificates` package and
 regenerate its trust stores through the distribution's update procedure. Update
-both the CA bundle and hashed certificate directories. A custom PEM bundle does
-not override libcurl's compiled-in CA directory; stale roots there can still
-authorize a forged certificate.
+both the CA bundle and hashed certificate directories.
 
 Replace custom bundles selected through `CURL_CA_BUNDLE` or `SSL_CERT_FILE` too.
 Patched sources include the
