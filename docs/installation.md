@@ -91,45 +91,28 @@ For a private CA or nonstandard location, set `CURL_CA_BUNDLE` to a PEM bundle.
 explicit paths fail requests; certificate and hostname verification remain
 enabled. A selected bundle replaces native CA stores and compiled certificate
 directories for server verification. These settings apply to both native and
-Python clients.
+Python clients. HTTPS proxy trust is configured separately.
 
-### eMudhra compromise (October 2026)
+### Trust-store updates
 
-Update the trust stores used by every host and container running this device.
-The [eMudhra incident advisory](https://emudhra.we-have-a-problem.com/) lists
-compromised intermediate certificates that can impersonate any HTTPS service.
-This includes IBM authentication and API requests; the server's usual CA does
-not determine exposure.
-
-On Linux, install your distribution's patched `ca-certificates` package and
-regenerate its trust stores through the distribution's update procedure. Update
-both the CA bundle and hashed certificate directories.
-
-Replace custom bundles selected through `CURL_CA_BUNDLE` or `SSL_CERT_FILE` too.
-Patched sources include the
+Keep the trust stores used by execution hosts and containers current. For the
+[October 2026 eMudhra incident](https://emudhra.we-have-a-problem.com/), follow
+the advisory for the deployed TLS backend. Standard Windows and macOS builds use
+Schannel and Secure Transport; custom builds may use different backends. Update
+system CA packages and hashed CA directories, and replace custom bundles
+selected through `CURL_CA_BUNDLE` or `SSL_CERT_FILE`, preserving required
+private CAs. Patched bundle sources include the
 [curl CA bundle](https://curl.se/docs/caextract.html) dated 2026-10-20 or newer
 and
 [Python CA bundle release 2026.10.19](https://github.com/certifi/python-certifi/releases/tag/2026.10.19)
 or newer. Installing this Python package alone does not select its bundle for
-this device. Preserve any required private CAs when replacing a custom bundle.
+this device.
 
-On Windows and macOS, install the operating system's trust updates. Standard
-builds use Schannel and Secure Transport, respectively. Custom builds can use
-different TLS backends; update every configured bundle and CA directory too.
-Browser updates and reinstalling the device wheel alone do not update these
-runtime trust stores.
-
-Restart client processes after updating trust stores to discard cached trust and
-existing TLS connections. Keep certificate and hostname verification enabled. If
-no patched trust store is available, follow the advisory's platform-specific
-workaround before sending credentials or jobs.
-
-Check every active store with the advisory's offline certificate chains and
-OpenSSL instructions. A successful verification means that store still trusts a
-compromised chain. Certificate rejection must result from untrusted issuers, not
-a missing file or an unrelated setup error. Test all supplied chains; rejecting
-one does not prove protection against the others. Bundle-only checks do not
-establish that libcurl's other trust sources are safe.
+Rebuild affected container images and restart clients after updating their
+stores. Verify that every active trust source rejects all advisory test chains
+because their issuers are untrusted, rather than because a file is missing.
+Browser updates and reinstalling the device wheel do not establish this. Keep
+certificate and hostname verification enabled.
 
 ## Device discovery
 

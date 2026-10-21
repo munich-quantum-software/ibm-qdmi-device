@@ -10,11 +10,6 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
-### Added
-
-- 📝 Document runtime trust-store updates for the eMudhra CA compromise. ([#82])
-  ([**@marcelwa**])
-
 ### Fixed
 
 - 🐛 Use selected CA bundles without alternate trust sources. ([#82])
