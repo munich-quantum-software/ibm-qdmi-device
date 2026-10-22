@@ -44,6 +44,10 @@ nox.options.default_venv_backend = "uv"
 
 PYTHON_ALL_VERSIONS = ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
+if sys.platform == "linux":
+    # Reserve static TLS for late-loaded Aer and PySCF OpenMP runtimes.
+    os.environ["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=16384"
+
 if os.environ.get("CI", None):
     nox.options.error_on_missing_interpreters = True
 
@@ -139,8 +143,6 @@ def chemistry(session: nox.Session) -> None:
     """Exercise the complete H2 chemistry workflow on the local simulator."""
     if sys.platform == "win32":
         session.skip("PySCF requires Linux or macOS.")
-    # PySCF's OpenMP library needs static TLS space after the other native imports.
-    session.env["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=16384"
     _run_tests(
         session,
         dependency_groups=["chemistry"],

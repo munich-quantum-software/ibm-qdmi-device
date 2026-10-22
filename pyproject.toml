@@ -24,7 +24,7 @@ requires = [ "scikit-build-core>=1.1" ]
 name = "ibm-qdmi"
 description = "IBM quantum execution through QDMI, Qiskit, and PennyLane"
 readme = "README.md"
-license = "Apache-2.0 WITH LLVM-exception AND MIT AND curl AND OpenSSL"
+license = "Apache-2.0 WITH LLVM-exception AND MIT AND curl AND OpenSSL AND Zlib"
 license-files = [ "LICENSE", "licenses/LICENSE-*" ]
 requires-python = ">=3.11"
 classifiers = [
@@ -58,9 +58,20 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
-executor = [ "mqt-core[qiskit]~=4.1.1", "qiskit-ibm-runtime~=0.50.0" ]
-pennylane = [ "mqt-core[pennylane,qiskit]~=4.1.1" ]
-qiskit = [ "mqt-core[qiskit]~=4.1.1", "qiskit-algorithms>=0.4" ]
+executor = [
+  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394",
+  "qiskit-ibm-runtime~=0.50.0",
+]
+pennylane = [
+  """\
+  mqt-core[pennylane,qiskit] @ \
+  git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\
+  """,
+]
+qiskit = [
+  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394",
+  "qiskit-algorithms>=0.4",
+]
 
 [project.urls]
 Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
@@ -91,12 +102,17 @@ dev = [
 ]
 test = [
   "cryptography>=42",
-  "mqt-core[pennylane,qiskit]~=4.1.1",
+  """\
+  mqt-core[pennylane,qiskit] @ \
+  git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\
+  """,
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8",
   "pyyaml>=6.0.2",
+  "qiskit-aer>=0.17.2; python_version<'3.14' and platform_machine!='ARM64'",
+  "qiskit-aer>=0.17.2; python_version=='3.14' and platform_machine!='ARM64' and platform_machine!='aarch64'",
   "qiskit-algorithms>=0.4",
   "qiskit-ibm-runtime~=0.50.0",
   "trustme>=1.2.1",
@@ -122,7 +138,10 @@ examples = [
   { include-group = "test" },
   "cmake>=3.24",
   "mqt-bench>=2.2.2",
-  "mqt-core[pennylane,qiskit]~=4.1.1",
+  """\
+  mqt-core[pennylane,qiskit] @ \
+  git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\
+  """,
   "ninja>=1.5",
   "qiskit-algorithms>=0.4",
 ]
@@ -196,7 +215,8 @@ test-groups = [ "test" ]
 test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y openssl-devel"
+before-all = "yum install -y --disablerepo=epel openssl-devel"
+test-environment = { GLIBC_TUNABLES = "glibc.rtld.optional_static_tls=16384" }
 
 [tool.cibuildwheel.macos]
 environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
@@ -281,6 +301,8 @@ extend-ignore-re = [
 
 [tool.typos.default.extend-words]
 optin = "optin"
+Aer = "Aer"
+aer = "aer"
 
 
 [tool.ty.src]
