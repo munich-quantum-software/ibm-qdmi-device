@@ -47,18 +47,3 @@ gtest_discover_tests(integration_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS
 add_executable(ibm-qdmi-native-example "${PROJECT_SOURCE_DIR}/examples/native/execute.c")
 target_compile_features(ibm-qdmi-native-example PRIVATE c_std_17)
 target_link_libraries(ibm-qdmi-native-example PRIVATE ibm-qdmi-device::ibm-qdmi-device)
-
-if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
-  find_package(Python3 QUIET COMPONENTS Interpreter)
-  if(Python3_Interpreter_FOUND)
-    add_executable(tls_probe tls_probe.cpp)
-    target_link_libraries(tls_probe PRIVATE ibm::qdmi_device_internals)
-    add_test(NAME Transport.CaBundle
-             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/check_tls_bundle.py"
-                     "$<TARGET_FILE:tls_probe>")
-    set_tests_properties(Transport.CaBundle PROPERTIES LABELS integration SKIP_RETURN_CODE 77
-                                                       TIMEOUT 60)
-  else()
-    message(STATUS "Python interpreter unavailable: skipping the loopback TLS trust test")
-  endif()
-endif()

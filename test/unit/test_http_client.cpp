@@ -21,7 +21,6 @@
 
 #include <array>
 #include <chrono>
-#include <cpr/session.h>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -161,17 +160,6 @@ TEST(Http, ResolvesExplicitCaBundleBeforePlatformDefaults) {
   EXPECT_EQ(ibm::internal::resolveCaBundle(), "missing-curl.pem");
 }
 
-TEST(Http, RejectsCaBundleWhenCurlCannotConfigureIt) {
-  expectFailure(
-      [] {
-        cpr::Session session;
-        // libcurl rejects option strings above 8,000,000 bytes before file I/O.
-        // NOLINTNEXTLINE(bugprone-string-constructor)
-        ibm::internal::configureCaBundle(session, std::string(16'777'216, 'x'));
-      },
-      QDMI_ERROR_FATAL);
-}
-
 TEST(Http, EmptyCaBundleUsesFallback) {
   const ScopedEnvVar ssl{"SSL_CERT_FILE", "missing-ssl.pem"};
   for (const auto* value : {static_cast<const char*>(nullptr), ""}) {
@@ -202,9 +190,9 @@ TEST(Http, ParsesRetryAfterWithoutOverflow) {
   EXPECT_EQ(parseRetryAfter("0"), std::chrono::milliseconds{0});
   EXPECT_EQ(parseRetryAfter("2"), std::chrono::milliseconds{2000});
   EXPECT_EQ(parseRetryAfter("999999999999999999999999999999"),
-            (std::chrono::milliseconds::max)());
+            std::chrono::milliseconds::max());
   EXPECT_EQ(parseRetryAfter("18446744073709551615"),
-            (std::chrono::milliseconds::max)());
+            std::chrono::milliseconds::max());
   EXPECT_EQ(parseRetryAfter("Wed, 01 Jan 2020 00:00:00 GMT"),
             std::chrono::milliseconds{0});
   EXPECT_GT(parseRetryAfter("Fri, 31 Dec 9999 23:59:59 GMT"),

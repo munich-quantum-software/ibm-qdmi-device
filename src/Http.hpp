@@ -28,10 +28,6 @@
 #include <span>
 #include <string>
 
-namespace cpr {
-class Session;
-}
-
 namespace ibm {
 struct Request {
   std::string url;
@@ -59,8 +55,6 @@ std::string findCaBundle(std::span<const char* const> candidates);
 /// Prefer CURL_CA_BUNDLE, then SSL_CERT_FILE, then a readable Linux CA bundle.
 /// Preserve invalid explicit paths so TLS fails; empty keeps platform defaults.
 std::string resolveCaBundle();
-/// Use a selected PEM bundle without alternate CA directories or native roots.
-void configureCaBundle(cpr::Session& session, const std::string& bundle);
 std::optional<std::chrono::milliseconds>
 parseRetryAfter(const std::string& value);
 /// Internal dependencies shared by the device and hermetic native tests.

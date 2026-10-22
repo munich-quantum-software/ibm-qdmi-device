@@ -89,30 +89,7 @@ Other platforms retain libcurl's default trust configuration.
 For a private CA or nonstandard location, set `CURL_CA_BUNDLE` to a PEM bundle.
 `SSL_CERT_FILE` is used when `CURL_CA_BUNDLE` is unset or empty. Invalid
 explicit paths fail requests; certificate and hostname verification remain
-enabled. A selected bundle replaces native CA stores and compiled certificate
-directories for server verification. These settings apply to both native and
-Python clients. HTTPS proxy trust is configured separately.
-
-### Trust-store updates
-
-Keep the trust stores used by execution hosts and containers current. For the
-[October 2026 eMudhra incident](https://emudhra.we-have-a-problem.com/), follow
-the advisory for the deployed TLS backend. Standard Windows and macOS builds use
-Schannel and Secure Transport; custom builds may use different backends. Update
-system CA packages and hashed CA directories, and replace custom bundles
-selected through `CURL_CA_BUNDLE` or `SSL_CERT_FILE`, preserving required
-private CAs. Patched bundle sources include the
-[curl CA bundle](https://curl.se/docs/caextract.html) dated 2026-10-20 or newer
-and
-[Python CA bundle release 2026.10.19](https://github.com/certifi/python-certifi/releases/tag/2026.10.19)
-or newer. Installing this Python package alone does not select its bundle for
-this device.
-
-Rebuild affected container images and restart clients after updating their
-stores. Verify that every active trust source rejects all advisory test chains
-because their issuers are untrusted, rather than because a file is missing.
-Browser updates and reinstalling the device wheel do not establish this. Keep
-certificate and hostname verification enabled.
+enabled. These settings apply to both native and Python clients.
 
 ## Device discovery
 

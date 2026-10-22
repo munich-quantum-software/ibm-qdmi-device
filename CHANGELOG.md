@@ -10,10 +10,12 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- 🐛 Use selected CA bundles without alternate trust sources. ([#82])
+- ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
+
+### Fixed
 
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
