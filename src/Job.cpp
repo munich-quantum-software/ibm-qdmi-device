@@ -326,7 +326,8 @@ void Job::retrieve(const std::string& remoteId) {
           QDMI_ERROR_INVALIDARGUMENT);
   const auto programId = auth->quantumSystem() ? data.at("program_id")
                                                : data.at("program").at("id");
-  require((programId == "sampler" || programId == "executor") &&
+  require((programId == "sampler" ||
+           (programId == "executor" && !auth->quantumSystem())) &&
               !data.value("private", false),
           QDMI_ERROR_NOTSUPPORTED);
   auto parameters = auth->quantumSystem()

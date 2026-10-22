@@ -246,6 +246,25 @@ TEST(QuantumSystem, StorageFailurePreventsSubmission) {
   EXPECT_EQ(requests, 1);
 }
 
+TEST(QuantumSystem, RejectsExecutorRetrievalBeforeStorageAccess) {
+  auto config = configuration();
+  config.accessMode = "quantum-system";
+  ibm::Auth auth(config, [](const ibm::Request& request) {
+    EXPECT_FALSE(request.presigned);
+    if (!request.form.empty()) {
+      return ibm::Response{
+          .status = 200,
+          .body = R"({"access_token":"synthetic","expires_in":3600})"};
+    }
+    return ibm::Response{
+        .status = 200,
+        .body =
+            R"({"id":"synthetic-job","backend":"ibm_test","program_id":"executor"})"};
+  });
+  ibm::Job job(auth, "ibm_test", 2);
+  fails([&] { job.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
+}
+
 TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
   for (const bool completed : {false, true}) {
     auto config = configuration();

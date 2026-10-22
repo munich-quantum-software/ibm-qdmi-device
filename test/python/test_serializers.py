@@ -164,3 +164,19 @@ def test_rzz_corrections_validate_placement(runtime: RuntimeProxy) -> None:
     with pytest.raises(UnsupportedOperationError):
         backend.run(circuits, shots=1)
     assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("angle", [None, 0, math.pi / 4, math.pi / 2])
+def test_calibrated_circuits_need_no_copy(runtime: RuntimeProxy, angle: float | None) -> None:
+    """Preprocessing allocates a new circuit only when an angle needs correction."""
+    config = runtime.snapshot()["configuration"]
+    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
+    runtime.set_configuration("gates", config["gates"])
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 2)
+    if angle is not None:
+        circuit.rzz(angle, 3, 4)
+    circuit.measure([3, 4], [0, 1])
+    # The Core hook's allocation behavior is not exposed by run().
+    assert backend._preprocess_circuit(circuit) is circuit  # ruff: ignore[private-member-access]

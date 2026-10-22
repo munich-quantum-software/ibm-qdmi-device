@@ -15,13 +15,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Check simulator opt-in and loopback restrictions in separate pytest runs."""
+"""Check loopback parsing and simulator opt-in through pytest."""
 
 from __future__ import annotations
 
+import runpy
 import socket
 import subprocess
 import sys
+from argparse import ArgumentTypeError
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,6 +31,8 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+simulator_url = runpy.run_path(str(Path(__file__).parents[1] / "conftest.py"))["simulator_url"]
 
 
 def run_simulator_tests(arguments: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -81,22 +85,22 @@ def test_simulator_requires_explicit_endpoint() -> None:
 )
 def test_simulator_rejects_non_loopback_origin(url: str) -> None:
     """Reject unsupported endpoints before collection and native access."""
-    result = run_simulator_tests(["--simulator-url", url, "--collect-only"])
-    assert result.returncode == 4, result.stdout + result.stderr
-    assert "simulator URL must be a loopback HTTP origin" in result.stderr
+    with pytest.raises(ArgumentTypeError, match="simulator URL must be a loopback HTTP origin"):
+        simulator_url(url)
 
 
 @pytest.mark.parametrize("url", ["http://127.0.0.1:8290", "http://localhost:8290/", "http://[::1]:8290"])
 def test_simulator_accepts_loopback_origin(url: str) -> None:
-    """Collect against loopback origins without connecting to a service."""
-    result = run_simulator_tests(["--simulator-url", url, "--collect-only"])
-    assert result.returncode == 0, result.stdout + result.stderr
-    for name in (
-        "test_simulator_metadata",
-        "test_simulator_rejects_invalid_api_key",
-        "test_simulator_sampling_and_retrieval",
-    ):
-        assert name in result.stdout
+    """Normalize loopback origins without connecting to a service."""
+    assert simulator_url(url) == url.rstrip("/")
+
+
+@pytest.mark.parametrize("option", ["--simulator-url", "--simulator-s3-url"])
+def test_simulator_options_validate_before_collection(option: str) -> None:
+    """Both command-line options reject remote endpoints before native access."""
+    result = run_simulator_tests([option, "http://quantum.cloud.ibm.com", "--collect-only"])
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "simulator URL must be a loopback HTTP origin" in result.stderr
 
 
 def test_unavailable_simulator_fails() -> None:

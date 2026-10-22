@@ -138,6 +138,10 @@ class IBMBackend(QDMIBackend):
             An equivalent circuit up to global phase, preserving bit indices.
         """
         self._validate_ibm_circuit(circuit)
+        if all(
+            item.operation.name != "rzz" or 0 <= float(item.operation.params[0]) <= math.pi / 2 for item in circuit.data
+        ):
+            return circuit
         folded = circuit.copy_empty_like()
         for instruction in circuit.data:
             if instruction.operation.name != "rzz":
