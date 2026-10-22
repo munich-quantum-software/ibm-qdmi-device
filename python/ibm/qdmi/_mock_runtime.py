@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+from importlib.util import find_spec
 from queue import Empty, Queue
 from threading import Lock, Thread
 from typing import TYPE_CHECKING
@@ -69,13 +70,9 @@ def connection(name: str) -> QDMISessionParameters:
         ValueError: The requested fake backend does not exist.
         RuntimeError: The service cannot start.
     """
-    try:
-        import qiskit_aer  # ruff: ignore[import-outside-top-level, unused-import]
-        from qiskit.providers.exceptions import QiskitBackendNotFoundError  # ruff: ignore[import-outside-top-level]
-        from qiskit_ibm_runtime.fake_provider import FakeProviderForBackendV2  # ruff: ignore[import-outside-top-level]
-    except ImportError as error:
+    if find_spec("qiskit_aer") is None or find_spec("qiskit_ibm_runtime") is None:
         msg = "Install 'ibm-qdmi[mock]' on a platform supported by Qiskit Aer to use fake backends."
-        raise ImportError(msg) from error
+        raise ImportError(msg)
     with _LOCK:
         if name in _SERVICES:
             process, parameters = _SERVICES[name]
@@ -83,11 +80,6 @@ def connection(name: str) -> QDMISessionParameters:
                 msg = "The local mock service stopped; existing jobs are no longer available."
                 raise RuntimeError(msg)
             return parameters.copy()
-        try:
-            FakeProviderForBackendV2().backend(name)
-        except QiskitBackendNotFoundError as error:
-            msg = f"Unknown fake backend: {name}."
-            raise ValueError(msg) from error
         process = subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true]
             [sys.executable, "-m", "ibm.qdmi.mock", "--backend-name", name, "--parent-pipe"],
             stdin=subprocess.PIPE,
@@ -105,6 +97,9 @@ def connection(name: str) -> QDMISessionParameters:
             parameters: QDMISessionParameters = json.loads(ready.get(timeout=60))
         except (Empty, ValueError) as error:
             _stop(process)
+            if process.returncode == 2:
+                msg = f"Unknown fake backend: {name}."
+                raise ValueError(msg) from error
             msg = "The local mock service failed to start. Run 'python -m ibm.qdmi.mock' for diagnostics."
             raise RuntimeError(msg) from error
         _SERVICES[name] = (process, parameters)

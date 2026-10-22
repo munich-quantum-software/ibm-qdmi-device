@@ -26,6 +26,7 @@ import sys
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import numpy as np
@@ -35,11 +36,12 @@ from mqt.core.qdmi import Job
 from mqt.core.qdmi.builtin_driver import open_device
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
-from qiskit.primitives import BitArray, PrimitiveResult
+from qiskit.primitives import BitArray, DataBin, PrimitiveResult, PubResult
+from qiskit.providers import JobStatus
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram, RuntimeDecoder, RuntimeEncoder
 from qiskit_ibm_runtime.executor_sampler.prepare import prepare
-from qiskit_ibm_runtime.fake_provider import FakeManilaV2
+from qiskit_ibm_runtime.fake_provider import FakeManilaV2, FakeNighthawk
 from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
 from qiskit_ibm_runtime.results import QuantumProgramResult
 from samplomatic import build
@@ -48,7 +50,7 @@ from samplomatic.transpiler import generate_boxing_pass_manager
 from ibm.qdmi import _mock_runtime  # ruff: ignore[import-private-name]
 from ibm.qdmi._backends import build_sampler  # ruff: ignore[import-private-name]
 from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name]
-from ibm.qdmi.mock import _Runtime  # ruff: ignore[import-private-name]
+from ibm.qdmi.mock import _Job, _Runtime  # ruff: ignore[import-private-name]
 from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
 
@@ -83,6 +85,72 @@ def test_unknown_fake_fails_locally() -> None:
     """A misspelled fake cannot fall through to hardware."""
     with pytest.raises(ValueError, match="Unknown fake backend"):
         IBMBackend(backend_name="fake_does_not_exist")
+
+
+def test_mock_loads_only_the_selected_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Selecting a small fake must not construct unrelated device snapshots."""
+
+    def unexpected_backend(_backend: object) -> None:
+        pytest.fail("Constructed an unrelated fake backend")
+
+    monkeypatch.setattr(FakeNighthawk, "__init__", unexpected_backend)
+    assert _Runtime("fake_manila").backend.name == "fake_manila"
+
+
+def test_service_requires_aer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Standalone service construction cannot silently use noiseless simulation."""
+    monkeypatch.setitem(sys.modules, "qiskit_aer", None)
+    with pytest.raises(ImportError, match=r"ibm-qdmi\[mock\]"):
+        _Runtime("fake_manila")
+
+
+def test_parent_does_not_import_aer() -> None:
+    """Only the isolated service loads Aer's native runtime."""
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; from ibm.qdmi._mock_runtime import connection; "
+                "connection('fake_manila'); assert 'qiskit_aer' not in sys.modules"
+            ),
+        ],
+        check=True,
+        timeout=90,
+    )
+
+
+@pytest.mark.parametrize("width", [1, 5, 8, 27, 65, 127])
+def test_sampler_encoding_preserves_packed_bits(width: int) -> None:
+    """Wire samples preserve padding, byte order and registers wider than 64 bits."""
+    raw = np.random.default_rng(7).integers(0, 256, (64, (width + 7) // 8), dtype=np.uint8)
+    raw[0] = 0
+    bits = BitArray(raw, width)
+    job = _Job(
+        {"program_id": "sampler"},
+        SimpleNamespace(result=lambda: [PubResult(DataBin(c=bits))]),
+    )
+    encoded = _Runtime.result(job)["results"][0]["data"]["c"]
+    assert encoded == {"num_bits": width, "samples": [hex(int(value, 2)) for value in bits.get_bitstrings()]}
+
+
+def test_failed_encoding_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Repeated native polls do not rematerialize a permanently failed result."""
+    runtime = _Runtime("fake_manila")
+    runtime.jobs["broken"] = _Job(
+        {"program_id": "sampler", "params": {}}, SimpleNamespace(status=lambda: JobStatus.DONE)
+    )
+    attempts = []
+
+    def failed_result(_job: object) -> None:
+        attempts.append(1)
+        msg = "Invalid simulator output"
+        raise ValueError(msg)
+
+    monkeypatch.setattr(runtime, "result", failed_result)
+    for _ in range(2):
+        assert runtime.respond("GET", "/v1/jobs/broken", b"")[1]["state"]["status"] == "Failed"
+    assert len(attempts) == 1
 
 
 @pytest.mark.filterwarnings("ignore:The SamplerV2 class is deprecated:DeprecationWarning")
@@ -234,6 +302,7 @@ def test_standalone_service_and_parent_cleanup() -> None:
         assert process.stdout is not None
         parameters = json.loads(process.stdout.readline())
         assert parameters["base_url"].startswith("http://127.0.0.1:")
+        assert len(parameters["token"]) >= 32
         backend = IBMBackend(device=open_device("ibm.default", **parameters))
         circuit = QuantumCircuit(1, 1)
         circuit.measure(0, 0)
@@ -373,6 +442,7 @@ def test_local_http_validation() -> None:
     job = backend.run(circuit, shots=4)
     job.result()
     cases = [
+        ("POST", "/auth", {}, {}, 401),
         ("POST", "/v1/jobs", {**request, "backend": "wrong"}, {}, 400),
         ("POST", "/v1/jobs", {**request, "program_id": "unknown"}, {}, 400),
         ("POST", "/v1/jobs", {**request, "params": {**params, "version": 1}}, {}, 400),
