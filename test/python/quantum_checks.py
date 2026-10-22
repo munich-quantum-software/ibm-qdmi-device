@@ -82,7 +82,13 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
             circuits.append(circuit)
         # Level 2 searches calibrated layouts even when the trivial layout fits.
         compiled = transpile(circuits, backend, optimization_level=2, seed_transpiler=7, num_processes=1)
-        programs = [qiskit_to_qasm3(circuit, backend.num_qubits) for circuit in compiled]
+        programs = [
+            qiskit_to_qasm3(
+                backend._preprocess_circuit(circuit),  # ruff: ignore[private-member-access] -- preserve one native job
+                backend.num_qubits,
+            )
+            for circuit in compiled
+        ]
         category = "submission"
         # One explicit QDMI job prevents adapter fallback into separate paid jobs.
         job = backend.device.submit_job(programs, ProgramFormat.QASM3, 64)

@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 
 import pytest
@@ -160,3 +161,23 @@ def test_program_order() -> None:
     counts = dict(Counter(memory))
     assert valid_results(memory, counts, 1)
     assert not valid_results(memory, counts, 0)
+
+
+def test_fractional_hardware_contract() -> None:
+    """The direct native hardware path folds transpiled RZZ angles before submission."""
+    with remote_runtime() as runtime:
+        config = runtime.snapshot()["configuration"]
+        gates = [gate for gate in config["gates"] if gate["name"] != "cx"]
+        gates.append({"name": "rzz", "parameters": ["theta"], "coupling_map": config["coupling_map"]})
+        runtime.set_configuration("gates", gates)
+        runtime.set_configuration("basis_gates", ["x", "sx", "rz", "rzz"])
+        assert validate_execution(lambda: open_backend(runtime), timeout=2) is None
+        submissions = runtime.snapshot()["submissions"]
+        assert len(submissions) == 1
+        for source, _, shots in submissions[0]["params"]["pubs"]:
+            assert shots == 64
+            angles = [
+                float(item.operation.params[0]) for item in qasm3.loads(source).data if item.operation.name == "rzz"
+            ]
+            assert angles
+            assert all(0 <= angle <= math.pi / 2 for angle in angles)

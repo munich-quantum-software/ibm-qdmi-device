@@ -132,10 +132,35 @@ class IBMBackend(QDMIBackend):
         return target
 
     def _preprocess_circuit(self, circuit: QuantumCircuit) -> QuantumCircuit:
-        """Validate bound instructions before any circuit in a batch is submitted.
+        """Fold bound RZZ angles and validate all instructions before submission.
 
         Returns:
-            The unchanged circuit, preserving physical and classical indices.
+            An equivalent circuit up to global phase, preserving bit indices.
+        """
+        self._validate_ibm_circuit(circuit)
+        folded = circuit.copy_empty_like()
+        for instruction in circuit.data:
+            if instruction.operation.name != "rzz":
+                folded.append(instruction)
+                continue
+            angle = math.remainder(float(instruction.operation.params[0]), 2 * math.pi)
+            wires = instruction.qubits
+            if abs(angle) > math.pi / 2:
+                # A pi shift contributes Z on each wire, up to global phase.
+                angle -= math.copysign(math.pi, angle)
+                folded.rz(math.pi, wires[0])
+                folded.rz(math.pi, wires[1])
+            if angle < 0:
+                folded.x(wires[0])
+            if angle != 0:
+                folded.rzz(abs(angle), *wires)
+            if angle < 0:
+                folded.x(wires[0])
+        self._validate_ibm_circuit(folded)
+        return folded
+
+    def _validate_ibm_circuit(self, circuit: QuantumCircuit) -> None:
+        """Validate original instructions and any corrections against the target.
 
         Raises:
             mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
@@ -149,8 +174,13 @@ class IBMBackend(QDMIBackend):
         for instruction in circuit.data:
             operation = instruction.operation
             qargs = tuple(circuit.find_bit(bit).index for bit in instruction.qubits)
-            if isinstance(operation, ControlFlowOp) or not self.target.instruction_supported(
-                operation_name=operation.name, qargs=qargs, parameters=operation.params
+            # Qiskit 2.1 ignores placement when parameters are supplied.
+            if (
+                isinstance(operation, ControlFlowOp)
+                or not self.target.instruction_supported(operation_name=operation.name, qargs=qargs)
+                or not self.target.instruction_supported(
+                    operation_name=operation.name, qargs=qargs, parameters=operation.params
+                )
             ):
                 msg = "An instruction or physical site tuple is unsupported; transpile against this backend."
                 raise UnsupportedOperationError(msg)
@@ -161,7 +191,6 @@ class IBMBackend(QDMIBackend):
         if not measured:
             msg = "At least one measurement is required."
             raise CircuitValidationError(msg)
-        return circuit
 
     def _serialize_circuit(
         self, circuit: QuantumCircuit, supported_program_formats: Iterable[ProgramFormat]

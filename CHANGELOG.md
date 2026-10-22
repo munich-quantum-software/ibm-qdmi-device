@@ -18,6 +18,9 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Fold bound Qiskit RZZ angles into IBM's calibrated range before submission.
+  ([#81]) ([**@marcelwa**])
+
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
 

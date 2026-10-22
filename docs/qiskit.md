@@ -104,6 +104,11 @@ phase does not affect classified samples and is omitted. Native instructions
 outside `stdgates.inc` retain their gate declarations so that IBM can import the
 program without external definitions.
 
+After parameter binding, the adapter folds RZZ angles into IBM's calibrated
+range of zero to pi/2 using equivalent single-qubit corrections. It validates
+these corrections against the target before submitting any circuit in a batch.
+The caller's circuit stays unchanged.
+
 `shots` must be a positive integer and defaults to 1,024. `memory` defaults to
 false. Requested memory contains genuine ordered samples, including leading
 zeros, and agrees with counts. Circuit names, metadata, and experiment order are
