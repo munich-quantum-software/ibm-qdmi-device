@@ -17,8 +17,6 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include "Qpy.hpp"
-
 #include "Http.hpp"
 #include "Job.hpp"
 

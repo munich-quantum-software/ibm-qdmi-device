@@ -51,62 +51,27 @@ def test_reference_service_does_not_load_core() -> None:
     )
 
 
-def test_qpy_preserves_condition_and_physical_width(runtime: RuntimeProxy) -> None:
-    """The serializer retains condition bits while adding physical idle qubits."""
+def test_qpy_serialization(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pad a copy and use Core's QPY serializer, retaining conditions and Sampler routing."""
+    from mqt.core.plugins.qiskit import backend as core_backend  # ruff: ignore[import-outside-top-level]
+
     circuit = QuantumCircuit(2, 2)
     circuit.measure(0, 0)
     with circuit.if_test((circuit.clbits[0], True)):
         circuit.x(1)
     circuit.measure(1, 1)
     backend = open_backend(runtime)
-    encoded, program_format = backend._serialize_circuit(circuit, [ProgramFormat.QPY])  # ruff: ignore[private-member-access]
-    assert program_format == ProgramFormat.QPY
-    assert circuit.num_qubits == 2
-    assert isinstance(encoded, bytes)
-    (decoded,) = qpy.load(io.BytesIO(encoded))
-    assert decoded.num_qubits == 5
-    assert decoded.count_ops()["if_else"] == 1
-    assert decoded.data[1].operation.condition[0] == decoded.clbits[0]
-    assert decoded.data[1].qubits == (decoded.qubits[1],)
-
-
-def test_qpy_uses_core_serializer(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
-    """IBM pads a copy and delegates encoding to Core's serializer registry."""
-    from mqt.core.plugins.qiskit import backend as core_backend  # ruff: ignore[import-outside-top-level]
-
-    backend = open_backend(runtime)
-    circuit = QuantumCircuit(2, 1)
-    circuit.measure(1, 0)
+    original = core_backend.program_serializer
     observed: list[QuantumCircuit] = []
 
     def serialize(prepared: QuantumCircuit, target: object) -> bytes:
         assert target is backend
         observed.append(prepared)
-        stream = io.BytesIO()
-        qpy.dump(prepared, stream, version=17)
-        return stream.getvalue()
-
-    monkeypatch.setattr(core_backend, "program_serializer", lambda _format: serialize)
-    encoded, program_format = backend._serialize_circuit(  # ruff: ignore[private-member-access]
-        circuit, [ProgramFormat.QASM3, ProgramFormat.QPY]
-    )
-    assert program_format == ProgramFormat.QPY
-    assert isinstance(encoded, bytes)
-    assert len(observed) == 1
-    assert observed[0].num_qubits == 5
-    assert circuit.num_qubits == 2
-    (decoded,) = qpy.load(io.BytesIO(encoded))
-    assert decoded.num_qubits == 5
-
-
-def test_qpy_takes_precedence_over_custom_serializers(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A serializer for another device cannot redirect Sampler jobs to Executor."""
-    from mqt.core.plugins.qiskit import backend as core_backend  # ruff: ignore[import-outside-top-level]
-
-    backend = open_backend(runtime)
-    circuit = QuantumCircuit(2, 1)
-    circuit.measure(1, 0)
-    original = core_backend.program_serializer
+        serializer = original(ProgramFormat.QPY)
+        assert serializer is not None
+        encoded = serializer(prepared, backend)
+        assert isinstance(encoded, bytes)
+        return encoded
 
     def custom_serializer(_circuit: QuantumCircuit, _backend: object) -> str:
         return "custom device program"
@@ -114,16 +79,23 @@ def test_qpy_takes_precedence_over_custom_serializers(runtime: RuntimeProxy, mon
     monkeypatch.setattr(
         core_backend,
         "program_serializer",
-        lambda fmt: custom_serializer if fmt == ProgramFormat.CUSTOM1 else original(fmt),
+        lambda fmt: {ProgramFormat.QPY: serialize, ProgramFormat.CUSTOM1: custom_serializer}.get(fmt, original(fmt)),
     )
     encoded, program_format = backend._serialize_circuit(  # ruff: ignore[private-member-access]
         circuit, [ProgramFormat.QASM3, ProgramFormat.QPY, ProgramFormat.CUSTOM1]
     )
     assert program_format == ProgramFormat.QPY
+    assert circuit.num_qubits == 2
+    assert len(observed) == 1
+    assert observed[0] is not circuit
+    assert observed[0].num_qubits == 5
     assert isinstance(encoded, bytes)
     (decoded,) = qpy.load(io.BytesIO(encoded))
     assert decoded.num_qubits == 5
-    assert decoded.num_clbits == 1
+    assert decoded.num_clbits == 2
+    assert decoded.count_ops()["if_else"] == 1
+    assert decoded.data[1].operation.condition[0] == decoded.clbits[0]
+    assert decoded.data[1].qubits == (decoded.qubits[1],)
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
