@@ -318,11 +318,6 @@ addopts = [
 ]
 filterwarnings = [
   "error",
-  # Runtime constructs every fake, including this warning-only preview backend.
-  """\
-  ignore:Properties of fake_nighthawk are not \
-  intended:UserWarning:qiskit_ibm_runtime.fake_provider.backends.nighthawk.fake_nighthawk\
-  """,
   # PennyLane pins Autograd <1.9; its wraps helper returns in finally.
   "ignore:'return' in a 'finally' block:SyntaxWarning:.*autograd[./\\\\]wrap_util",
 ]

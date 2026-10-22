@@ -91,7 +91,9 @@ twirling rather than silently ignoring them.
 One service per target stays alive until the Python process exits, so jobs can
 outlive their backend object and be retrieved from another session. Mock job IDs
 last only for that service's lifetime. The service binds to `127.0.0.1` and uses
-synthetic authentication; it is a development tool on a trusted local machine.
+a random per-process credential; it is a development tool on a trusted local
+machine. If you configure an HTTP proxy, include `127.0.0.1` in `no_proxy` (or
+`NO_PROXY`) so native requests reach the local service directly.
 
 Run the complete sampling and Executor example:
 

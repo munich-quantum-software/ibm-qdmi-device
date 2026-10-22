@@ -94,7 +94,7 @@ credentials:
 uvx nox -s mock_tests
 ```
 
-Ordinary CI requires this session on Python 3.13, including Are installation. It
+Ordinary CI requires this session on Python 3.13, including Aer installation. It
 executes real Sampler and Executor programs. Synthetic transport fixtures remain
 responsible for malformed responses and deterministic failure cases. Live
 execution retains the separate `live-qpu-tests` PR label and existing hardware
@@ -107,7 +107,7 @@ python -m ibm.qdmi.mock --backend-name fake_manila --port 8080
 ```
 
 The first stdout line contains JSON session parameters: `base_url` and
-`auth_url` select the loopback endpoints, `token` supplies the synthetic API
+`auth_url` select the loopback endpoints, `token` supplies the temporary API
 key, `custom1` selects the fake, and `custom2` supplies a synthetic instance
 CRN. Pass these values through the corresponding QDMI session parameters before
 initialization. Use port zero to select a free port. Stop the service with

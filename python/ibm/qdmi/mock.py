@@ -26,22 +26,49 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import sys
 import uuid
 from contextlib import suppress
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.util import find_spec
 from threading import Lock, Thread
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-_TOKEN = "local-mock"  # ruff: ignore[hardcoded-password-string] -- synthetic loopback authentication
+    from qiskit_ibm_runtime.fake_provider.fake_backend import FakeBackendV2
+
+_TOKEN = secrets.token_urlsafe(32)
 _CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:local::"
 _SEED = 7
 _MAX_BODY = 16 * 1024 * 1024
+
+
+def _backend_type(name: str) -> type[FakeBackendV2]:
+    """Resolve a bundled fake without loading unrelated snapshots.
+
+    Returns:
+        The requested Runtime backend class.
+
+    Raises:
+        ImportError: The mock extra is missing.
+        ValueError: The requested fake backend does not exist.
+    """
+    if find_spec("qiskit_aer") is None or find_spec("qiskit_ibm_runtime") is None:
+        msg = "Install 'ibm-qdmi[mock]' on a platform supported by Qiskit Aer to use fake backends."
+        raise ImportError(msg)
+    from qiskit_ibm_runtime import fake_provider  # ruff: ignore[import-outside-top-level]
+    from qiskit_ibm_runtime.fake_provider.fake_backend import FakeBackendV2  # ruff: ignore[import-outside-top-level]
+
+    for backend in vars(fake_provider).values():
+        if isinstance(backend, type) and issubclass(backend, FakeBackendV2) and backend.backend_name == name:
+            return backend
+    msg = f"Unknown fake backend: {name}."
+    raise ValueError(msg)
 
 
 @dataclass
@@ -56,9 +83,7 @@ class _Runtime:
     """Adapt Runtime's local primitives to the REST subset used by native QDMI."""
 
     def __init__(self, name: str) -> None:
-        from qiskit_ibm_runtime.fake_provider import FakeProviderForBackendV2  # ruff: ignore[import-outside-top-level]
-
-        self.backend = FakeProviderForBackendV2().backend(name)
+        self.backend = _backend_type(name)()
         self.jobs: dict[str, _Job] = {}
         self.lock = Lock()
 
@@ -176,7 +201,9 @@ class _Runtime:
                     {
                         "data": {
                             name: {
-                                "samples": [hex(int(bits, 2)) for bits in value.get_bitstrings()],
+                                "samples": [
+                                    hex(int.from_bytes(row, "big") & ((1 << value.num_bits) - 1)) for row in value.array
+                                ],
                                 "num_bits": value.num_bits,
                             }
                             for name, value in pub.data.items()
@@ -195,6 +222,8 @@ class _Runtime:
             An HTTP status and its response data.
         """
         if path == "/auth" and method == "POST":
+            if parse_qs(body.decode()).get("apikey") != [_TOKEN]:
+                return 401, {}
             return 200, {"access_token": _TOKEN, "expires_in": 86400, "token_type": "Bearer"}
         prefix = f"/v1/backends/{self.backend.name}/"
         if method == "GET" and path.startswith(prefix):
@@ -223,7 +252,7 @@ class _Runtime:
         if method != "GET":
             return 404, {}
         state = job.primitive.status().name
-        if state == "DONE":
+        if state == "DONE" and not job.failed:
             try:
                 self.result(job)
             except Exception:  # ruff: ignore[blind-except] -- simulator failures become failed native jobs
@@ -260,7 +289,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--parent-pipe", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
-    runtime = _Runtime(args.backend_name)
+    try:
+        runtime = _Runtime(args.backend_name)
+    except ValueError as error:
+        parser.error(str(error))
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:  # ruff: ignore[builtin-argument-shadowing]
