@@ -21,7 +21,6 @@
 #include "Http.hpp"
 #include "Job.hpp"
 #include "Metadata.hpp"
-#include "Qpy.hpp"
 
 #include <algorithm>
 #include <chrono>

@@ -19,7 +19,6 @@
 
 #include "Http.hpp"
 #include "Job.hpp"
-#include "Qpy.hpp"
 
 #include <cstddef>
 #include <fstream>

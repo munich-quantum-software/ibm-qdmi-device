@@ -21,7 +21,6 @@
 
 #include "Auth.hpp"
 #include "Http.hpp"
-#include "Qpy.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -348,7 +347,8 @@ void Job::retrieve(const std::string& remoteId) {
                   circuit.contains("__value__") &&
                   circuit["__value__"].is_string(),
               QDMI_ERROR_NOTSUPPORTED);
-      sources.push_back(decodeQpy(circuit["__value__"].get<std::string>()));
+      sources.push_back(
+          decodeQpy(circuit["__value__"].get_ref<const std::string&>()));
     } else {
       sources.push_back(circuit.get<std::string>());
     }
