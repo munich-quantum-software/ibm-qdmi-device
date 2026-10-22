@@ -32,6 +32,16 @@ pytestmark = pytest.mark.ci
 WORKFLOW = Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
 
 
+def test_runtime_mocks_are_required_offline() -> None:
+    """Ordinary CI requires Runtime simulation before the offline aggregate."""
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    steps = jobs["python-tests"]["steps"]
+    assert any("mock_tests" in step.get("run", "") for step in steps)
+    assert "python-tests" in jobs["offline-checks-pass"]["needs"]
+    patterns = jobs["change-detection"]["with"]["additional-python-files"].splitlines()
+    assert {"src/**", "include/**", "cmake/**", "CMakeLists.txt"} <= set(patterns)
+
+
 def evaluate(expression: str, context: dict[str, str | list[str]]) -> bool | str | list[str]:
     """Evaluate the workflow's boolean/string subset without executing code.
 

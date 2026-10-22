@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
 
 def session_parameters(
     *,
+    device_id: str = "ibm.default",
     backend_name: str | None,
     api_key: str | None,
     instance_crn: str | None,
@@ -37,11 +39,22 @@ def session_parameters(
 
     Returns:
         Explicit overrides; native session initialization resolves omitted values.
+
     """
-    return {
+    parameters: QDMISessionParameters = {
         "token": api_key,
         "custom2": instance_crn,
         "custom1": backend_name,
         "base_url": base_url,
         "auth_url": auth_url,
     }
+
+    selected = backend_name
+    if selected is None and device_id == "ibm.default":
+        selected = os.getenv("IBM_QUANTUM_BACKEND")
+    remote = any(value is not None for key, value in parameters.items() if key != "custom1")
+    if selected is not None and selected.startswith("fake_") and not remote:
+        from ._mock_runtime import connection  # ruff: ignore[import-outside-top-level]
+
+        return connection(selected)
+    return parameters

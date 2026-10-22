@@ -41,6 +41,10 @@ if TYPE_CHECKING:
 nox.needs_version = ">=2026.8.10"
 nox.options.default_venv_backend = "uv"
 
+# Aer and PySCF load OpenMP runtimes after LLVM in test processes.
+if sys.platform == "linux":
+    os.environ.setdefault("GLIBC_TUNABLES", "glibc.rtld.optional_static_tls=16384")
+
 
 PYTHON_ALL_VERSIONS = ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
@@ -108,6 +112,17 @@ def tests(session: nox.Session) -> None:
 def native_tests(session: nox.Session) -> None:
     """Test the native transport in a process independent of framework drivers."""
     _run_tests(session, pytest_run_args=("-m", "integration", "-n", "0"))
+
+
+@nox.session(python="3.13", reuse_venv=True)
+def mock_tests(session: nox.Session) -> None:
+    """Require real Runtime simulation through the installed native device."""
+    _run_tests(
+        session,
+        install_args=("--extra", "mock"),
+        extra_command=("python", "-c", "import qiskit_aer"),
+        pytest_run_args=("-m", "mock", "-n", "0"),
+    )
 
 
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, venv_backend="uv", default=True)
