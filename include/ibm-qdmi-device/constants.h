@@ -43,6 +43,13 @@
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_REQUEST_TIMEOUT                      \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM3
 
+/// Null-terminated access mode: cloud (default) or quantum-system.
+#define IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE                          \
+  QDMI_DEVICE_SESSION_PARAMETER_CUSTOM4
+/// Path to a JSON S3 configuration file, required for quantum-system.
+#define IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG                       \
+  QDMI_DEVICE_SESSION_PARAMETER_CUSTOM5
+
 /// Maximum QPU execution time in seconds (uint64_t, 1..10800); default: 60.
 #define IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME                       \
   QDMI_DEVICE_JOB_PARAMETER_CUSTOM1

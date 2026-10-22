@@ -279,7 +279,16 @@ int IBM_QDMI_device_session_set_parameter(
       break;
     case QDMI_DEVICE_SESSION_PARAMETER_AUTHURL:
       destination = &session->configuration.authUrl;
+      configured = &session->configuration.authUrlConfigured;
       break;
+    case IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE:
+      destination = &session->configuration.accessMode;
+      break;
+    case IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG:
+      if (value != nullptr) {
+        session->configuration.storageFile = readString(size, value);
+      }
+      return QDMI_SUCCESS;
     case IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND:
       destination = &session->configuration.backend;
       configured = &session->configuration.backendConfigured;
@@ -324,7 +333,8 @@ int IBM_QDMI_device_session_init(IBM_QDMI_Device_Session handle) {
         throw;
       }
     }
-    auto metadata = ibm::parseMetadata(config, properties);
+    auto metadata =
+        ibm::parseMetadata(config, properties, auth->quantumSystem());
     require(metadata.name == configuration.backend, QDMI_ERROR_FATAL);
     std::vector<std::unique_ptr<IBM_QDMI_Site_impl_d>> sites;
     std::vector<std::unique_ptr<IBM_QDMI_Operation_impl_d>> operations;
@@ -360,10 +370,14 @@ int IBM_QDMI_device_session_query_device_property(
       return copyString(metadata.version, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_LIBRARYVERSION:
       return copyString(QDMI_VERSION, size, value, sizeRet);
-    case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
-      return copyList(std::vector{QDMI_PROGRAM_FORMAT_QASM3,
-                                  IBM_QDMI_PROGRAM_FORMAT_EXECUTOR},
-                      size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS: {
+      auto formats = std::vector{QDMI_PROGRAM_FORMAT_QASM3,
+                                 IBM_QDMI_PROGRAM_FORMAT_EXECUTOR};
+      if (session->auth->quantumSystem()) {
+        std::erase(formats, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR);
+      }
+      return copyList(formats, size, value, sizeRet);
+    }
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
@@ -396,6 +410,19 @@ int IBM_QDMI_device_session_query_device_property(
     case QDMI_DEVICE_PROPERTY_STATUS:
     case QDMI_DEVICE_PROPERTY_QUEUELENGTH: {
       auto* auth = session->auth.get();
+      if (auth->quantumSystem()) {
+        require(property != QDMI_DEVICE_PROPERTY_QUEUELENGTH,
+                QDMI_ERROR_NOTSUPPORTED);
+        const auto path = "/v1/backends/" + session->configuration.backend;
+        lock.unlock();
+        const auto data = nlohmann::json::parse(auth->get(path));
+        const auto state = data.at("status").get<std::string>();
+        require(state == "online" || state == "offline",
+                QDMI_ERROR_NOTSUPPORTED);
+        const auto status = state == "online" ? QDMI_DEVICE_STATUS_IDLE
+                                              : QDMI_DEVICE_STATUS_OFFLINE;
+        return copyValue(status, size, value, sizeRet);
+      }
       const auto path = resource(*session, "status");
       lock.unlock();
       const auto status =

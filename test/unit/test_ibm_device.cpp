@@ -25,6 +25,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <ibm-qdmi-device/constants.h>
@@ -272,6 +273,73 @@ TEST_F(DeviceTest, StatusAndQueueLengthRefreshFromBackend) {
   EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                 session, QDMI_DEVICE_PROPERTY_STATUS, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
+}
+
+TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
+  initialize();
+  auto* cloud = session;
+  session = allocate();
+  const auto path =
+      std::filesystem::path(testing::TempDir()) /
+      ("ibm-qdmi-storage-" +
+       std::to_string(
+           std::chrono::steady_clock::now().time_since_epoch().count()));
+  {
+    std::ofstream file(path);
+    file
+        << R"({"endpoint":"http://127.0.0.1:9000","bucket":"synthetic","region":"us-east-1","access_key":"synthetic","secret_key":"synthetic"})";
+    ASSERT_TRUE(file.good());
+  }
+  IBM_QDMI_Device_Session invalid = nullptr;
+  ASSERT_EQ(IBM_QDMI_device_session_alloc(&invalid), QDMI_SUCCESS);
+  sessions.push_back(invalid);
+  set(invalid, QDMI_DEVICE_SESSION_PARAMETER_TOKEN, "synthetic-key");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND, "ibm_test");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN, "local-service");
+  set(invalid, QDMI_DEVICE_SESSION_PARAMETER_BASEURL, "http://127.0.0.1:2");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE, "quantum-system");
+  set(invalid, IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG, path.string());
+  EXPECT_EQ(IBM_QDMI_device_session_set_parameter(
+                invalid, QDMI_DEVICE_SESSION_PARAMETER_AUTHURL, 1, "x"),
+            QDMI_ERROR_INVALIDARGUMENT);
+  const auto requests = http.requests().size();
+  EXPECT_EQ(IBM_QDMI_device_session_init(invalid), QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(http.requests().size(), requests);
+  set(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE, "quantum-system");
+  set(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG, path.string());
+  set(session, IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN, "local-service");
+  set(session, QDMI_DEVICE_SESSION_PARAMETER_BASEURL, "http://127.0.0.1:2");
+  set(session, QDMI_DEVICE_SESSION_PARAMETER_AUTHURL,
+      "http://127.0.0.1:2/auth");
+  queueInit();
+  const auto initialized = IBM_QDMI_device_session_init(session);
+  std::filesystem::remove(path);
+  ASSERT_EQ(initialized, QDMI_SUCCESS);
+  EXPECT_EQ(handles<QDMI_Program_Format>(
+                QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
+            (std::vector<QDMI_Program_Format>{QDMI_PROGRAM_FORMAT_QASM3}));
+  for (const auto& [state, expected] :
+       std::vector<std::pair<std::string, QDMI_Device_Status>>{
+           {"online", QDMI_DEVICE_STATUS_IDLE},
+           {"offline", QDMI_DEVICE_STATUS_OFFLINE}}) {
+    http.queue(
+        "/backends/ibm_test",
+        {.status = 200, .body = nlohmann::json{{"status", state}}.dump()});
+    QDMI_Device_Status actual{};
+    EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                  session, QDMI_DEVICE_PROPERTY_STATUS, sizeof(actual), &actual,
+                  nullptr),
+              QDMI_SUCCESS);
+    EXPECT_EQ(actual, expected);
+  }
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, QDMI_DEVICE_PROPERTY_QUEUELENGTH, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+  session = cloud;
+  EXPECT_EQ(handles<QDMI_Program_Format>(
+                QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
+            (std::vector<QDMI_Program_Format>{
+                QDMI_PROGRAM_FORMAT_QASM3, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
 }
 
 TEST_F(DeviceTest, ForeignHandlesAndCalibrationSnapshots) {

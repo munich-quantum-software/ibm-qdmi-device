@@ -55,7 +55,8 @@ struct Metadata {
   std::vector<Sites> coupling;
 };
 Metadata parseMetadata(const nlohmann::json& configuration,
-                       const nlohmann::json& properties);
+                       const nlohmann::json& properties,
+                       bool quantumSystem = false);
 struct Status {
   std::optional<bool> available;
   std::size_t queue = 0;

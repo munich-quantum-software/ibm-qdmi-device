@@ -19,15 +19,70 @@
 
 from __future__ import annotations
 
+import json
+import re
+from argparse import ArgumentTypeError
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
+
 import pytest
 from metadata_checks import BACKENDS
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 pytest_plugins = ["offline_service"]
+
+
+@pytest.fixture
+def simulator_storage_file(pytestconfig: pytest.Config, tmp_path: Path) -> Path:
+    """Snapshot synthetic credentials for the local S3 test service.
+
+    Returns:
+        A private configuration file inside the test's temporary directory.
+    """
+    path = tmp_path / "storage.json"
+    path.write_text(
+        json.dumps({
+            "endpoint": pytestconfig.getoption("simulator_s3_url"),
+            "bucket": "qdmi-e2e",
+            "region": "us-east-1",
+            "access_key": "synthetic-access",
+            "secret_key": "synthetic-secret",
+        }),
+        encoding="utf-8",
+    )
+    return path
+
+
+def simulator_url(value: str) -> str:
+    """Accept only loopback HTTP origins for the simulator test option.
+
+    Returns:
+        The origin without a trailing slash.
+
+    Raises:
+        ArgumentTypeError: The URL is not a loopback HTTP origin.
+    """
+    message = "simulator URL must be a loopback HTTP origin"
+    if re.fullmatch(r"http://(?:127\.0\.0\.1|localhost|\[::1\])(?::[0-9]+)?/?", value) is None:
+        raise ArgumentTypeError(message)
+    try:
+        port = urlsplit(value).port
+    except ValueError:
+        raise ArgumentTypeError(message) from None
+    if port == 0:
+        raise ArgumentTypeError(message)
+    return value.rstrip("/")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register the live test controls without reading credentials."""
     parser.addoption("--native-library", default=None, help="Instrumented library for offline ABI integration tests")
+    parser.addoption("--simulator-url", type=simulator_url, default=None, help="Loopback HTTP origin of qsa_sim")
+    parser.addoption(
+        "--simulator-s3-url", type=simulator_url, default="http://127.0.0.1:9000", help="Loopback S3 origin"
+    )
     parser.addoption("--run-live", action="store_true", help="Authorize metadata-only IBM requests")
     parser.addoption("--run-quantum", action="store_true", help="Authorize bounded IBM quantum execution")
     parser.addoption("--ibm-backend", default="both", help="both, ibm_berlin, or ibm_aachen")
@@ -55,8 +110,10 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Skip live tests unless the invocation explicitly enables them."""
+    """Skip external-service tests unless the invocation explicitly enables them."""
     for item in items:
+        if item.get_closest_marker("simulator") and not config.getoption("simulator_url"):
+            item.add_marker(pytest.mark.skip(reason="simulator access requires --simulator-url"))
         for marker, option in (("live", "run_live"), ("quantum", "run_quantum")):
             if item.get_closest_marker(marker) is None:
                 continue

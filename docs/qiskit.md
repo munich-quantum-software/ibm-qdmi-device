@@ -16,6 +16,33 @@ checks pass.
 
 ## Select a backend
 
+For an on-premises Quantum System API service, provide the protocol and storage
+configuration explicitly:
+
+```python
+import os
+from ibm.qdmi.qiskit import IBMBackend
+
+backend = IBMBackend(
+    backend_name=os.environ["IBM_QUANTUM_BACKEND"],
+    api_key=os.environ["IBM_QUANTUM_API_KEY"],
+    instance_crn=os.environ["IBM_QUANTUM_INSTANCE_CRN"],
+    base_url=os.environ["IBM_QUANTUM_SYSTEM_URL"],
+    auth_url=os.environ["IBM_QUANTUM_AUTH_URL"],
+    access_mode="quantum-system",
+    storage_config=os.environ["IBM_QUANTUM_STORAGE_CONFIG"],
+)
+```
+
+These environment names configure this example; endpoint and storage values are
+passed as explicit session settings. `IBMDevice` accepts the same arguments. See
+[Quantum System configuration](api.md#quantum-system-api) for the private
+storage file and supported features. Ordinary cloud construction stays
+unchanged.
+
+The runnable `examples/quantum_system.py` example transpiles and executes a Bell
+circuit using these settings.
+
 Supply `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the process
 environment or a secret manager. Keep their values out of source code.
 
@@ -76,6 +103,11 @@ retain the original register names, boundaries, and classical-bit order. Global
 phase does not affect classified samples and is omitted. Native instructions
 outside `stdgates.inc` retain their gate declarations so that IBM can import the
 program without external definitions.
+
+After parameter binding, the adapter folds RZZ angles into IBM's calibrated
+range of zero to pi/2 using equivalent single-qubit corrections. It validates
+these corrections against the target before submitting any circuit in a batch.
+The caller's circuit stays unchanged.
 
 `shots` must be a positive integer and defaults to 1,024. `memory` defaults to
 false. Requested memory contains genuine ordered samples, including leading

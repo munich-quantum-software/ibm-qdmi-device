@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Http.hpp"
+#include "Storage.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -44,6 +45,10 @@ struct Configuration {
   bool apiKeyConfigured = false;
   bool backendConfigured = false;
   bool crnConfigured = false;
+  std::string accessMode = "cloud";
+  std::optional<std::string> storageFile;
+  std::optional<StorageConfiguration> storage;
+  bool authUrlConfigured = false;
 };
 /// Resolve and validate a copy; unsuccessful initialization does not mutate
 /// inputs.
@@ -59,6 +64,12 @@ public:
       std::function<void(Deadline)> sleepUntil = internal::hooks().sleepUntil);
   std::string get(const std::string& resource,
                   Deadline deadline = Deadline::max());
+  [[nodiscard]] bool quantumSystem() const;
+  std::string storageGet(const std::string& key,
+                         Deadline deadline = Deadline::max());
+  void storagePut(const std::string& key, const std::string& body);
+  [[nodiscard]] std::string serviceStorageUrl(const std::string& key,
+                                              bool put) const;
   /// GET retries transient failures twice and refreshes once after 401.
   /// Authentication, retries, and backoff share one timeout. POST is sent once.
   Response request(const std::string& resource, bool post = false,

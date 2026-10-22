@@ -24,8 +24,10 @@ from collections import Counter
 from typing import TYPE_CHECKING
 
 import pytest
-from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
+from mqt.core.plugins.qiskit.exceptions import UnsupportedOperationError
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qasm3
 from qiskit.circuit import Parameter
+from qiskit.quantum_info import Operator
 from qiskit_service import open_backend
 
 if TYPE_CHECKING:
@@ -94,3 +96,87 @@ def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     assert f"gate {name}" in source
     assert "q[3], q[4]" in source
+
+
+@pytest.mark.parametrize(
+    "angle",
+    [
+        -3 * math.pi,
+        -math.pi,
+        -3 * math.pi / 4,
+        -math.pi / 2,
+        -0.1,
+        0,
+        0.1,
+        math.pi / 2,
+        3 * math.pi / 4,
+        math.pi,
+        2 * math.pi,
+        3 * math.pi,
+    ],
+)
+def test_rzz_angle_folding(runtime: RuntimeProxy, angle: float) -> None:
+    """Bound parameters serialize in the calibrated interval without changing the input."""
+    config = runtime.snapshot()["configuration"]
+    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
+    runtime.set_configuration("gates", config["gates"])
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
+    backend = open_backend(runtime)
+    theta = Parameter("theta")
+    circuit = QuantumCircuit(5, 2)
+    circuit.rzz(theta, 3, 4)
+    circuit.measure([3, 4], [1, 0])
+    original = circuit.copy()
+    backend.run(circuit, parameter_values=[{theta: angle}], shots=1).result()
+    assert circuit == original
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = qasm3.loads(source)
+    assert all(
+        0 <= float(item.operation.params[0]) <= math.pi / 2 for item in emitted.data if item.operation.name == "rzz"
+    )
+    assert [
+        (emitted.find_bit(item.qubits[0]).index, emitted.find_bit(item.clbits[0]).index)
+        for item in emitted.data
+        if item.operation.name == "measure"
+    ] == [(3, 1), (4, 0)]
+    expected = circuit.assign_parameters({theta: angle})
+    expected.remove_final_measurements()
+    emitted.remove_final_measurements()
+    assert Operator(emitted).equiv(Operator(expected))
+
+
+def test_rzz_corrections_validate_placement(runtime: RuntimeProxy) -> None:
+    """Reject unsupported correction gates before any member of a batch is submitted."""
+    config = runtime.snapshot()["configuration"]
+    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
+    for gate in config["gates"]:
+        if gate["name"] == "x":
+            gate["coupling_map"] = [[0], [1], [2], [4]]
+    runtime.set_configuration("gates", config["gates"])
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
+    backend = open_backend(runtime)
+    circuits = []
+    for angle in (math.pi / 4, -math.pi / 4):
+        circuit = QuantumCircuit(5, 2)
+        circuit.rzz(angle, 3, 4)
+        circuit.measure([3, 4], [0, 1])
+        circuits.append(circuit)
+    with pytest.raises(UnsupportedOperationError):
+        backend.run(circuits, shots=1)
+    assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("angle", [None, 0, math.pi / 4, math.pi / 2])
+def test_calibrated_circuits_need_no_copy(runtime: RuntimeProxy, angle: float | None) -> None:
+    """Preprocessing allocates a new circuit only when an angle needs correction."""
+    config = runtime.snapshot()["configuration"]
+    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
+    runtime.set_configuration("gates", config["gates"])
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 2)
+    if angle is not None:
+        circuit.rzz(angle, 3, 4)
+    circuit.measure([3, 4], [0, 1])
+    # The Core hook's allocation behavior is not exposed by run().
+    assert backend._preprocess_circuit(circuit) is circuit  # ruff: ignore[private-member-access]

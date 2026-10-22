@@ -21,6 +21,7 @@
 
 #include "Auth.hpp"
 #include "Http.hpp"
+#include "Storage.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -34,6 +35,7 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -67,8 +69,11 @@ std::size_t positiveInteger(const nlohmann::json& value) {
   require(result > 0 && result <= std::numeric_limits<std::size_t>::max());
   return static_cast<std::size_t>(result);
 }
-QDMI_Job_Status parseJobStatus(const nlohmann::json& data) {
-  const auto value = data.at("state").at("status").get<std::string>();
+QDMI_Job_Status parseJobStatus(const nlohmann::json& data,
+                               bool system = false) {
+  const auto value =
+      (system ? data.at("status") : data.at("state").at("status"))
+          .get<std::string>();
   if (value == "Completed") {
     return QDMI_JOB_STATUS_DONE;
   }
@@ -167,6 +172,8 @@ bool terminal(QDMI_Job_Status status) {
 void Job::checkProgramSupport(QDMI_Program_Format value,
                               std::size_t count) const {
   require(count != 0, QDMI_ERROR_INVALIDARGUMENT);
+  require(!auth->quantumSystem() || value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+          QDMI_ERROR_NOTSUPPORTED);
   require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
               value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           QDMI_ERROR_NOTSUPPORTED);
@@ -275,11 +282,35 @@ void Job::submit() {
           nlohmann::json::array({source, nullptr, shots}));
     }
   }
-  const auto body = payload.dump();
   // Once submission starts, even a lost response must never permit a duplicate.
   attempted = true;
   status = QDMI_JOB_STATUS_FAILED;
-  const auto response = auth->request("/v1/jobs", true, body);
+  if (auth->quantumSystem()) {
+    id = newJobId();
+    nlohmann::json storage;
+    for (const auto* kind : {"input", "results", "logs"}) {
+      storage[kind] = {
+          {"type", "s3_compatible"},
+          {"presigned_url",
+           auth->serviceStorageUrl(std::string(kind) + "_" + id + ".json",
+                                   std::string_view(kind) != "input")}};
+    }
+    auth->storagePut("input_" + id + ".json", payload.at("params").dump());
+    payload = {{"id", id},
+               {"backend", backend},
+               {"program_id", "sampler"},
+               {"timeout_secs", maxExecutionTime},
+               {"storage", storage}};
+  }
+  const auto response = auth->request("/v1/jobs", true, payload.dump());
+  if (auth->quantumSystem()) {
+    if (response.failed || response.timedOut || response.status != 204) {
+      checkResponse(response);
+      throw Failure{QDMI_ERROR_FATAL};
+    }
+    status = QDMI_JOB_STATUS_SUBMITTED;
+    return;
+  }
   checkResponse(response);
   const auto data = nlohmann::json::parse(response.body);
   const auto remoteId = data.at("id").get<std::string>();
@@ -293,11 +324,16 @@ void Job::retrieve(const std::string& remoteId) {
   const auto data = nlohmann::json::parse(auth->get("/v1/jobs/" + remoteId));
   require(data.at("id") == remoteId && data.at("backend") == backend,
           QDMI_ERROR_INVALIDARGUMENT);
-  const auto programId = data.at("program").at("id");
-  require((programId == "sampler" || programId == "executor") &&
+  const auto programId = auth->quantumSystem() ? data.at("program_id")
+                                               : data.at("program").at("id");
+  require((programId == "sampler" ||
+           (programId == "executor" && !auth->quantumSystem())) &&
               !data.value("private", false),
           QDMI_ERROR_NOTSUPPORTED);
-  auto parameters = data.at("params");
+  auto parameters = auth->quantumSystem()
+                        ? nlohmann::json::parse(
+                              auth->storageGet("input_" + remoteId + ".json"))
+                        : data.at("params");
   if (parameters.is_string()) {
     parameters = nlohmann::json::parse(parameters.get<std::string>());
   }
@@ -305,7 +341,7 @@ void Job::retrieve(const std::string& remoteId) {
     setPrograms(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, {parameters.dump()});
     id = remoteId;
     attempted = true;
-    status = parseJobStatus(data);
+    status = parseJobStatus(data, auth->quantumSystem());
     return;
   }
   require(parameters.at("version") == 2 &&
@@ -330,14 +366,14 @@ void Job::retrieve(const std::string& remoteId) {
   setPrograms(QDMI_PROGRAM_FORMAT_QASM3, std::move(sources));
   id = remoteId;
   attempted = true;
-  status = parseJobStatus(data);
+  status = parseJobStatus(data, auth->quantumSystem());
 }
 QDMI_Job_Status Job::check(Deadline deadline) {
   if (!id.empty() && !terminal(status)) {
     const auto data =
         nlohmann::json::parse(auth->get("/v1/jobs/" + id, deadline));
     require(data.at("id") == id && data.at("backend") == backend);
-    status = parseJobStatus(data);
+    status = parseJobStatus(data, auth->quantumSystem());
   }
   return status;
 }
@@ -371,7 +407,11 @@ const Results& Job::results(std::size_t index) {
   }
   require(current == QDMI_JOB_STATUS_DONE, QDMI_ERROR_BADSTATE);
   if (!cached) {
-    const auto response = auth->request("/v1/jobs/" + id + "/results");
+    const auto response =
+        auth->quantumSystem()
+            ? Response{.status = 200,
+                       .body = auth->storageGet("results_" + id + ".json")}
+            : auth->request("/v1/jobs/" + id + "/results");
     require(response.failed || response.timedOut || response.status != 204,
             QDMI_ERROR_BADSTATE);
     checkResponse(response);

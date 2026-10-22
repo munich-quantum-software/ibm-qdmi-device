@@ -10,12 +10,21 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Add native Quantum System API access with S3 storage beside cloud access,
+  with offline simulator execution and retrieval checks. ([#81])
+  ([**@marcelwa**])
+
 ### Changed
 
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
 ### Fixed
+
+- 🐛 Fold bound Qiskit RZZ angles into IBM's calibrated range before submission.
+  ([#81]) ([**@marcelwa**])
 
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
@@ -70,6 +79,7 @@ _This is the initial release of the IBM QDMI Device._
 <!-- PR links -->
 
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
+[#81]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/81
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
