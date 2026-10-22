@@ -215,7 +215,7 @@ test-groups = [ "test" ]
 test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y openssl-devel"
+before-all = "yum install -y --disablerepo=epel openssl-devel"
 test-environment = { GLIBC_TUNABLES = "glibc.rtld.optional_static_tls=16384" }
 
 [tool.cibuildwheel.macos]
