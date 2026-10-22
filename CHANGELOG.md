@@ -16,6 +16,11 @@ releases may include breaking changes.
   measurement-based conditional gates with offline examples and regression
   tests. ([#71]) ([**@marcelwa**])
 
+### Changed
+
+- ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
+  ([**@marcelwa**])
+
 ### Fixed
 
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
@@ -71,6 +76,7 @@ _This is the initial release of the IBM QDMI Device._
 <!-- PR links -->
 
 [#71]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/71
+[#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
