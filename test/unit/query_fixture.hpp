@@ -33,9 +33,12 @@ protected:
     // Auth captures the transport when the session initializes.
     const auto transport = ibm::internal::hooks().transport;
     ibm::internal::hooks().transport =
-        [this, transport](const ibm::Request& request) {
+        [status = data["status"].dump(),
+         transport](const ibm::Request& request) {
           if (request.url.ends_with("/status")) {
-            return ibm::Response{.status = 200, .body = data["status"].dump()};
+            EXPECT_FALSE(request.post);
+            EXPECT_TRUE(request.form.empty());
+            return ibm::Response{.status = 200, .body = status};
           }
           return transport(request);
         };
