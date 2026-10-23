@@ -32,16 +32,16 @@ protected:
     ASSERT_FALSE(HasFatalFailure());
     // Auth captures the transport when the session initializes.
     const auto transport = ibm::internal::hooks().transport;
-    ibm::internal::hooks().transport =
-        [status = data["status"].dump(),
-         transport](const ibm::Request& request) {
-          if (request.url.ends_with("/status")) {
-            EXPECT_FALSE(request.post);
-            EXPECT_TRUE(request.form.empty());
-            return ibm::Response{.status = 200, .body = status};
-          }
-          return transport(request);
-        };
+    ibm::internal::hooks().transport = [status = data["status"].dump(),
+                                        transport](
+                                           const ibm::Request& request) {
+      if (request.url.ends_with("/status")) {
+        EXPECT_FALSE(request.post);
+        EXPECT_TRUE(request.form.empty());
+        return ibm::Response{.status = 200, .body = status, .retryAfter = {}};
+      }
+      return transport(request);
+    };
     initialize();
   }
 };
