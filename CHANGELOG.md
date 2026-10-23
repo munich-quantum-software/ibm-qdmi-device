@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Changed
 
+- 🧪 Use QDMI shared query conformance tests with the offline IBM fixture.
+
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
