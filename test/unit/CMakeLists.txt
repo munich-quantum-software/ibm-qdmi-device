@@ -30,3 +30,15 @@ target_compile_definitions(
   unit_tests PRIVATE IBM_QDMI_FIXTURE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/backend.json"
                      QDMI_VERSION="${IBM_QDMI_QDMI_VERSION}")
 gtest_discover_tests(unit_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit DISCOVERY_TIMEOUT 60)
+
+add_qdmi_device_query_tests(
+  query_tests
+  PREFIX
+  IBM
+  TARGET
+  ibm::qdmi_device_internals
+  FIXTURE_HEADER
+  "${CMAKE_CURRENT_SOURCE_DIR}/query_fixture.hpp")
+target_sources(query_tests PRIVATE http_stub.cpp)
+target_compile_definitions(
+  query_tests PRIVATE IBM_QDMI_FIXTURE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/backend.json")
