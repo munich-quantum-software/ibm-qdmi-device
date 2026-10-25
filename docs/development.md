@@ -39,8 +39,12 @@ Use `Debug` in both configuration and build commands for a debug build.
 `test/unit/` groups GoogleTest cases by native component. The shared `HttpStub`
 scripts requests and advances time without sockets or delays. Device fixtures
 exercise the public C API through the same internal object target as the shared
-library. `test/integration/` checks exported C and C++ interfaces, installation,
-and real HTTP transport against an ephemeral loopback server.
+library. The shared QDMI query conformance suite uses the same fixture and runs
+with
+`ctest --test-dir build/native -C Release -L qdmi-query --output-on-failure`.
+IBM-specific calibration, authentication, session, and job checks stay in the
+native unit tests. `test/integration/` checks exported C and C++ interfaces,
+installation, and real HTTP transport against an ephemeral loopback server.
 
 ```console
 ctest --test-dir build/native/test/unit -C Release --output-on-failure

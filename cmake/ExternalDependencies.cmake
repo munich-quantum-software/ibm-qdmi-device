@@ -27,19 +27,24 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
       1.4.0
       CACHE STRING "QDMI version")
   set(QDMI_REV
-      "6db03d83ad602aaa9fe928b5c3fc5cce84b10061"
-      CACHE STRING "QDMI revision (v1.4.0)")
+      "e230464ebedae1ea233e2c3346eb19e0bd4d2f0c"
+      CACHE STRING "QDMI revision (shared query conformance tests)")
   set(QDMI_REPO_OWNER
       "Munich-Quantum-Software-Stack"
       CACHE STRING "QDMI repository owner")
   set(INSTALL_QDMI
       OFF
       CACHE BOOL "Install the upstream QDMI package")
+  set(QDMI_FIND_PACKAGE_ARGS FIND_PACKAGE_ARGS ${QDMI_MINIMUM_VERSION})
+  if(BUILD_IBM_QDMI_TESTS)
+    # Released QDMI packages do not yet provide the shared query suite.
+    set(QDMI_FIND_PACKAGE_ARGS)
+  endif()
   FetchContent_Declare(
     qdmi
     GIT_REPOSITORY https://github.com/${QDMI_REPO_OWNER}/qdmi.git
     GIT_TAG ${QDMI_REV}
-    FIND_PACKAGE_ARGS ${QDMI_MINIMUM_VERSION})
+    ${QDMI_FIND_PACKAGE_ARGS})
   FetchContent_MakeAvailable(qdmi)
 
   FetchContent_Declare(

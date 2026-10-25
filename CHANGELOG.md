@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Changed
 
+- 🧪 Use QDMI shared query conformance tests with the offline IBM fixture.
+  ([#84]) ([**@marcelwa**])
+
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
@@ -69,6 +72,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#84]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/84
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66

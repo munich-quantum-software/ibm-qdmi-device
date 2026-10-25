@@ -34,7 +34,7 @@ HttpStub::HttpStub() : previous(internal::hooks()) {
             recorded.push_back(request);
             if (pending.empty()) {
               ADD_FAILURE() << "Unexpected request: " << request.url;
-              return Response{.status = 500, .body = {}};
+              return Response{.status = 500, .body = {}, .retryAfter = {}};
             }
             auto expected = std::move(pending.front());
             pending.pop_front();
