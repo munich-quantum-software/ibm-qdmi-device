@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Chocobo1/setup-ccache-action@a4d08616f5b614053bce228ddf881592f69d61d4 # v1.5.9
+      - uses: Chocobo1/setup-ccache-action@efeb0f4b0670854c2190fd2389da92c399ff5ceb # v1.5.10
         with:
           prepend_symlinks_to_path: false
           override_cache_key: cpp-${{ inputs.runs-on }}-${{ inputs.config }}
