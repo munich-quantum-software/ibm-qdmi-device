@@ -20,17 +20,23 @@
 from __future__ import annotations
 
 import ctypes
+import hashlib
+import hmac
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 import pytest
 
 pytestmark = pytest.mark.integration
 
 if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Any
+
     from native_support import Native
     from offline_service import Service
 
@@ -279,3 +285,88 @@ def test_retrieval_rejects_incompatible_jobs(native: Native, job_service: Servic
         assert job.value is None
         assert native.retrieve_job(session, b"../escape", ctypes.byref(job)) == -7
     assert all(path != "/v1/jobs" for path, _, _ in job_service.requests)
+
+
+def _storage_signature(url: str, method: str, secret: str) -> str:
+    """Compute an independent test-side SigV4 signature with the standard library.
+
+    Returns:
+        The signature expected for the supplied method and URL.
+    """
+    parsed = urlsplit(url)
+    query = parse_qs(parsed.query)
+    query.pop("X-Amz-Signature")
+    scope = query["X-Amz-Credential"][0].split("/", 1)[1]
+    canonical_query = urlencode(sorted((key, value[0]) for key, value in query.items()), quote_via=quote, safe="-_.~")
+    canonical = "\n".join([method, parsed.path, canonical_query, f"host:{parsed.netloc}\n", "host", "UNSIGNED-PAYLOAD"])
+    to_sign = "\n".join([
+        "AWS4-HMAC-SHA256",
+        query["X-Amz-Date"][0],
+        scope,
+        hashlib.sha256(canonical.encode()).hexdigest(),
+    ])
+    signing_key = ("AWS4" + secret).encode()
+    for part in scope.split("/"):
+        signing_key = hmac.digest(signing_key, part.encode(), "sha256")
+    return hmac.digest(signing_key, to_sign.encode(), "sha256").hex()
+
+
+def test_quantum_system_storage_signatures(native: Native, service: Service, tmp_path: Path) -> None:
+    """Check wire PUT, all service signatures, endpoint isolation, and method tampering."""
+    secret = "synthetic-secret"  # ruff: ignore[hardcoded-password-string] -- synthetic test credential
+    storage_file = tmp_path / "storage.json"
+    storage_file.write_text(
+        json.dumps({
+            "endpoint": service.url + "/client",
+            "service_endpoint": service.url.replace("127.0.0.1", "localhost") + "/qpu",
+            "bucket": "synthetic",
+            "region": "eu-central-1",
+            "access_key": "synthetic-access",
+            "secret_key": secret,
+            "session_token": "synthetic+session/token",
+        }),
+        encoding="utf-8",
+    )
+    payloads: list[dict[str, Any]] = []
+
+    def submit(_path: str, body: bytes) -> tuple[int, bytes]:
+        payloads.append(json.loads(body))
+        return 204, b""
+
+    def accept_storage(path: str) -> None:
+        if path.startswith("/client/"):
+            service.data[path.rsplit("/", 1)[-1]] = {}
+
+    service.respond = submit
+    service.before_respond = accept_storage
+    parameters = service.parameters | {999999998: "quantum-system", 999999999: str(storage_file)}
+    with native.session(parameters) as session:
+        assert native.init(session) == 0
+        with native.job(session) as job:
+            configure(native, job)
+            assert native.submit(job) == 0
+    assert len(service.puts) == 1
+    assert len(payloads) == 1
+    upload = service.url + service.puts[0]
+
+    def check_scope(url: str) -> str:
+        query = parse_qs(urlsplit(url).query)
+        date = query["X-Amz-Date"][0][:8]
+        assert query["X-Amz-Credential"] == [f"synthetic-access/{date}/eu-central-1/s3/aws4_request"]
+        assert query["X-Amz-Security-Token"] == ["synthetic+session/token"]
+        assert query["X-Amz-Algorithm"] == ["AWS4-HMAC-SHA256"]
+        assert query["X-Amz-Expires"] == ["86400"]
+        return query["X-Amz-Signature"][0]
+
+    actual = check_scope(upload)
+    assert _storage_signature(upload, "PUT", secret) == actual
+    assert _storage_signature(upload, "GET", secret) != actual
+    assert set(payloads[0]["storage"]) == {"input", "results", "logs"}
+    for kind, descriptor in payloads[0]["storage"].items():
+        url = descriptor["presigned_url"]
+        assert urlsplit(url).hostname == "localhost"
+        assert urlsplit(url).path.startswith("/qpu/synthetic/")
+        expected = _storage_signature(url, "GET" if kind == "input" else "PUT", secret)
+        assert check_scope(url) == expected
+    headers = next(headers for path, headers, _body in service.requests if path == service.puts[0])
+    assert {name.lower() for name in headers}.isdisjoint({"authorization", "service-crn", "ibm-api-version"})

@@ -120,7 +120,7 @@ void addSites(Operation& operation, const Sites& sites) {
 } // namespace
 
 Metadata parseMetadata(const nlohmann::json& configuration,
-                       const nlohmann::json& properties) {
+                       const nlohmann::json& properties, bool quantumSystem) {
   Metadata result;
   result.name = configuration.at("backend_name").get<std::string>();
   result.version = configuration.at("backend_version").get<std::string>();
@@ -152,6 +152,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     throw Failure{QDMI_ERROR_FATAL};
   }
   std::set<std::string> names;
+  const std::set<std::string> fixedGates{"id", "x", "sx", "cx", "cz", "ecr"};
   for (const auto& item : basis) {
     auto name = item.get<std::string>();
     if (name.empty() || !names.insert(name).second) {
@@ -182,6 +183,11 @@ Metadata parseMetadata(const nlohmann::json& configuration,
           addSites(operation, tuple(entry, count));
         }
       }
+    }
+    // Quantum System configuration may omit definitions for fixed IBM gates.
+    if (quantumSystem && !operation.parameters &&
+        fixedGates.contains(operation.name)) {
+      operation.parameters = 0;
     }
     result.operations.push_back(std::move(operation));
   }

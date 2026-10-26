@@ -19,6 +19,7 @@
 
 #include "Auth.hpp"
 #include "Http.hpp"
+#include "Storage.hpp"
 
 #include <chrono>
 #include <cstdlib>
@@ -63,6 +64,20 @@ TEST(Configuration, RegionsAndOverrides) {
   config.apiKey.clear();
   expectFailure([&] { (void)ibm::resolve(config); },
                 QDMI_ERROR_PERMISSIONDENIED);
+}
+TEST(Configuration, QuantumSystemRequiresExplicitEndpointsAndStorage) {
+  auto config = configuration();
+  config.accessMode = "quantum-system";
+  config.crn = "crn:v1:local:qsa_sim";
+  expectFailure([&] { (void)ibm::resolve(config); },
+                QDMI_ERROR_INVALIDARGUMENT);
+  config.baseUrl = "http://127.0.0.1:8290";
+  config.authUrl = "http://127.0.0.1:8290/identity/token";
+  expectFailure([&] { (void)ibm::resolve(config); },
+                QDMI_ERROR_INVALIDARGUMENT);
+  config.accessMode = "unknown";
+  expectFailure([&] { (void)ibm::resolve(config); },
+                QDMI_ERROR_INVALIDARGUMENT);
 }
 TEST(Configuration, RejectsUnsafeEndpointsAndInvalidSelection) {
   for (const auto* url :
@@ -217,4 +232,61 @@ TEST_F(ConfigurationFileTest, UnreadableFilesDoNotFallBackToEnvironment) {
   auto value = config();
   value.authFile = "";
   expectFailure([&] { (void)ibm::resolve(value); }, QDMI_ERROR_INVALIDARGUMENT);
+}
+
+TEST_F(ConfigurationFileTest, StorageConfigurationIsValidatedAndSnapshotted) {
+  write(
+      R"({"endpoint":"http://127.0.0.1:9000","bucket":"synthetic","region":"us-east-1","access_key":"synthetic","secret_key":"synthetic-secret"})");
+  auto value = configuration();
+  value.accessMode = "quantum-system";
+  value.baseUrl = "http://127.0.0.1:8290";
+  value.authUrl = value.baseUrl + "/identity/token";
+  value.crn = "crn:v1:local:qsa_sim";
+  value.storageFile = path.string();
+  const auto resolved = ibm::resolve(value);
+  ASSERT_TRUE(resolved.storage);
+  EXPECT_EQ(resolved.storage->bucket, "synthetic");
+  write("{}");
+  EXPECT_EQ(resolved.storage->bucket, "synthetic");
+  expectFailure([&] { (void)ibm::resolve(value); }, QDMI_ERROR_INVALIDARGUMENT);
+  write(std::string(65537, ' '));
+  expectFailure([&] { (void)ibm::resolve(value); }, QDMI_ERROR_INVALIDARGUMENT);
+  value.accessMode = "cloud";
+  expectFailure([&] { (void)ibm::resolve(value); }, QDMI_ERROR_INVALIDARGUMENT);
+}
+
+TEST_F(ConfigurationFileTest, RejectsStorageQueriesAndFragments) {
+  for (const auto* endpoint :
+       {"http://127.0.0.1:9000?", "http://127.0.0.1:9000#"}) {
+    write(
+        R"({"endpoint":")" + std::string(endpoint) +
+        R"(","bucket":"synthetic","region":"us-east-1","access_key":"synthetic","secret_key":"synthetic-secret"})");
+    expectFailure([&] { (void)ibm::readStorageConfiguration(path.string()); },
+                  QDMI_ERROR_INVALIDARGUMENT);
+  }
+}
+
+TEST(QuantumSystem, ExplicitStorageIgnoresAmbientAwsSelection) {
+  const ScopedEnvVar profile{"AWS_PROFILE", "unavailable-synthetic-profile"};
+  const ScopedEnvVar endpoint{"AWS_ENDPOINT_URL", "http://wrong.invalid"};
+  const ScopedEnvVar serviceEndpoint{"AWS_ENDPOINT_URL_S3",
+                                     "http://wrong.invalid"};
+  const ScopedEnvVar region{"AWS_REGION", "wrong-region"};
+  const ScopedEnvVar defaultRegion{"AWS_DEFAULT_REGION", "wrong-region"};
+  const ScopedEnvVar fips{"AWS_USE_FIPS_ENDPOINT", "true"};
+  const ScopedEnvVar dual{"AWS_USE_DUALSTACK_ENDPOINT", "true"};
+  const ScopedEnvVar arn{"AWS_S3_USE_ARN_REGION", "true"};
+  const ScopedEnvVar key{"AWS_ACCESS_KEY_ID", "wrong-access"};
+  const ScopedEnvVar secret{"AWS_SECRET_ACCESS_KEY", "wrong-secret"};
+  const ibm::StorageConfiguration config{.endpoint = "http://127.0.0.1:9000",
+                                         .bucket = "synthetic",
+                                         .region = "us-east-1",
+                                         .accessKey = "synthetic-access",
+                                         .secretKey = "synthetic-secret"};
+  const auto url = ibm::storageUrl(config, "input_id.json", false, false);
+  EXPECT_TRUE(
+      url.starts_with("http://127.0.0.1:9000/synthetic/input_id.json?"));
+  EXPECT_NE(url.find("synthetic-access%2F"), std::string::npos);
+  EXPECT_NE(url.find("%2Fus-east-1%2Fs3%2Faws4_request"), std::string::npos);
+  EXPECT_EQ(url.find("wrong-"), std::string::npos);
 }

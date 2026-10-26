@@ -24,7 +24,7 @@ requires = [ "scikit-build-core>=1.1" ]
 name = "ibm-qdmi"
 description = "IBM quantum execution through QDMI, Qiskit, and PennyLane"
 readme = "README.md"
-license = "Apache-2.0 WITH LLVM-exception AND MIT AND curl AND OpenSSL"
+license = "Apache-2.0 WITH LLVM-exception AND Apache-2.0 AND MIT AND curl AND OpenSSL AND Zlib"
 license-files = [ "LICENSE", "licenses/LICENSE-*" ]
 requires-python = ">=3.11"
 classifiers = [
@@ -212,6 +212,7 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
 "cmake.define.CURL_USE_LIBSSH2" = "OFF"
 
 [tool.cibuildwheel.windows]
+before-all = "git config --global core.longpaths true"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg ibm"
 
 [[tool.cibuildwheel.overrides]]
@@ -281,6 +282,7 @@ extend-ignore-re = [
 ]
 
 [tool.typos.default.extend-words]
+aer = "aer"
 optin = "optin"
 
 
@@ -312,6 +314,7 @@ filterwarnings = [
 ]
 log_level = "INFO"
 markers = [
+  "simulator: local Quantum System API checks (requires --simulator-url)",
   "integration: offline native ABI and loopback transport tests (run in a separate process)",
   "ci: repository workflow and tooling tests",
   "live: IBM metadata requests (requires --run-live)",
