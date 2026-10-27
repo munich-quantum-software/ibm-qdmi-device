@@ -15,7 +15,6 @@ releases may include breaking changes.
 - ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
   ([#92]) ([**@burgholzer**])
 - 📝 Consolidate usage and development guidance. ([#92]) ([**@burgholzer**])
-
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
