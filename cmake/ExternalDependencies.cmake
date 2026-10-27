@@ -71,7 +71,6 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
       find_package(OpenSSL 3 REQUIRED)
     endif()
     set(BUILD_CURL_EXE OFF)
-    set(BUILD_TESTING OFF)
     set(CURL_DISABLE_INSTALL ON)
     foreach(
       PROTOCOL
@@ -109,7 +108,7 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(CPR_CURL_NOSIGNAL ON)
   set(BUILD_SHARED_LIBS OFF)
   set(ZLIB_COMPAT ON)
-  set(ZLIB_ENABLE_TESTS OFF)
+  set(BUILD_TESTING OFF)
   FetchContent_Declare(
     zlib
     URL https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz

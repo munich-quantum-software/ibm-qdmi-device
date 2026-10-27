@@ -113,7 +113,7 @@ std::vector<Register> qpyRegisters(const std::string& program,
     } catch (const nlohmann::json::type_error&) {
       throw Failure{QDMI_ERROR_INVALIDARGUMENT};
     }
-    if (type == "c" && inCircuit != 0) {
+    if (type == "c") {
       require(size > 0 && size <= bits - next && names.insert(name).second,
               QDMI_ERROR_NOTSUPPORTED);
       for (std::uint64_t bit = 0; bit < size; ++bit) {
@@ -145,6 +145,7 @@ std::string encodeQpy(const std::string& program) {
                    static_cast<uLong>(program.size())) == Z_OK,
           QDMI_ERROR_FATAL);
   std::string encoded;
+  encoded.reserve((size + 2) / 3 * 4);
   for (std::size_t index = 0; index < size; index += 3) {
     const auto remaining = size - index;
     const std::uint32_t word =
