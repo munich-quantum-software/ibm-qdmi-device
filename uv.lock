@@ -803,7 +803,6 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
-    { name = "qiskit-ibm-runtime" },
 ]
 
 [package.metadata]
@@ -845,7 +844,6 @@ test = [
     { name = "pytest-cov", specifier = ">=7.1" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
-    { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
 ]
 
 [[package]]

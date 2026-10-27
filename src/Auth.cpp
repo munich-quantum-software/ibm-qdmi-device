@@ -284,8 +284,8 @@ Response Auth::request(const std::string& resource, bool post,
 }
 
 std::string Auth::get(const std::string& resource, Deadline deadline) {
-  const auto response = request(resource, false, {}, deadline);
+  auto response = request(resource, false, {}, deadline);
   checkResponse(response);
-  return response.body;
+  return std::move(response.body);
 }
 } // namespace ibm

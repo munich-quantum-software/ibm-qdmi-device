@@ -64,7 +64,9 @@ Run offline tests by default. Collect coverage without IBM credentials or QPU
 submissions; never spend hardware time to improve coverage. Separate native,
 wheel, documentation, and installed-consumer build directories under `build/`.
 Do not run package builds concurrently in the same build directory. For
-dependency-only setup, use `uv sync --locked --only-group dev`.
+dependency-only setup, use `uv sync --locked --only-group dev`. Keep Runtime
+dependencies out of the shared test group; feature-test sessions install the
+appropriate optional extra.
 
 - Run `uvx nox -s lint` after each completed batch of changes. Inspect formatter
   changes, keep only relevant changes, and rerun the check.

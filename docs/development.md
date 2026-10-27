@@ -82,11 +82,11 @@ Install it in a fresh environment with
 dependency group, and run the integration and package selections separately. The
 package version comes from `project()` in `CMakeLists.txt`.
 
-The native library uses ctypes, so one wheel per platform supports Python 3.11
-and newer. CI builds and tests it with Python 3.13 through cibuildwheel; Nox
-covers the supported Python versions. Windows ARM wheels are built and repaired,
-but optional framework dependencies prevent Python wheel tests there; native
-Windows ARM tests run separately.
+CI builds and tests wheels with Python 3.11–3.15 through cibuildwheel, excluding
+free-threaded interpreters. Wheel tests use the Qiskit and PennyLane adapters;
+the Nox `tests` and `minimums` sessions also exercise the optional Executor SDK.
+Windows ARM wheels are built and repaired, but optional framework dependencies
+prevent Python wheel tests there; native Windows ARM tests run separately.
 
 ## Live IBM metadata
 

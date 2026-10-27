@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <charconv>
 #include <chrono>
-#include <cpr/body.h>
+#include <cpr/body_view.h>
 #include <cpr/connection_pool.h>
 #include <cpr/cprtypes.h>
 #include <cpr/error.h>
@@ -175,18 +175,6 @@ Response send(const Request& request) {
     // Fresh sessions share only this thread's read connections, never cookies.
     thread_local const cpr::ConnectionPool CONNECTIONS;
     client.SetConnectionPool(CONNECTIONS);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_MAXCONNECTS,
-                         4L) != CURLE_OK) {
-      throw Failure{QDMI_ERROR_FATAL};
-    }
-  }
-  // Avoid process-wide signal handler races between concurrent requests.
-  // libcurl exposes this option through its variadic C API and requires a long.
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_NOSIGNAL, 1L) !=
-      CURLE_OK) {
-    throw Failure{QDMI_ERROR_FATAL};
   }
   client.SetUrl(cpr::Url{request.url});
   client.SetTimeout(cpr::Timeout{request.timeout});
@@ -194,28 +182,26 @@ Response send(const Request& request) {
   client.SetRedirect(cpr::Redirect{false});
   client.SetVerifySsl(cpr::VerifySsl{true});
   if (const auto bundle = internal::resolveCaBundle(); !bundle.empty()) {
-    // Set only CAINFO: CPR's SSL options also enable native-root fallback.
+    // Check CA selection errors, which CPR's SSL setter discards.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_CAINFO,
                          bundle.c_str()) != CURLE_OK) {
       throw Failure{QDMI_ERROR_FATAL};
     }
   }
-  cpr::Header headers;
-  headers.insert(request.headers.begin(), request.headers.end());
-  client.SetHeader(headers);
+  client.SetHeader(cpr::Header{request.headers.begin(), request.headers.end()});
   cpr::Response response;
   if (request.form.empty() && !request.post) {
     response = client.Get();
   } else if (request.form.empty()) {
-    client.SetBody(cpr::Body{request.body});
+    client.SetBodyView(cpr::BodyView{request.body});
     response = client.Post();
   } else {
     cpr::Payload payload{};
     for (const auto& [name, value] : request.form) {
       payload.Add(cpr::Pair{name, value});
     }
-    client.SetPayload(payload);
+    client.SetPayload(std::move(payload));
     response = client.Post();
   }
   return {

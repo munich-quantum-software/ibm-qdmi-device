@@ -30,8 +30,6 @@ releases may include breaking changes.
   aggregate. ([#92]) ([**@burgholzer**])
 - 👷 Check IBM metadata automatically in trusted CI. ([#92])
   ([**@burgholzer**])
-- 👷 Build one Python-independent wheel per platform. ([#92])
-  ([**@burgholzer**])
 - ♻️ Remove the offloader, worker commands, and application examples; refer to
   MQT Core for shared QDMI and Slurm workflows. ([#92]) ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])

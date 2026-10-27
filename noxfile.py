@@ -77,6 +77,7 @@ def _run_tests(
     run_args = [
         "uv",
         "run",
+        "--no-editable",
         "--no-dev",
         "--group",
         "test",
@@ -95,7 +96,7 @@ def _run_tests(
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, default=True)
 def tests(session: nox.Session) -> None:
     """Run the test suite."""
-    _run_tests(session)
+    _run_tests(session, install_args=("--extra", "executor"))
 
 
 @nox.session(python="3.14", reuse_venv=True)
@@ -110,7 +111,7 @@ def minimums(session: nox.Session) -> None:
     with preserve_lockfile():
         _run_tests(
             session,
-            install_args=["--resolution=lowest-direct"],
+            install_args=["--extra", "executor", "--resolution=lowest-direct"],
             pytest_run_args=["-Wdefault"],
         )
         env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
