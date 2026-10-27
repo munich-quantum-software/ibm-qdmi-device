@@ -12,6 +12,10 @@ releases may include breaking changes.
 
 ### Changed
 
+- ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
+  ([#92]) ([**@burgholzer**])
+- 📝 Consolidate usage and development guidance. ([#92]) ([**@burgholzer**])
+
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
@@ -68,6 +72,8 @@ _This is the initial release of the IBM QDMI Device._
   ([**@marcelwa**])
 
 <!-- PR links -->
+
+[#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
