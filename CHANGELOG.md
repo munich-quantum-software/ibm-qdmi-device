@@ -73,7 +73,6 @@ _This is the initial release of the IBM QDMI Device._
 <!-- PR links -->
 
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
-
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
