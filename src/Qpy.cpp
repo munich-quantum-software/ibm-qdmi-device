@@ -103,6 +103,9 @@ std::vector<Register> qpyRegisters(const std::string& program,
     const auto length = reader.integer(2);
     const auto inCircuit = reader.integer(1);
     require(inCircuit <= 1);
+    // shortcut: Reject aliases until result decoding preserves overlapping
+    // registers.
+    require(type != "c" || inCircuit != 0, QDMI_ERROR_NOTSUPPORTED);
     const std::string name(reader.take(length));
     require(!name.empty() && name.find('\0') == std::string::npos);
     try {

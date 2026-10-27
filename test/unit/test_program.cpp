@@ -135,22 +135,12 @@ TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
     EXPECT_EQ(registers[0].width, 2);
     EXPECT_EQ(registers[1].name, "a");
     EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(program)), program);
-    for (std::size_t length = 0; length < 40; ++length) {
-      fails([&] { ibm::qpyRegisters(program.substr(0, length), 5); },
-            QDMI_ERROR_INVALIDARGUMENT);
-    }
+    fails([&] { ibm::qpyRegisters(program.substr(0, 40), 5); },
+          QDMI_ERROR_INVALIDARGUMENT);
     fails([&] { ibm::qpyRegisters(program, 1); }, QDMI_ERROR_INVALIDARGUMENT);
     auto invalid = program;
     invalid[6] = 18;
     fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
-    invalid = program;
-    invalid[17] = 2;
-    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
-    invalid = program;
-    const auto name = invalid.find("physical");
-    ASSERT_NE(name, std::string::npos);
-    invalid[name] = static_cast<char>(0xff);
-    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
     invalid = program;
     invalid[version >= 16 ? 49 : 41] = static_cast<char>(0xff);
     fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);

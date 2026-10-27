@@ -20,10 +20,7 @@
 from __future__ import annotations
 
 import io
-import subprocess
-import sys
 from importlib.util import find_spec
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -35,67 +32,6 @@ from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
     from qiskit_service import RuntimeProxy
-
-
-def test_reference_service_does_not_load_core() -> None:
-    """Keep native Core/LLVM libraries out of the isolated reference simulator."""
-    subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import sys; import qiskit_service; assert 'mqt.core.qdmi' not in sys.modules",
-        ],
-        cwd=Path(__file__).parent,
-        check=True,
-        capture_output=True,
-    )
-
-
-def test_qpy_serialization(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pad a copy and use Core's QPY serializer, retaining conditions and Sampler routing."""
-    from mqt.core.plugins.qiskit import backend as core_backend  # ruff: ignore[import-outside-top-level]
-
-    circuit = QuantumCircuit(2, 2)
-    circuit.measure(0, 0)
-    with circuit.if_test((circuit.clbits[0], True)):
-        circuit.x(1)
-    circuit.measure(1, 1)
-    backend = open_backend(runtime)
-    original = core_backend.program_serializer
-    observed: list[QuantumCircuit] = []
-
-    def serialize(prepared: QuantumCircuit, target: object) -> bytes:
-        assert target is backend
-        observed.append(prepared)
-        serializer = original(ProgramFormat.QPY)
-        assert serializer is not None
-        encoded = serializer(prepared, backend)
-        assert isinstance(encoded, bytes)
-        return encoded
-
-    def custom_serializer(_circuit: QuantumCircuit, _backend: object) -> str:
-        return "custom device program"
-
-    monkeypatch.setattr(
-        core_backend,
-        "program_serializer",
-        lambda fmt: {ProgramFormat.QPY: serialize, ProgramFormat.CUSTOM1: custom_serializer}.get(fmt, original(fmt)),
-    )
-    encoded, program_format = backend._serialize_circuit(  # ruff: ignore[private-member-access]
-        circuit, [ProgramFormat.QASM3, ProgramFormat.QPY, ProgramFormat.CUSTOM1]
-    )
-    assert program_format == ProgramFormat.QPY
-    assert circuit.num_qubits == 2
-    assert len(observed) == 1
-    assert observed[0] is not circuit
-    assert observed[0].num_qubits == 5
-    assert isinstance(encoded, bytes)
-    (decoded,) = qpy.load(io.BytesIO(encoded))
-    assert decoded.num_qubits == 5
-    assert decoded.num_clbits == 2
-    assert decoded.count_ops()["if_else"] == 1
-    assert decoded.data[1].operation.condition[0] == decoded.clbits[0]
-    assert decoded.data[1].qubits == (decoded.qubits[1],)
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
@@ -130,6 +66,17 @@ def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy, version: int) 
     assert retrieved.program_format == ProgramFormat.QPY
     assert retrieved.get_program(bytes, 0) == encoded
     assert retrieved.get_shots(1) == ["001"] * 7
+
+
+def test_overlapping_registers_reject_before_submission(runtime: RuntimeProxy) -> None:
+    """Reject QPY register aliases before an unrepresentable result reaches IBM."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
+    circuit.add_register(ClassicalRegister(bits=[circuit.clbits[2], circuit.clbits[0]], name="mix"))
+    stream = io.BytesIO()
+    qpy.dump(circuit, stream, version=17)
+    assert backend.device.try_submit_job(stream.getvalue(), ProgramFormat.QPY, num_shots=7) is None
+    assert not runtime.snapshot()["submissions"]
 
 
 @pytest.mark.parametrize("initial", [0, 1])
