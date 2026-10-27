@@ -51,14 +51,16 @@ couplings.
 ## IBM gate support
 
 PennyLane decomposes operations into the advertised native basis. The IBM
-adapter expresses single-qubit rotations using SX and RZ while preserving
-parameters for differentiation; this includes Hadamard, RX, and RY gates. Native
-ECR and RZZ remain native when the backend advertises their signatures and
-placements. CNOT decomposes into CZ or ECR when CX is unavailable. Bound RZZ
-angles, including parameter-shift circuits, are folded into IBM's calibrated
-range with equivalent single-qubit corrections. Incompatible operations or
-placements fail before submission. The adapter retains MQT Core's error and
-cancellation handling; unknown submission outcomes are never retried.
+adapter emits native `id`, `x`, `sx`, `rz`, `cx`, `cz`, `ecr`, and `rzz` gates;
+other native spellings fail before submission. It expresses single-qubit
+rotations using SX and RZ while preserving parameters for differentiation; this
+includes Hadamard, RX, and RY gates. Native ECR and RZZ remain native when the
+backend advertises their signatures and placements. CNOT decomposes into CZ or
+ECR when CX is unavailable. Bound RZZ angles, including parameter-shift
+circuits, are folded into IBM's calibrated range with equivalent single-qubit
+corrections. Incompatible operations or placements fail before submission. The
+adapter retains MQT Core's error and cancellation handling; unknown submission
+outcomes are never retried.
 
 The adapter forwards compatible custom job settings through `job_parameters`;
 the native parameter contracts are documented in {doc}`api`. MQT Core 4's Python

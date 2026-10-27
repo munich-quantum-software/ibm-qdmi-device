@@ -115,14 +115,21 @@ template <class Function> void expectFailure(Function&& function, int status) {
 TEST(Http, MapsFailuresWithoutServerText) {
   for (const auto& [status, expected, diagnostic] :
        std::vector<std::tuple<std::int32_t, int, IBM_QDMI_Diagnostic>>{
-           {401, QDMI_ERROR_PERMISSIONDENIED,
-            IBM_QDMI_DIAGNOSTIC_AUTHENTICATION},
-           {403, QDMI_ERROR_PERMISSIONDENIED,
-            IBM_QDMI_DIAGNOSTIC_AUTHENTICATION},
+           {
+               401,
+               QDMI_ERROR_PERMISSIONDENIED,
+               IBM_QDMI_DIAGNOSTIC_AUTHENTICATION,
+           },
+           {
+               403,
+               QDMI_ERROR_PERMISSIONDENIED,
+               IBM_QDMI_DIAGNOSTIC_AUTHENTICATION,
+           },
            {404, QDMI_ERROR_NOTFOUND, IBM_QDMI_DIAGNOSTIC_NOT_FOUND},
            {429, QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_RATE_LIMIT},
            {500, QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_SERVICE},
-           {302, QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_SERVICE}}) {
+           {302, QDMI_ERROR_FATAL, IBM_QDMI_DIAGNOSTIC_SERVICE},
+       }) {
     try {
       ibm::checkResponse({.status = status, .body = "private response"});
       FAIL() << "Expected a QDMI failure";

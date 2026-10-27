@@ -45,11 +45,13 @@ void require(bool condition, int code = QDMI_ERROR_FATAL) {
   }
 }
 nlohmann::json defaultDynamicalDecoupling() {
-  return {{"enable", false},
-          {"sequence_type", "XX"},
-          {"extra_slack_distribution", "middle"},
-          {"scheduling_method", "alap"},
-          {"skip_reset_qubits", false}};
+  return {
+      {"enable", false},
+      {"sequence_type", "XX"},
+      {"extra_slack_distribution", "middle"},
+      {"scheduling_method", "alap"},
+      {"skip_reset_qubits", false},
+  };
 }
 bool identifier(const std::string& text) {
   return !text.empty() && text.size() <= 255 &&
@@ -97,7 +99,7 @@ std::string bitstring(const std::string& sample, std::size_t width) {
                            .find(static_cast<char>(std::tolower(
                                static_cast<unsigned char>(character))));
     require(value != std::string::npos);
-    for (int shift = 3; shift >= 0; --shift) {
+    for (const auto shift : {3U, 2U, 1U, 0U}) {
       bits += ((value >> shift) & 1U) != 0 ? '1' : '0';
     }
   }
@@ -256,15 +258,26 @@ void Job::submit() {
       {"program_id", "sampler"},
       {"backend", backend},
       {"cost", maxExecutionTime},
-      {"params",
-       {{"version", 2},
-        {"support_qiskit", false},
-        {"pubs", nlohmann::json::array()},
-        {"options",
-         {{"execution", {{"meas_type", "classified"}}},
-          {"dynamical_decoupling", dynamicalDecoupling},
-          {"twirling",
-           {{"enable_gates", false}, {"enable_measure", false}}}}}}}};
+      {
+          "params",
+          {
+              {"version", 2},
+              {"support_qiskit", false},
+              {"pubs", nlohmann::json::array()},
+              {
+                  "options",
+                  {
+                      {"execution", {{"meas_type", "classified"}}},
+                      {"dynamical_decoupling", dynamicalDecoupling},
+                      {
+                          "twirling",
+                          {{"enable_gates", false}, {"enable_measure", false}},
+                      },
+                  },
+              },
+          },
+      },
+  };
   if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     payload["program_id"] = "executor";
     payload["params"] = nlohmann::json::parse(programs.front());

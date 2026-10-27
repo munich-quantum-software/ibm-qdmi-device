@@ -24,9 +24,13 @@ releases may include breaking changes.
   for review. ([#92]) ([**@burgholzer**])
 - 👷 Separate native coverage from Python test coverage uploads. ([#92])
   ([**@burgholzer**])
-- 👷 Lint whole changed files on PRs and all files on `main`. ([#92])
+- 👷 Use Clang 23 to lint whole changed files on PRs and all files on `main`.
+  ([#92]) ([**@burgholzer**])
+- 👷 Use shared native CI workflows with MSVC on Windows and one check
+  aggregate. ([#92]) ([**@burgholzer**])
+- 👷 Check IBM metadata automatically in trusted CI. ([#92])
   ([**@burgholzer**])
-- 👷 Use shared native CI workflows and one offline check aggregate. ([#92])
+- 👷 Build one Python-independent wheel per platform. ([#92])
   ([**@burgholzer**])
 - ♻️ Remove the offloader, worker commands, and application examples; refer to
   MQT Core for shared QDMI and Slurm workflows. ([#92]) ([**@burgholzer**])
@@ -35,6 +39,10 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Build Windows Debug binaries with embedded debug information. ([#92])
+  ([**@burgholzer**])
+- 🐛 Use the PennyLane adapter without requiring Qiskit. ([#92])
+  ([**@burgholzer**])
 - 🐛 Select OpenSSL 3 when building Linux wheels. ([#92])
   ([**@burgholzer**])
 - 🐛 Create the documentation output directory before running Doxygen. ([#92])

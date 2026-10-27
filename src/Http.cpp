@@ -112,8 +112,8 @@ internal::parseRetryAfter(const std::string& value) {
       (error == std::errc{} || error == std::errc::result_out_of_range)) {
     if (error == std::errc::result_out_of_range ||
         seconds >
-            static_cast<std::uint64_t>((Milliseconds::max)().count() / 1000)) {
-      return (Milliseconds::max)();
+            static_cast<std::uint64_t>(Milliseconds::max().count() / 1000)) {
+      return Milliseconds::max();
     }
     return Milliseconds{static_cast<Milliseconds::rep>(seconds * 1000)};
   }
@@ -122,29 +122,32 @@ internal::parseRetryAfter(const std::string& value) {
     return std::nullopt;
   }
   const auto secondsUntil =
-      (std::max)(0.0, std::difftime(date, std::time(nullptr)));
+      std::max(0.0, std::difftime(date, std::time(nullptr)));
   const auto maximumSeconds =
-      std::chrono::duration_cast<std::chrono::seconds>((Milliseconds::max)())
+      std::chrono::duration_cast<std::chrono::seconds>(Milliseconds::max())
           .count();
   if (secondsUntil >= static_cast<double>(maximumSeconds)) {
-    return (Milliseconds::max)();
+    return Milliseconds::max();
   }
   return std::chrono::duration_cast<Milliseconds>(
       std::chrono::duration<double>{secondsUntil});
 }
 
 internal::Hooks& internal::hooks() {
-  static Hooks value{.sleepUntil = [](auto deadline) {
-    std::this_thread::sleep_until(deadline);
-  }};
+  static Hooks value{
+      .sleepUntil =
+          [](auto deadline) { std::this_thread::sleep_until(deadline); },
+  };
   return value;
 }
 
 bool validEndpoint(const std::string& url) {
+  constexpr auto flags = CURLU_DISALLOW_USER; // NOLINT(bugprone-signed-bitwise)
+                                              // -- libcurl flag macro
   const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(
       curl_url(), curl_url_cleanup);
   if (!parsed || curl_url_set(parsed.get(), CURLUPART_URL, url.c_str(),
-                              CURLU_DISALLOW_USER) != CURLUE_OK) {
+                              flags) != CURLUE_OK) {
     return false;
   }
   const auto part = [&](CURLUPart field) {
@@ -215,19 +218,20 @@ Response send(const Request& request) {
     client.SetPayload(payload);
     response = client.Post();
   }
-  return {.status = static_cast<std::int32_t>(response.status_code),
-          .body = std::move(response.text),
-          .timedOut = response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT,
-          .failed = response.error.code != cpr::ErrorCode::OK,
-          .transient =
-              response.error.code == cpr::ErrorCode::COULDNT_CONNECT ||
-              response.error.code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
-              response.error.code == cpr::ErrorCode::SEND_ERROR ||
-              response.error.code == cpr::ErrorCode::RECV_ERROR ||
-              response.error.code == cpr::ErrorCode::GOT_NOTHING ||
-              response.error.code == cpr::ErrorCode::PARTIAL_FILE,
-          .retryAfter =
-              internal::parseRetryAfter(response.header["Retry-After"])};
+  return {
+      .status = static_cast<std::int32_t>(response.status_code),
+      .body = std::move(response.text),
+      .timedOut = response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT,
+      .failed = response.error.code != cpr::ErrorCode::OK,
+      .transient =
+          response.error.code == cpr::ErrorCode::COULDNT_CONNECT ||
+          response.error.code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
+          response.error.code == cpr::ErrorCode::SEND_ERROR ||
+          response.error.code == cpr::ErrorCode::RECV_ERROR ||
+          response.error.code == cpr::ErrorCode::GOT_NOTHING ||
+          response.error.code == cpr::ErrorCode::PARTIAL_FILE,
+      .retryAfter = internal::parseRetryAfter(response.header["Retry-After"]),
+  };
 }
 
 void checkResponse(const Response& response) {

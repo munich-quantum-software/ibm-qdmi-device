@@ -92,9 +92,10 @@ bool name(const std::string& token) {
 
 void expression(const std::vector<std::string>& tokens, std::size_t& cursor,
                 const std::set<std::string>& parameters = {}) {
-  const std::set<std::string> constants{"pi",   "tau",    "euler",  "sin",
-                                        "cos",  "tan",    "exp",    "ln",
-                                        "sqrt", "arccos", "arcsin", "arctan"};
+  const std::set<std::string> constants{
+      "pi",  "tau", "euler", "sin",    "cos",    "tan",
+      "exp", "ln",  "sqrt",  "arccos", "arcsin", "arctan",
+  };
   int depth = 0;
   do {
     require(cursor < tokens.size());
@@ -156,7 +157,8 @@ void gateDefinition(const std::vector<std::string>& tokens, std::size_t& cursor,
       "input",   "output", "const",  "let",    "int",  "uint",
       "float",   "angle",  "bool",   "array",  "if",   "while",
       "for",     "switch", "def",    "extern", "gate", "defcal",
-      "delay",   "box",    "pragma", "return", "end",  "include"};
+      "delay",   "box",    "pragma", "return", "end",  "include",
+  };
   while (peek() != "}") {
     require(name(peek()) && !forbidden.contains(peek()),
             QDMI_ERROR_NOTSUPPORTED);
@@ -244,7 +246,8 @@ std::vector<Register> outputRegisters(const std::string& program,
         "input", "output", "const",  "let",    "int",  "uint",
         "float", "angle",  "bool",   "array",  "if",   "while",
         "for",   "switch", "def",    "extern", "gate", "defcal",
-        "delay", "box",    "pragma", "return", "end"};
+        "delay", "box",    "pragma", "return", "end",
+    };
     require(!unsupported.contains(first), QDMI_ERROR_NOTSUPPORTED);
     std::size_t offset = 0;
     const auto reference = [&](bool quantum) {

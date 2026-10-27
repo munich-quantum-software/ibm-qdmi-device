@@ -5,7 +5,10 @@
       "name": "base",
       "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}"
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>"
+      }
     },
     {
       "name": "debug",
@@ -15,18 +18,14 @@
       }
     },
     {
+      "name": "lint",
+      "inherits": "debug"
+    },
+    {
       "name": "release",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "release-clang",
-      "inherits": "release",
-      "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang-cl",
-        "CMAKE_CXX_COMPILER": "clang-cl"
       }
     }
   ],
@@ -38,10 +37,6 @@
     {
       "name": "release",
       "configurePreset": "release"
-    },
-    {
-      "name": "release-clang",
-      "configurePreset": "release-clang"
     }
   ],
   "testPresets": [
@@ -58,16 +53,6 @@
     {
       "name": "release",
       "configurePreset": "release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "timeout": 600
-      }
-    },
-    {
-      "name": "release-clang",
-      "configurePreset": "release-clang",
       "output": {
         "outputOnFailure": true
       },

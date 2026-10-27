@@ -11,8 +11,9 @@ uv sync --locked --only-group dev
 Use separate directories under `build/` for native, wheel, documentation, and
 installed-package builds. Run package builds sequentially within a checkout. Nox
 installs each session's dependency groups and builds the package as needed.
-Tests use synthetic data and local simulators; live checks require the explicit
-opt-ins below. Dependency installation requires network access.
+Local tests use synthetic data and simulators; live checks require the explicit
+flags below. CI also checks read-only IBM metadata. Dependency installation
+requires network access.
 
 ## Native checks
 
@@ -81,26 +82,29 @@ Install it in a fresh environment with
 dependency group, and run the integration and package selections separately. The
 package version comes from `project()` in `CMakeLists.txt`.
 
-CI tests platform wheels with cibuildwheel. Windows ARM wheels are built and
-repaired, but optional framework dependencies prevent Python wheel tests there;
-native Windows ARM tests run separately.
+The native library uses ctypes, so one wheel per platform supports Python 3.11
+and newer. CI builds and tests it with Python 3.13 through cibuildwheel; Nox
+covers the supported Python versions. Windows ARM wheels are built and repaired,
+but optional framework dependencies prevent Python wheel tests there; native
+Windows ARM tests run separately.
 
 ## Live IBM metadata
 
-Live access requires explicit authorization. The metadata workflow checks
-`ibm_berlin` and `ibm_aachen` without submitting jobs. Dispatch it from merged
-`main`, selecting `both` or one backend:
+CI checks `ibm_berlin` and `ibm_aachen` metadata on same-repository PRs, merge
+queues, and `main`. These read-only requests submit no jobs and consume no
+[QPU time](https://quantum.cloud.ibm.com/docs/en/guides/estimate-job-run-time).
+Fork PRs receive no credentials. The workflow can also be dispatched on `main`:
 
 ```console
-gh workflow run live-metadata.yml --ref main -f backend=both
+gh workflow run live-metadata.yml --ref main
 ```
 
 The `ibm-quantum` environment supplies `IBM_QUANTUM_API_KEY` and
 `IBM_QUANTUM_INSTANCE_CRN` only to the live step after package installation. The
-library derives the API region from the CRN. Runs are sequential, have a
-15-minute timeout, and are never retried automatically.
+library derives the API region from the CRN. Each run checks the backends
+sequentially, has a 15-minute timeout, and is never retried automatically.
 
-For an authorized local run, supply those variables securely and run:
+For a local metadata check, supply those variables securely and run:
 
 ```console
 uvx nox -s live-metadata -- both
@@ -129,11 +133,11 @@ PRs remain offline. Main pushes and ordinary PR updates never run hardware.
 gh workflow run hardware.yml --ref main
 ```
 
-The `ibm-quantum` environment allows `main` and `refs/pull/*/merge` for PR
-checks. Keep its protection rules enabled. Each request runs native CTest, then
-builds and installs a candidate wheel. Its offline package and ABI tests must
-pass before hardware validation uses that same installation. Secrets are
-available only during the final test step.
+The `ibm-quantum` environment allows `main`, `refs/pull/*/merge`, and
+`gh-readonly-queue/main/*`. Keep its protection rules enabled. Each request runs
+native CTest, then builds and installs a candidate wheel. Its offline package
+and ABI tests must pass before hardware validation uses that same installation.
+Secrets are available only during the final test step.
 
 Adding the label starts one fresh validation of the PR merge commit. Keeping the
 label does not opt later commits into hardware checks. To request another run,
@@ -179,9 +183,9 @@ metadata, lockfile checks, workflow security, Ruff, and ty. Inspect automatic
 edits and rerun until clean. Check untracked files with
 `uvx prek run --files <paths>`.
 
-For C++, reproduce `.github/workflows/cpp-linter.yml` using its Clang version
-and a Ninja compilation database. Run clang-format and clang-tidy on every line
-of each changed file, including tests.
+For C++, use Clang 23 and the `lint` CMake preset to generate a Ninja
+compilation database. The shared linter in `.github/workflows/ci.yml` runs
+clang-format and clang-tidy on every line of each changed file, including tests.
 
 ## Documentation
 
@@ -202,8 +206,9 @@ the build. Edit public header comments and Python docstrings for API references.
 CI covers native and Python tests, installation, sanitizers, coverage, lint, and
 source and wheel distributions. The `🚦 Check` aggregate rejects failed or
 cancelled prerequisites. PRs use change detection; `main` runs the full offline
-suite. Hardware validation runs independently. The main ruleset also requires
-`pre-commit.ci - pr` and the Read the Docs preview before merging.
+suite. Metadata checks run on every trusted CI run. Hardware validation runs
+independently. The main ruleset also requires `pre-commit.ci - pr` and the Read
+the Docs preview before merging.
 
 Read the Docs publishes PR previews and `latest` from `main` using the strict
 documentation session. Release workflows attest and publish distributions to

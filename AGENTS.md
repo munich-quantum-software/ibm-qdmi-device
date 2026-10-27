@@ -68,9 +68,9 @@ dependency-only setup, use `uv sync --locked --only-group dev`.
 
 - Run `uvx nox -s lint` after each completed batch of changes. Inspect formatter
   changes, keep only relevant changes, and rerun the check.
-- For C++ changes, reproduce `.github/workflows/cpp-linter.yml` against every
-  line of each changed file. Report existing diagnostics rather than hiding them
-  with broad suppressions.
+- For C++ changes, use the shared Clang 23 linter configured in
+  `.github/workflows/ci.yml` against every line of each changed file. Report
+  existing diagnostics rather than hiding them with broad suppressions.
 - Run focused Python tests with `uvx nox -s tests-3.14 -- <test path>`. Use
   `uvx nox -s tests minimums` for the supported Python matrix.
 - Use Google-style Python docstrings. Preserve the `ibm.qdmi` namespace. Fix
@@ -80,12 +80,12 @@ dependency-only setup, use `uv sync --locked --only-group dev`.
 ### Live Access
 
 Never print, store, or commit credentials, tokens, account identifiers, or
-private backend details. Live IBM access requires explicit authorization for the
-service, backend, and spending scope. The opt-in metadata checks submit no jobs.
-The manual metadata workflow runs from merged `main` in the branch-restricted
-`ibm-quantum` environment. Never dispatch from a PR or merge to enable a live
-run without human approval. Keep credentials confined to the live test step,
-after wheel installation. Follow `docs/development.md` for commands.
+private backend details. CI checks read-only metadata on Berlin and Aachen for
+same-repository PRs, merge queues, and `main`, using the `ibm-quantum`
+environment. Metadata requests submit no jobs and consume no QPU time. Fork PRs
+receive no credentials. Keep credentials confined to the live test step after
+wheel installation. Local tests remain offline unless `--run-live` is explicit;
+follow `docs/development.md` for commands.
 
 Keep live tests marked `live` and skipped before credential access unless
 `--run-live` is explicit. Preserve sequential execution and fixed diagnostic

@@ -5,7 +5,6 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   merge_group:
-  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -79,11 +78,8 @@ jobs:
         include:
           - runs-on: windows-2025
             preset: debug
-          - runs-on: windows-2025
-            preset: release-clang
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-cpp-tests-windows.yml@a4b4977405c7685f95e127cdb6db396bbadce787 # v2.5.5
     with:
-      compiler: ${{ matrix.preset == 'release-clang' && 'clang' || 'msvc' }}
       runs-on: ${{ matrix.runs-on }}
       preset-name: ${{ matrix.preset }}
 
@@ -115,9 +111,11 @@ jobs:
     name: 🇨 Lint
     needs: change-detection
     if: fromJSON(needs.change-detection.outputs.run-cpp-linter)
-    uses: $/.github/workflows/cpp-linter.yml
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-cpp-linter.yml@a4b4977405c7685f95e127cdb6db396bbadce787 # v2.5.5
     with:
-      clang-version: 21
+      clang-version: 23
+      cpp-linter-extra-args: ""
+      cpp-linter-ignore-extra: "!include/**"
       files-changed-only: ${{ github.event_name == 'pull_request' }}
     permissions:
       contents: read
@@ -173,6 +171,14 @@ jobs:
     name: 📚 Documentation
     uses: $/.github/workflows/documentation.yml
 
+  live-metadata:
+    name: IBM metadata
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: $/.github/workflows/live-metadata.yml
+    secrets:
+      IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+      IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
+
   required-checks-pass:
     name: 🚦 Check
     if: always()
@@ -191,6 +197,7 @@ jobs:
       - build-sdist
       - build-wheel
       - documentation
+      - live-metadata
     runs-on: ubuntu-slim
     steps:
       - name: Require successful checks
@@ -202,4 +209,5 @@ jobs:
             ${{ needs.change-detection.outputs.run-python-linter == 'false' && 'python-linter,' || '' }}
             ${{ needs.change-detection.outputs.run-python-tests == 'false' && 'python-tests,python-coverage,' || '' }}
             ${{ needs.change-detection.outputs.run-cd == 'false' && 'build-sdist,build-wheel,' || '' }}
+            ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'live-metadata,' || '' }}
           jobs: ${{ toJSON(needs) }}

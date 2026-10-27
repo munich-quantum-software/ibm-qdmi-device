@@ -36,14 +36,15 @@ HttpStub::HttpStub() : previous(internal::hooks()) {
               ADD_FAILURE() << "Unexpected request: " << request.url;
               return Response{.status = 500, .body = {}};
             }
-            auto expected = std::move(pending.front());
+            const auto expected = std::move(pending.front());
             pending.pop_front();
             EXPECT_TRUE(request.url.ends_with(expected.path)) << request.url;
             EXPECT_EQ(request.post || !request.form.empty(), expected.post);
             return expected.response;
           },
       .now = [this] { return time; },
-      .sleepUntil = [this](auto deadline) { time = deadline; }};
+      .sleepUntil = [this](auto deadline) { time = deadline; },
+  };
 }
 HttpStub::~HttpStub() {
   internal::hooks() = std::move(previous);

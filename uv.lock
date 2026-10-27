@@ -765,7 +765,7 @@ executor = [
     { name = "qiskit-ibm-runtime" },
 ]
 pennylane = [
-    { name = "mqt-core", extra = ["pennylane", "qiskit"] },
+    { name = "mqt-core", extra = ["pennylane"] },
 ]
 qiskit = [
     { name = "mqt-core", extra = ["qiskit"] },
@@ -808,7 +808,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mqt-core", extras = ["pennylane", "qiskit"], marker = "extra == 'pennylane'", specifier = "~=4.1.1" },
+    { name = "mqt-core", extras = ["pennylane"], marker = "extra == 'pennylane'", specifier = "~=4.1.1" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'executor'", specifier = "~=4.1.1" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = "~=4.1.1" },
     { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = "~=0.50.0" },

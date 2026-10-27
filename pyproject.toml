@@ -59,7 +59,7 @@ email = "lukas@mq.sc"
 
 [project.optional-dependencies]
 executor = [ "mqt-core[qiskit]~=4.1.1", "qiskit-ibm-runtime~=0.50.0" ]
-pennylane = [ "mqt-core[pennylane,qiskit]~=4.1.1" ]
+pennylane = [ "mqt-core[pennylane]~=4.1.1" ]
 qiskit = [ "mqt-core[qiskit]~=4.1.1" ]
 
 [project.urls]
@@ -162,8 +162,9 @@ cache-keys = [
 
 
 [tool.cibuildwheel]
-build = "cp3*"
-skip = [ "*-musllinux_*", "cp3??t-*" ]
+# The ctypes library is independent of the Python ABI; build once per platform.
+build = "cp313-*"
+skip = [ "*-musllinux_*" ]
 # Optional framework dependencies do not provide Windows ARM wheels.
 test-skip = [ "*-win_arm64" ]
 archs = "auto64"
@@ -181,13 +182,6 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
 
 [tool.cibuildwheel.windows]
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg ibm"
-
-[[tool.cibuildwheel.overrides]]
-select = "cp315-manylinux_*"
-environment = { PATH = "$HOME/.cargo/bin:$PATH" }
-before-all = "curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
-inherit.before-all = "append"
-inherit.environment = "append"
 
 
 [tool.ruff]

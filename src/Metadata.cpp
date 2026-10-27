@@ -259,7 +259,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
     for (const auto& gate : properties["gates"]) {
       const auto name = gate.at("gate").get<std::string>();
-      auto operation =
+      const auto operation =
           std::ranges::find(result.operations, name, &Operation::name);
       if (operation == result.operations.end()) {
         continue;

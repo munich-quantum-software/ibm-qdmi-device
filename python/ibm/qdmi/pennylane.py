@@ -25,10 +25,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 try:
     import pennylane as qml
-    from mqt.core.plugins.pennylane import PennyLaneConfigurationError
+    from mqt.core.plugins.pennylane import PennyLaneConfigurationError, PennyLaneUnsupportedOperationError
     from mqt.core.plugins.pennylane.device import QDMIDevice
-    from qiskit.circuit import QuantumCircuit
-    from qiskit.circuit.library import get_standard_gate_name_mapping
 except ImportError as error:
     msg = "Install 'ibm-qdmi[pennylane]' to use IBMDevice."
     raise ImportError(msg) from error
@@ -41,7 +39,6 @@ from pennylane.transforms.core import BoundTransform
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
-from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
     from collections.abc import Hashable, Sequence
@@ -119,9 +116,12 @@ class _IBMProgramConverter(_ProgramConverter):
 
         Returns:
             IBM-compatible OpenQASM with Core's measurement metadata.
+
+        Raises:
+            PennyLaneUnsupportedOperationError: A native gate has no supported IBM serialization.
         """
-        circuit = QuantumCircuit(len(self._device_wires), len(self._device_wires))
-        gates = get_standard_gate_name_mapping()
+        declarations: dict[str, str] = {}
+        instructions = []
         for operation in tape.operations:
             operations: Sequence[Operator] = [operation]
             if isinstance(operation, qml.IsingZZ):
@@ -130,11 +130,29 @@ class _IBMProgramConverter(_ProgramConverter):
                 operations = _fold_rzz_angle(parameters[0], operation.wires)
             for native_operation in operations:
                 spelling, indices, parameters = self._prepare_operation(native_operation)
-                gate = gates[spelling].to_mutable()
-                gate.params = list(parameters)
-                circuit.append(gate, indices)
-        circuit.measure(range(len(self._device_wires)), range(len(self._device_wires)))
-        return self._program(tape, qiskit_to_qasm3(circuit, self._device.qubits_num()))
+                if spelling not in {"id", "x", "sx", "rz", "cx", "cz", "ecr", "rzz"}:
+                    msg = f"IBM OpenQASM serialization does not support native gate '{spelling}'."
+                    raise PennyLaneUnsupportedOperationError(msg)
+                if spelling == "ecr":
+                    declarations[spelling] = "gate ecr a, b { s a; sx b; cx a, b; x a; }"
+                elif spelling == "rzz":
+                    declarations[spelling] = "gate rzz(theta) a, b { cx a, b; rz(theta) b; cx a, b; }"
+                arguments = f"({', '.join(map(repr, parameters))})" if parameters else ""
+                operands = ", ".join(f"q[{index}]" for index in indices)
+                instructions.append(f"{spelling}{arguments} {operands};")
+        return self._program(
+            tape,
+            "\n".join([
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                *declarations.values(),
+                f"qubit[{self._device.qubits_num()}] q;",
+                f"bit[{len(self._device_wires)}] c0;",
+                *instructions,
+                *(f"c0[{index}] = measure q[{index}];" for index in range(len(self._device_wires))),
+                "",
+            ]),
+        )
 
 
 class IBMDevice(QDMIDevice):

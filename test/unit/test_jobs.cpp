@@ -33,7 +33,7 @@
 #include <vector>
 
 namespace {
-const std::string PROGRAM =
+constexpr auto* PROGRAM =
     "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; "
     "bit[2] z; bit a; x q[1]; z[0] = measure q[1]; a = measure q[0];";
 template <class Function> void fails(Function&& function, int expected) {
@@ -46,12 +46,33 @@ template <class Function> void fails(Function&& function, int expected) {
 }
 nlohmann::json results() {
   return {
-      {"results",
-       nlohmann::json::array(
-           {{{"data",
-              {{"a", {{"samples", {"0x1", "0x0", "0x1"}}, {"num_bits", 1}}},
-               {"z",
-                {{"samples", {"0x1", "0x0", "0x1"}}, {"num_bits", 2}}}}}}})}};
+      {
+          "results",
+          nlohmann::json::array({
+              {
+                  {
+                      "data",
+                      {
+                          {
+                              "a",
+                              {
+                                  {"samples", {"0x1", "0x0", "0x1"}},
+                                  {"num_bits", 1},
+                              },
+                          },
+                          {
+                              "z",
+                              {
+                                  {"samples", {"0x1", "0x0", "0x1"}},
+                                  {"num_bits", 2},
+                              },
+                          },
+                      },
+                  },
+              },
+          }),
+      },
+  };
 }
 struct Service {
   std::vector<std::string> requests;
@@ -64,35 +85,46 @@ struct Service {
   ibm::Response operator()(const ibm::Request& request) {
     requests.push_back(request.url);
     if (!request.form.empty()) {
-      return {.status = 200,
-              .body = R"({"access_token":"synthetic","expires_in":3600})"};
+      return {
+          .status = 200,
+          .body = R"({"access_token":"synthetic","expires_in":3600})",
+      };
     }
     if (request.url.ends_with("/cancel")) {
       return {.status = cancellationStatus, .body = ""};
     }
     if (request.post) {
       submitted = nlohmann::json::parse(request.body);
-      return {.status = submissionStatus,
-              .body = R"({"id":"synthetic-job","backend":"ibm_test"})",
-              .timedOut = loseSubmission};
+      return {
+          .status = submissionStatus,
+          .body = R"({"id":"synthetic-job","backend":"ibm_test"})",
+          .timedOut = loseSubmission,
+      };
     }
     if (request.url.ends_with("/results")) {
       return {.status = 200, .body = output.dump()};
     }
-    return {.status = 200,
-            .body = nlohmann::json{{"id", "synthetic-job"},
-                                   {"backend", "ibm_test"},
-                                   {"state", {{"status", status}}},
-                                   {"program", {{"id", "sampler"}}},
-                                   {"params", submitted.at("params")}}
-                        .dump()};
+    return {
+        .status = 200,
+        .body =
+            nlohmann::json{
+                {"id", "synthetic-job"},
+                {"backend", "ibm_test"},
+                {"state", {{"status", status}}},
+                {"program", {{"id", "sampler"}}},
+                {"params", submitted.at("params")},
+            }
+                .dump(),
+    };
   }
 };
 ibm::Configuration configuration() {
-  return {.apiKey = "synthetic-key",
-          .backend = "ibm_test",
-          .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
-          .baseUrl = "http://127.0.0.1:1"};
+  return {
+      .apiKey = "synthetic-key",
+      .backend = "ibm_test",
+      .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
+      .baseUrl = "http://127.0.0.1:1",
+  };
 }
 void configure(ibm::Job& job) {
   job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM});
@@ -207,11 +239,13 @@ TEST(Job, ConfiguresDynamicalDecouplingWithoutChangingExecutionLimits) {
     ibm::Job job(auth, "ibm_test", 2);
     configure(job);
     job.maxExecutionTime = 42;
-    const nlohmann::json options{{"enable", true},
-                                 {"sequence_type", sequence},
-                                 {"extra_slack_distribution", "edges"},
-                                 {"scheduling_method", "asap"},
-                                 {"skip_reset_qubits", true}};
+    const nlohmann::json options{
+        {"enable", true},
+        {"sequence_type", sequence},
+        {"extra_slack_distribution", "edges"},
+        {"scheduling_method", "asap"},
+        {"skip_reset_qubits", true},
+    };
     job.setDynamicalDecoupling(options.dump());
     EXPECT_TRUE(service.requests.empty());
     job.submit();
@@ -234,13 +268,26 @@ TEST(Job, ValidatesAndReplacesDynamicalDecouplingAtomically) {
   job.setDynamicalDecoupling(
       R"({"enable":true,"sequence_type":"XY4","skip_reset_qubits":true})");
   job.setDynamicalDecoupling(R"({"enable":true})");
-  for (const auto* invalid :
-       {"", "{", "[]", "null", "true", "42", R"("XX")", R"({"unknown":true})",
-        R"({"enable":1})", R"({"enable":"true"})",
-        R"({"skip_reset_qubits":null})", R"({"sequence_type":"xx"})",
-        R"({"sequence_type":true})", R"({"extra_slack_distribution":"center"})",
-        R"({"extra_slack_distribution":[]})", R"({"scheduling_method":"ALAP"})",
-        R"({"scheduling_method":0})", R"({"enable":false,"invalid":true})"}) {
+  for (const auto* invalid : {
+           "",
+           "{",
+           "[]",
+           "null",
+           "true",
+           "42",
+           R"("XX")",
+           R"({"unknown":true})",
+           R"({"enable":1})",
+           R"({"enable":"true"})",
+           R"({"skip_reset_qubits":null})",
+           R"({"sequence_type":"xx"})",
+           R"({"sequence_type":true})",
+           R"({"extra_slack_distribution":"center"})",
+           R"({"extra_slack_distribution":[]})",
+           R"({"scheduling_method":"ALAP"})",
+           R"({"scheduling_method":0})",
+           R"({"enable":false,"invalid":true})",
+       }) {
     fails([&] { job.setDynamicalDecoupling(invalid); },
           QDMI_ERROR_INVALIDARGUMENT);
   }
@@ -310,7 +357,8 @@ TEST(Auth, DeadlineIncludesRefreshAndBackendRequest) {
             .status = 200,
             .body = request.form.empty()
                         ? "{}"
-                        : R"({"access_token":"synthetic","expires_in":3600})"};
+                        : R"({"access_token":"synthetic","expires_in":3600})",
+        };
       },
       [&] { return now; });
   (void)auth.get("/v1/jobs/synthetic", deadline);
