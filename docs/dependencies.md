@@ -6,12 +6,10 @@ are configured in CMake.
 ## Native dependencies
 
 [ExternalDependencies.cmake](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/cmake/ExternalDependencies.cmake)
-configures QDMI headers, nlohmann/json, CPR, and GoogleTest. CPR is fetched with
-its bundled curl; GoogleTest is required only when native tests are enabled.
-
-The default build uses static CPR and curl dependencies. Linux builds require
-OpenSSL development headers; macOS wheels use Apple's native TLS backend.
-GoogleTest is not installed with the device. See
+configures QDMI headers, nlohmann/json, CPR, and GoogleTest. The build fetches
+static CPR, uses SDK curl on macOS, and fetches curl elsewhere. Linux builds
+require OpenSSL development headers. GoogleTest is required only for native
+tests and is not installed with the device. See
 [installation](installation.md#building-from-source) for the runtime and
 development components and [development](development.md#python-checks) for wheel
 builds.
