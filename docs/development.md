@@ -226,4 +226,6 @@ Read the Docs publishes PR previews and `latest` from `main` using the strict
 documentation session. Release workflows attest and publish distributions to
 PyPI through trusted publishing after a GitHub release. The `pypi` environment
 permits `v*` tags; manual CD runs only build artifacts. Coverage uploads to
-Codecov use OpenID Connect.
+Codecov use OpenID Connect. Native coverage combines CTest and the offline
+transport tests; Python coverage reuses the reports from the Python test
+sessions.

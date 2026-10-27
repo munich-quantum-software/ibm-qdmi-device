@@ -22,6 +22,10 @@ releases may include breaking changes.
   validation. ([#92]) ([**@burgholzer**])
 - 👷 Run selected Python sessions for draft PRs and the full range when ready
   for review. ([#92]) ([**@burgholzer**])
+- 👷 Separate native coverage from Python test coverage uploads. ([#92])
+  ([**@burgholzer**])
+- 👷 Lint whole changed files on PRs and all files on `main`. ([#92])
+  ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 

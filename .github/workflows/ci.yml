@@ -45,7 +45,6 @@ jobs:
       additional-python-files: |
         .github/workflows/slurm.yml
         test/slurm/**
-        .github/workflows/cpp-coverage.yml
         test/fixtures/**
         examples/**
         test/examples/**
@@ -144,7 +143,7 @@ jobs:
     uses: $/.github/workflows/cpp-linter.yml
     with:
       clang-version: 21
-      files-changed-only: false
+      files-changed-only: ${{ github.event_name == 'pull_request' && !inputs.run_hardware }}
     permissions:
       contents: read
       pull-requests: write
@@ -165,6 +164,14 @@ jobs:
       runs-on: ubuntu-26.04
       sessions: '["tests", "minimums", "native_tests", "examples", "chemistry"]'
       draft-sessions: ${{ inputs.run_hardware && '["tests", "minimums", "native_tests", "examples", "chemistry"]' || '["tests-3.14", "native_tests"]' }}
+  python-coverage:
+    name: 🐍 Coverage
+    needs: python-tests
+    if: vars.CODECOV_ENABLED == 'true'
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-coverage.yml@a4b4977405c7685f95e127cdb6db396bbadce787 # v2.5.5
+    permissions:
+      contents: read
+      id-token: write
   build-sdist:
     name: 🚀 CD
     needs: change-detection
@@ -238,6 +245,7 @@ jobs:
         cpp-linter,
         python-linter,
         python-tests,
+        python-coverage,
         build-sdist,
         build-wheel,
         documentation,
@@ -269,8 +277,9 @@ jobs:
             }}
             ${{
               !inputs.run_hardware && github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-tests == 'false' && needs.change-detection.outputs.run-cd == 'false'
-              && 'build-sdist,build-wheel,python-tests,' || ''
+              && 'build-sdist,build-wheel,python-tests,python-coverage,' || ''
             }}
+            ${{ vars.CODECOV_ENABLED != 'true' && 'python-coverage,' || '' }}
             ${{ !inputs.run_hardware && 'hardware-request,candidate-wheel,' || '' }}
           jobs: ${{ toJSON(needs) }}
 
