@@ -23,8 +23,7 @@ development package; no QDMI driver library is linked into the device.
 
 Linux wheels bundle OpenSSL; native builds use the installed OpenSSL development
 package. Windows uses Schannel and macOS uses system curl's TLS implementation.
-Bundled libraries' license texts ship with the wheels. Updating a bundled
-library requires rebuilding the wheel.
+Updating a bundled library requires rebuilding the wheel.
 
 ## Python package and integrations
 
@@ -65,14 +64,12 @@ Python dependency groups needed for each session; see
 | [Qiskit Nature]     | ≥0.7.2      | Apache-2.0                 | Chemistry examples; its `pyscf` extra supplies molecular integrals |
 | [Doxygen]           | 1.16.1      | GPL-2.0                    | Native API reference                                               |
 | [Sphinx]            | ≥9          | BSD-2-Clause               | Documentation site                                                 |
-| [Breathe]           | ≥5, <6      | BSD                        | Doxygen-to-Sphinx integration                                      |
 | [MyST-NB]           | ≥1.4        | BSD-3-Clause               | Markdown and executable notebook pages                             |
 | [Furo]              | ≥2025.12.19 | MIT                        | Documentation theme                                                |
 | [Sphinx AutoAPI]    | ≥3.6.1      | MIT                        | Python API reference                                               |
 | [Sphinx Copybutton] | ≥0.5.2      | MIT                        | Code-block copy buttons                                            |
 | [Sphinx Design]     | ≥0.7        | MIT                        | Documentation layout components                                    |
 
-[Breathe]: https://github.com/breathe-doc/breathe
 [build]: https://github.com/pypa/build
 [CPR]: https://github.com/libcpr/cpr
 [cryptography]: https://github.com/pyca/cryptography

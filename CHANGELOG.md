@@ -14,7 +14,14 @@ releases may include breaking changes.
 
 - ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
   ([#92]) ([**@burgholzer**])
-- 📝 Consolidate usage and development guidance. ([#92]) ([**@burgholzer**])
+- 📝 Consolidate usage and development guidance and publish the native API
+  directly with Doxygen. ([#92]) ([**@burgholzer**])
+- 🔧 Simplify package license metadata and configuration. ([#92])
+  ([**@burgholzer**])
+- 👷 Run hardware checks only on explicit requests after fresh offline
+  validation. ([#92]) ([**@burgholzer**])
+- 👷 Run selected Python sessions for draft PRs and the full range when ready
+  for review. ([#92]) ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 

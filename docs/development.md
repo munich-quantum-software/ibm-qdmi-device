@@ -56,6 +56,9 @@ uvx nox -s tests minimums
 Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
 direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
+Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
+minimum-version sessions, examples, and chemistry. Hardware requests always run
+the full offline suite.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 
@@ -124,26 +127,27 @@ Reproduce compatibility failures with synthetic fixtures before fixing them.
 
 ## Gated quantum execution
 
-Hardware checks run after all offline Actions prerequisites succeed on merged
-`main` or same-repository PRs labeled `live-qpu-tests`. Applying this label
-requires human authorization and opts subsequent commits into paid checks. Fork
-PRs remain offline. Pre-commit.ci and Read the Docs guard PR merges; hardware
-execution uses the Actions prerequisites on the tested commit.
+Hardware checks require an explicit, authorized request. Dispatch CI on merged
+`main` with `run_hardware=true`, or add `live-qpu-tests` to a same-repository
+PR. Fork PRs remain offline. Main pushes and ordinary PR updates never run
+hardware. Pre-commit.ci and Read the Docs guard PR merges; hardware execution
+uses fresh Actions prerequisites on the tested commit.
 
-The `ibm-quantum` environment must allow `main` and `refs/pull/*/merge` for PR
-checks. Keep its protection rules enabled. The pipeline tests a candidate wheel
-without credentials and passes that exact artifact to the hardware job. Secrets
-are available only during the final test step.
+```console
+gh workflow run ci.yml --ref main -f run_hardware=true
+```
 
-Adding the label reuses successful offline checks and the retained candidate for
-the exact PR merge commit. The candidate expires after seven days. If CI is
-pending, wait for it; if the candidate expired or the merge commit changed, run
-fresh offline CI before rerunning the label workflow. Successful hardware
-results from the source CI run are reused; pending or failed hardware must be
-handled there. Reapplying the label or rerunning its workflow can incur another
-paid attempt when the source run skipped hardware. Separate label runs do not
-reuse each other's results. Remove the label to stop future hardware runs; this
-does not cancel jobs already submitted.
+The `ibm-quantum` environment allows `main` and `refs/pull/*/merge` for PR
+checks. Keep its protection rules enabled. Each request runs all offline checks,
+tests a candidate wheel without credentials, and passes that exact artifact to
+the hardware job in the same workflow run. Secrets are available only during the
+final test step.
+
+Adding the label starts one fresh validation of the PR merge commit. Keeping the
+label does not opt later commits into hardware checks. To request another run,
+remove and add the label again after authorizing another budget. Workflow and
+individual-job reruns reject hardware execution; they cannot repeat a
+submission. Removing the label does not cancel jobs already submitted.
 
 Each eligible run uses this budget:
 
@@ -203,11 +207,12 @@ uvx nox --non-interactive -s docs
 uvx nox --non-interactive -s docs -- -b linkcheck
 ```
 
-The session builds the package in `build/docs/` and generates Sphinx and Doxygen
-output in `docs/_build/`. Warnings fail the build. Edit public header comments
-and Python docstrings for API references. Notebook cells run only on the local
-simulator and cache successful execution; pass `-- -D nb_execution_mode=force`
-to rerun them all.
+The session builds the package in `build/docs/`, generates the native reference
+with Doxygen, and builds Sphinx pages in `docs/_build/html/`. The native
+reference lives under `cpp/`; Python API pages come from AutoAPI. Warnings fail
+the build. Edit public header comments and Python docstrings for API references.
+Notebook cells run only on the local simulator and cache successful execution;
+pass `-- -D nb_execution_mode=force` to rerun them all.
 
 ## Automation
 

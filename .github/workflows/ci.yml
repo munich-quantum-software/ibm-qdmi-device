@@ -3,12 +3,28 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
   merge_group:
   workflow_dispatch:
+    inputs:
+      run_hardware:
+        description: Run bounded IBM quantum checks after fresh offline validation (main only)
+        type: boolean
+        default: false
+        required: true
+  workflow_call:
+    inputs:
+      run_hardware:
+        type: boolean
+        default: false
+    secrets:
+      IBM_QUANTUM_API_KEY:
+        required: false
+      IBM_QUANTUM_INSTANCE_CRN:
+        required: false
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.action == 'labeled' && github.run_id || github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event.action != 'labeled' }}
 permissions:
   contents: read
 jobs:
@@ -43,7 +59,7 @@ jobs:
   cpp-tests-ubuntu:
     name: 🇨 Test 🐧
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -60,7 +76,7 @@ jobs:
   cpp-tests-macos:
     name: 🇨 Test 🍎
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +93,7 @@ jobs:
   cpp-tests-windows:
     name: 🇨 Test 🏁
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +116,7 @@ jobs:
   cpp-install-tests:
     name: 📦 Install
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     strategy:
       fail-fast: false
       matrix:
@@ -111,12 +127,12 @@ jobs:
   cpp-sanitizers:
     name: 🇨 Sanitizers
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     uses: $/.github/workflows/cpp-sanitizers.yml
   cpp-coverage:
     name: 🇨 Coverage
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests)
     uses: $/.github/workflows/cpp-coverage.yml
     permissions:
       contents: read
@@ -124,7 +140,7 @@ jobs:
   cpp-linter:
     name: 🇨 Lint
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-linter)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-linter)
     uses: $/.github/workflows/cpp-linter.yml
     with:
       clang-version: 21
@@ -135,7 +151,7 @@ jobs:
   python-linter:
     name: 🐍 Lint
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-linter)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-linter)
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-linter.yml@a4b4977405c7685f95e127cdb6db396bbadce787 # v2.5.5
     with:
       enable-ty: true
@@ -143,25 +159,21 @@ jobs:
   python-tests:
     name: 🐍 Test
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          python-version: "3.14"
-      - run: uvx nox -s tests minimums native_tests examples chemistry
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
+    uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-tests.yml@a4b4977405c7685f95e127cdb6db396bbadce787 # v2.5.5
+    with:
+      runs-on: ubuntu-26.04
+      sessions: '["tests", "minimums", "native_tests", "examples", "chemistry"]'
+      draft-sessions: ${{ inputs.run_hardware && '["tests", "minimums", "native_tests", "examples", "chemistry"]' || '["tests-3.14", "native_tests"]' }}
   build-sdist:
     name: 🚀 CD
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     uses: munich-quantum-toolkit/workflows/.github/workflows/reusable-python-packaging-sdist.yml@a4b4977405c7685f95e127cdb6db396bbadce787 # v2.5.5
   build-wheel:
     name: 🚀 CD
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-python-tests) || fromJSON(needs.change-detection.outputs.run-cd)
     strategy:
       fail-fast: false
       matrix:
@@ -179,11 +191,38 @@ jobs:
   slurm-tests:
     name: Slurm
     needs: change-detection
-    if: github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests) || fromJSON(needs.change-detection.outputs.run-python-tests)
+    if: inputs.run_hardware || github.ref == 'refs/heads/main' || fromJSON(needs.change-detection.outputs.run-cpp-tests) || fromJSON(needs.change-detection.outputs.run-python-tests)
     uses: $/.github/workflows/slurm.yml
   documentation:
     name: 📚 Documentation
     uses: $/.github/workflows/documentation.yml
+  hardware-request:
+    name: Validate hardware request
+    if: inputs.run_hardware
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require an authorized first attempt
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [[ "$ATTEMPT" != 1 ]]; then
+            echo "Hardware requests cannot be rerun. Dispatch or apply the label again for a new request." >&2
+            exit 1
+          fi
+          if [[ "$EVENT" == workflow_dispatch && "$REF" == refs/heads/main ]]; then
+            exit 0
+          fi
+          if [[ "$EVENT" == pull_request && "$ACTION" == labeled && "$LABEL" == live-qpu-tests && "$HEAD_REPO" == "$REPOSITORY" ]]; then
+            exit 0
+          fi
+          echo "Hardware requires a main dispatch or the live-qpu-tests label on a same-repository PR." >&2
+          exit 1
   offline-checks-pass:
     name: Offline checks
     if: always()
@@ -203,6 +242,7 @@ jobs:
         build-wheel,
         documentation,
         slurm-tests,
+        hardware-request,
         candidate-wheel,
       ]
     runs-on: ubuntu-slim
@@ -212,29 +252,32 @@ jobs:
         with:
           allowed-skips: >-
             ${{
-              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false'
+              !inputs.run_hardware && github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false'
               && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-install-tests,cpp-sanitizers,cpp-coverage,' || ''
             }}
             ${{
-              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false' && needs.change-detection.outputs.run-python-tests == 'false'
+              !inputs.run_hardware && github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-tests == 'false' && needs.change-detection.outputs.run-python-tests == 'false'
               && 'slurm-tests,' || ''
             }}
             ${{
-              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-linter == 'false'
+              !inputs.run_hardware && github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-cpp-linter == 'false'
               && 'cpp-linter,' || ''
             }}
             ${{
-              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-linter == 'false'
+              !inputs.run_hardware && github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-linter == 'false'
               && 'python-linter,' || ''
             }}
             ${{
-              github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-tests == 'false' && needs.change-detection.outputs.run-cd == 'false'
+              !inputs.run_hardware && github.ref != 'refs/heads/main' && needs.change-detection.outputs.run-python-tests == 'false' && needs.change-detection.outputs.run-cd == 'false'
               && 'build-sdist,build-wheel,python-tests,' || ''
             }}
+            ${{ !inputs.run_hardware && 'hardware-request,candidate-wheel,' || '' }}
           jobs: ${{ toJSON(needs) }}
 
   candidate-wheel:
     name: Candidate wheel
+    needs: hardware-request
+    if: needs.hardware-request.result == 'success'
     runs-on: ubuntu-26.04
     outputs:
       artifact-id: ${{ steps.candidate.outputs.artifact-id }}
@@ -260,7 +303,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: candidate
         with:
-          name: hardware-candidate-${{ github.sha }}-${{ github.run_attempt }}
+          name: hardware-candidate-${{ github.sha }}
           path: build/candidate/dist/*.whl
           if-no-files-found: error
           retention-days: 7
@@ -269,12 +312,7 @@ jobs:
     name: IBM quantum execution
     needs: [offline-checks-pass, candidate-wheel]
     if: >-
-      always() && !cancelled() &&
-      ((github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'live-qpu-tests'))) &&
+      !cancelled() && inputs.run_hardware && github.run_attempt == 1 &&
       needs.offline-checks-pass.result == 'success' && needs.candidate-wheel.result == 'success'
     uses: $/.github/workflows/hardware.yml
     secrets:
@@ -297,9 +335,5 @@ jobs:
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           allowed-skips: >-
-            ${{ !((github.ref == 'refs/heads/main' &&
-            (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
-            (github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository &&
-            contains(github.event.pull_request.labels.*.name, 'live-qpu-tests'))) && 'hardware' || '' }}
+            ${{ !inputs.run_hardware && 'hardware' || '' }}
           jobs: ${{ toJSON(needs) }}

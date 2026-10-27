@@ -19,11 +19,7 @@
 
 from __future__ import annotations
 
-import sys
 from importlib import metadata
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 try:
     version = metadata.version("ibm-qdmi")
@@ -41,8 +37,6 @@ master_doc = "index"
 
 extensions = [
     "autoapi.extension",
-    "breathe",
-    "native_api",
     "myst_nb",
     "sphinx_copybutton",
     "sphinx_design",
@@ -63,12 +57,7 @@ nitpick_ignore = [
     ("py:class", "mqt.core.plugins.qiskit.backend.ParametersType"),
     # IBM indexes this as py:pydantic_model, which cannot resolve a class role.
     ("py:class", "qiskit_ibm_runtime.options_models.executor.ExecutorOptions"),
-    ("cpp:identifier", "size_t"),
-    ("cpp:identifier", "uint32_t"),
 ]
-
-# Opaque QDMI handles intentionally have no public struct definitions.
-nitpick_ignore_regex = [("cpp:identifier", r"(?:IBM_)?QDMI_\w+_impl_d")]
 
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
@@ -125,9 +114,6 @@ toc_object_entries_show_parents = "hide"
 python_use_unqualified_type_names = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-
-breathe_projects = {"IBM QDMI Device": "_build/doxygen/xml"}
-breathe_default_project = "IBM QDMI Device"
 
 nb_execution_mode = "cache"
 nb_execution_timeout = 300

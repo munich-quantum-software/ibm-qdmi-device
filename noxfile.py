@@ -158,7 +158,7 @@ def docs(session: nox.Session) -> None:
     env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
     session.run(
         "uv",
-        "run",
+        "sync",
         "--no-dev",
         "--group",
         "docs",
@@ -168,6 +168,18 @@ def docs(session: nox.Session) -> None:
         "ibm-qdmi:build-dir=build/docs",
         "--config-settings-package",
         "ibm-qdmi:cmake.define.BUILD_IBM_QDMI_DOCS=ON",
+        env=env,
+    )
+    session.run(
+        "doxygen",
+        "build/docs/Doxyfile",
+        env={"IBM_QDMI_DOCS_OUTPUT": str(Path(f"docs/_build/{args.builder}").resolve())},
+        external=True,
+    )
+    session.run(
+        "uv",
+        "run",
+        "--no-sync",
         "sphinx-build",
         "-n",
         "-T",

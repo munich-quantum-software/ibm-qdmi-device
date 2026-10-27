@@ -92,15 +92,16 @@ Keep live tests marked `live` and skipped before credential access unless
 categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
 before fixing them. Quantum checks require the separate `quantum` marker and
-`--run-quantum` opt-in. Run them only after the offline CI gates on merged
-`main` or same-repository PRs labeled `live-qpu-tests`. Applying that label
-requires human authorization and also opts subsequent PR updates into hardware
-checks. Label additions reuse the exact merge commit's successful offline CI and
-retained candidate. Unrelated label changes must not start jobs, cancel CI, or
-publish a skipped `🚦 Check`. Fork PRs remain offline. The authorized CI budget
-is one job each on Berlin and Aachen, two programs with 64 shots each (128
-total) per job, and at most 60 seconds of QPU execution per job. Do not make
-paid local submissions or automatically retry hardware tests. Preserve the
+`--run-quantum` opt-in. Run them only through an explicitly authorized CI
+dispatch on `main` or by adding `live-qpu-tests` to a same-repository PR. Each
+request runs fresh offline checks and tests a candidate wheel before hardware
+execution. A persistent label does not trigger hardware on later PR updates; a
+new label addition is a new paid request. Unrelated label changes must not start
+jobs or cancel CI. Fork PRs remain offline. Rerunning a workflow or hardware job
+must not submit another job; start a newly authorized request. The authorized CI
+budget is one job each on Berlin and Aachen, two programs with 64 shots each
+(128 total) per job, and at most 60 seconds of QPU execution per job. Do not
+make paid local submissions or automatically retry hardware tests. Preserve the
 tested candidate wheel across offline and hardware jobs. The `🚦 Check`
 aggregate covers every Actions prerequisite on `main`. Pre-commit.ci and Read
 the Docs are required before merging; hardware execution uses the Actions

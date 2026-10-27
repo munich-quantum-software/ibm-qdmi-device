@@ -26,6 +26,14 @@ jobs:
       group: ibm-quantum-execution
       cancel-in-progress: false
     steps:
+      - name: Reject a rerun of the hardware job
+        env:
+          ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [[ "$ATTEMPT" != 1 ]]; then
+            echo "Hardware jobs cannot be rerun. Start a new approved request." >&2
+            exit 1
+          fi
       # Default checkout binds to the caller's immutable github.sha.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

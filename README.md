@@ -83,7 +83,3 @@ The core C++ library and Python package are licensed under the
 **Apache License 2.0 with LLVM exception**. See
 [LICENSE](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/LICENSE)
 for the license text.
-
-Binary wheels statically link libcurl, cpr, and nlohmann/json; Linux wheels also
-bundle OpenSSL. Their license texts ship with each wheel and are available in
-[`licenses/`](https://github.com/munich-quantum-software/ibm-qdmi-device/tree/main/licenses).
