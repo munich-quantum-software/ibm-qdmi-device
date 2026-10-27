@@ -7,12 +7,9 @@ through MQT Core's `QDMIBackend` and `QDMIJob`. Install the optional extra:
 uv pip install "ibm-qdmi[qiskit]"
 ```
 
-The extra uses `mqt-core[qiskit]~=4.1.1`. The base package remains usable
-without Qiskit; `qiskit-ibm-runtime` is not required. Imports do not open
-sessions or contact IBM. Constructing a backend reads live metadata. Executing
-circuits creates paid quantum jobs. These examples are not executed during
-documentation builds. Quantum execution remains unverified live until the gated
-checks pass.
+Importing the adapter is offline. Constructing a backend reads live metadata;
+executing circuits creates paid quantum jobs. The examples below require
+authorized IBM access and are not executed during documentation builds.
 
 ## Select a backend
 
@@ -27,33 +24,21 @@ backend = IBMBackend("ibm.berlin")
 # Generic selection: IBMBackend(backend_name="ibm_berlin")
 ```
 
-The generic `ibm.default` entry uses an explicit `backend_name`, the
-administrator's catalogue backend, or `IBM_QUANTUM_BACKEND`, in that order. A
-missing selection fails during native session initialization before contacting
-IBM. Concrete catalogue entries select their named backend. Explicit `api_key`,
-`instance_crn`, and `backend_name` arguments override defaults. Normally omit
-`base_url` and `auth_url`; the native library derives the region from the CRN.
-Trusted endpoint overrides support applications such as loopback testing. See
-[session configuration](api.md#session-configuration).
+Concrete catalogue entries select their named backend. The generic `ibm.default`
+entry requires `backend_name`, an administrator's catalogue setting, or
+`IBM_QUANTUM_BACKEND`. Explicit connection arguments override catalogue settings
+and environment defaults. For credential precedence and trusted endpoint
+overrides, see [session configuration](api.md#session-configuration).
 
-Use `IBMBackend(device=device)` to adapt an already-open IBM QDMI device. An
-open device is exclusive with connection overrides. `device_id` and `provider`
-may supply identity metadata, including through the inherited
-`IBMBackend.from_device_id()` factory for registered devices. Installed manifest
-discovery preserves administrator definitions in MQT Core's driver. Each normal
-construction creates a fresh session.
-
-Omitted connection arguments use the catalogue configuration, then native
-environment defaults. A configured authentication file takes precedence over
-`IBM_QUANTUM_API_KEY`. These rules also apply when opening a device directly
-through QDMI; see [session configuration](api.md#session-configuration).
+Each construction opens a fresh session. `IBMBackend(device=device)` instead
+adapts an already-open device and rejects connection overrides. `device_id` and
+`provider` can supply identity metadata for that device; registered devices also
+support the inherited `IBMBackend.from_device_id()` factory.
 
 ## Transpile and execute
 
-The target uses physical indices, native gate signatures and applicable site
-tuples, connectivity, and available durations and errors. Measurement and reset
-appear only when advertised. Barriers are directives. Missing gate metadata is
-not treated as unrestricted support.
+Transpile against the backend's target, which describes its native gates,
+physical connectivity, and available calibrations:
 
 ```python
 from qiskit import QuantumCircuit, transpile
@@ -69,26 +54,16 @@ counts = result.get_counts()
 shots = result.get_memory()
 ```
 
-Transpile against the selected backend before submission. Serialization retains
-the full physical register, including idle qubits, and all measurement
-destinations. It uses stable internal classical register names; Qiskit results
-retain the original register names, boundaries, and classical-bit order. Global
-phase does not affect classified samples and is omitted. Native instructions
-outside `stdgates.inc` retain their gate declarations so that IBM can import the
-program without external definitions.
+Serialization preserves the full physical width and measurement destinations.
+Results preserve circuit names, metadata, classical register boundaries, and bit
+order. Unsupported instructions, control flow, unbound parameters, and invalid
+site tuples fail before submission. Scheduled delays are unsupported.
 
-`shots` must be a positive integer and defaults to 1,024. `memory` defaults to
-false. Requested memory contains genuine ordered samples, including leading
-zeros, and agrees with counts. Circuit names, metadata, and experiment order are
-preserved. Unsupported instructions, control flow, unbound parameters, and
-unsupported site tuples fail before submission. Scheduled delays are outside the
-current native contract.
-
-Compatible circuits share one Sampler V2 job with a 60-second QPU execution cap,
-independent of queue time. The cap covers the complete native job. Direct QDMI
-callers can set the [custom execution-time parameter](api.md#jobs-and-results)
-and [dynamical-decoupling options](api.md#dynamical-decoupling). The Qiskit path
-retains the shared `shots` and `memory` execution options.
+`shots` must be positive and defaults to 1,024. Set `memory=True` to retrieve
+ordered samples, including leading zeros. Compatible circuits share one Sampler
+V2 job with a 60-second QPU execution cap, independent of queue time. Direct
+QDMI callers can change the [execution-time cap](api.md#jobs-and-results) and
+[dynamical decoupling](api.md#dynamical-decoupling).
 
 ## Parameters and batches
 
@@ -115,13 +90,11 @@ second_memory = results.get_memory(1)
 
 Bind circuits yourself or supply one parameter mapping or ordered value sequence
 per circuit. The adapter validates and serializes the entire batch before its
-first submission. Serialization lives in `ibm.qdmi.serializers`; backend, job,
-and primitive orchestration use MQT Core. Compatible circuits with the common
-shot count share one ordered sampler request. A submission or result failure
-retains the batch handle on the execution exception for inspection and explicit
-cancellation. Automatic retries are disabled by default. `max_retries` allows
-bounded replacements of confirmed failed entries. A lost response can mean IBM
-accepted a job; unknown outcomes are never automatically replaced.
+first submission. A submission or result failure retains the batch handle on the
+execution exception for inspection and explicit cancellation. Automatic retries
+are disabled by default. `max_retries` allows bounded replacements of confirmed
+failed entries. A lost response can mean IBM accepted a job; unknown outcomes
+are never automatically replaced.
 
 ## Sampler and estimator
 
@@ -192,9 +165,8 @@ abandoning pending work. Freeing local handles does not cancel remote jobs. See
 ## Optional Executor primitive
 
 Install `ibm-qdmi[executor]` to submit IBM `QuantumProgram` objects through the
-same native QDMI session. The existing `sampler()`, `estimator()`, and `run()`
-paths retain their behavior. Executor uses the beta v2.0 schema and the optional
-Qiskit IBM Runtime 0.49 encoder and decoder. Pass IBM's
+same native QDMI session. Executor uses the beta v2.0 schema and IBM Runtime's
+encoder and decoder. Pass IBM's
 [ExecutorOptions](https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime/options-models-executor-options)
 to `backend.executor(options=...)` to configure supported execution options.
 
@@ -209,12 +181,10 @@ result = job.result(timeout=300)
 samples = result[0][compiled.cregs[0].name]
 ```
 
-Prepare circuits for the selected backend before adding them. Both circuit items
-with parameter sweeps and Samplomatic samplex items are encoded by IBM's
-library. Executor preserves result dimensions, register names, passthrough data,
-and correction metadata. Apply measurement-twirling corrections explicitly;
-results are not converted into counts. IBM's decoder also honors semantic roles
-present in the returned program result.
+Prepare circuits for the selected backend before adding circuit or Samplomatic
+samplex items. Results use IBM's native representation, including dimensions,
+register names, and correction metadata. Apply measurement-twirling corrections
+explicitly; the adapter does not convert results into counts.
 
 `job.status()` returns a QDMI job status. `job.cancel()` cancels the remote job.
 Retrieve a job with `executor.retrieve_job(job.job_id())`, including from a
@@ -224,10 +194,7 @@ remote job active; cancel it explicitly when needed.
 This path submits independent jobs. Runtime sessions, Runtime batches, and local
 Executor simulation are not provided. Nondefault environment options are
 rejected before submission. The Python adapter uses the native 60-second
-execution cap. Direct C callers can change it through the existing custom job
-parameter. Execution and experimental payload options are encoded by IBM's
-library and validated by the service. Shots come from the program and apply to
-every configuration, not to the program's total workload.
-
-Offline tests verify transport, schemas, and result decoding against synthetic
-responses. They do not establish hardware compatibility or simulate samplex.
+execution cap; direct C callers can change it through the custom job parameter.
+Execution and experimental payload options are encoded by IBM's library and
+validated by the service. Shots come from the program and apply to every
+configuration, not to the program's total workload.

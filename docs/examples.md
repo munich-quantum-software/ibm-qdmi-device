@@ -8,10 +8,9 @@ kernelspec:
 # Runnable examples
 
 The examples use finite shots and default to MQT Core's local QDMI simulator.
-The showcase includes full
-[Quantum-Selected Configuration Interaction (QSCI)][qsci] for H₂ and seven
-[MQT Bench][mqt-bench] algorithm families. The workloads use the shared Qiskit
-sampler and estimator primitives through QDMI.
+They cover native jobs, Qiskit and PennyLane workloads, [MQT Bench][mqt-bench],
+and H₂
+[Quantum-Selected Configuration Interaction (QSCI)][qsci].
 
 The scripts live in the repository, rather than the installed Python package.
 Clone the repository and run commands from its root:
@@ -39,11 +38,8 @@ the tables below give showcase defaults. `native_job` also accepts `--timeout`
 in seconds, defaults to 60, and attempts cancellation if its wait or result
 retrieval fails.
 
-## Execute in the documentation
-
-These cells call the same example functions on MQT Core's local simulator. They
-always select `sim`, require no IBM credentials, and submit no hardware jobs.
-The build caches successful execution and fails if a cell raises an error.
+The following cells run during documentation builds using the same local
+simulator:
 
 <!-- MyST code-cell directives execute as notebook cells. -->
 <!-- rumdl-disable MD040 -->
@@ -111,11 +107,6 @@ or execution failure and always releases local handles. The optional
 for synthetic tests. Session initialization loads credentials through the native
 library's environment support.
 
-## Qiskit sampling and benchmarks
-
-The Bell example transpiles a two-qubit circuit to the selected target and runs
-the shared sampler primitive. Counts contain only `00` and `11`.
-
 ## MQT Bench showcase
 
 `examples/mqt_bench.py` generates a benchmark at MQT Bench's mapped level using
@@ -134,11 +125,6 @@ hardware routing changes physical qubit positions.
 | `grover`      | Grover search                  |              7 |          8192 | Marked-state probability after amplitude amplification |
 | `qpe`         | Exact quantum phase estimation |              5 |          8192 | Concentration in the most frequent outcome             |
 
-GHZ and W states demonstrate different forms of multipartite entanglement.
-Deutsch–Jozsa queries an oracle; Grover amplifies a marked search result. The
-Fourier transform and phase estimation are building blocks for quantum
-algorithms. Graph states also support measurement-based quantum computation.
-
 The runner compares measured distributions with ideal probabilities using
 Hellinger fidelity. QPE reports modal concentration; this diagnostic alone
 cannot establish that the dominant phase is correct. These are
@@ -149,12 +135,6 @@ Select a family and optionally override its size and shot count:
 
 ```console
 uv run --group examples python -m examples.mqt_bench --benchmark ghz --num-qubits 20 --shots 8192
-uv run --group examples python -m examples.mqt_bench --benchmark dj
-uv run --group examples python -m examples.mqt_bench --benchmark qft
-uv run --group examples python -m examples.mqt_bench --benchmark graphstate
-uv run --group examples python -m examples.mqt_bench --benchmark wstate
-uv run --group examples python -m examples.mqt_bench --benchmark grover
-uv run --group examples python -m examples.mqt_bench --benchmark qpe
 ```
 
 `--benchmark` defaults to `ghz`. `--num-qubits` requires at least two qubits
@@ -163,10 +143,7 @@ width. Deutsch–Jozsa and Grover include an ancillary qubit in that width; QPE
 includes its eigenstate qubit. The runner selects each program's correct result
 register.
 
-### Execute a GHZ benchmark
-
-This cell runs the same public runner on the local simulator. Its twenty-qubit
-GHZ distribution contains only all-zero and all-one strings.
+A twenty-qubit GHZ example:
 
 <!-- rumdl-disable MD040 -->
 
@@ -181,17 +158,10 @@ counts
 
 <!-- rumdl-enable MD040 -->
 
-### Benchmark source
-
-```{literalinclude} ../examples/mqt_bench.py
-:language: python
-:caption: examples/mqt_bench.py
-:start-at: from __future__
-```
-
 ## H₂ QSCI showcase
 
-`examples/qsci_h2.py` follows the complete quantum chemistry workflow:
+[`examples/qsci_h2.py`](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/examples/qsci_h2.py)
+performs the chemistry workflow:
 
 1. PySCF builds H₂ at a bond length of 1 Å in the STO-3G basis.
 2. Qiskit Nature maps its electronic Hamiltonian to four qubits with
@@ -205,18 +175,11 @@ counts
 7. Classical diagonalization finds the lowest energy in that selected subspace;
    nuclear repulsion gives the total energy.
 
-The reduced Hamiltonian comes from the same molecular integrals and logical
-qubit operator used by VQE. For this four-qubit molecule, projecting its
-16-by-16 matrix is inexpensive. Larger molecules require sparse matrix-element
-construction instead of a full matrix.
-
 The reference total energy is approximately **−1.101150 hartree**. The runner
 logs the VQE electronic energy, sampled counts, QSCI total energy, and absolute
 difference from that reference. A finite evaluation limit does not guarantee VQE
 convergence. Missing determinants can raise the QSCI energy; the cutoff limits
 the selected subspace, and nuclear repulsion is added once.
-
-### Chemistry dependencies and execution
 
 [Qiskit Nature][qiskit-nature] and [PySCF][pyscf] provide the molecular model.
 PySCF supports Linux and macOS. On Windows, run this example in a supported
@@ -246,14 +209,6 @@ to five by SciPy. The final sampling call uses the requested shot count.
 VQE applies the transpiled layout to the observable internally. Final sampling
 adds measurements before mapping, so QSCI receives logical spin-orbital
 bitstrings rather than physical hardware indices.
-
-### QSCI source
-
-```{literalinclude} ../examples/qsci_h2.py
-:language: python
-:caption: examples/qsci_h2.py
-:start-at: from __future__
-```
 
 ## H₂ energy estimation
 
@@ -292,8 +247,7 @@ the device API as needed.
 
 ## Offline validation
 
-The documentation executes only the simulator cells above. The full chemistry
-workflow runs in a separate session with PySCF, outside the documentation build:
+Check the examples offline:
 
 ```console
 uvx nox -s examples
@@ -301,12 +255,9 @@ uvx nox -s chemistry
 uvx nox -s docs -- -D nb_execution_mode=force
 ```
 
-The `examples` session exercises all seven benchmarks, QSCI post-processing, and
-the VQE/sampler integration. It also checks basic examples against a synthetic
-IBM loopback service. The `chemistry` session builds the molecular Hamiltonian
-and runs the complete H₂ workflow on a local simulator using Python 3.13. Linux
-CI runs both sessions without IBM credentials. On Windows, the chemistry session
-skips because PySCF is unavailable.
+The `examples` session checks simulation and the synthetic IBM service;
+`chemistry` runs the full H₂ workflow on Linux or macOS with Python 3.13 and
+PySCF. See [development](development.md) for test setup.
 
 [mqt-bench]: https://mqt.readthedocs.io/projects/bench/
 [qiskit-nature]: https://qiskit-community.github.io/qiskit-nature/

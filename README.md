@@ -23,8 +23,9 @@ authentication, calibration queries, and the job lifecycle. It submits OpenQASM
 3 circuits and returns ordered shots and histograms. Optional Qiskit and
 PennyLane integrations use the same native interface.
 
-Live metadata validation has passed; quantum execution has not yet been
-validated on hardware. Examples default to local simulation.
+Examples default to local simulation. See the
+[development guide](https://ibm-qdmi-device.readthedocs.io/en/latest/development.html)
+for offline checks and opt-in hardware validation.
 
 <p align="center">
   <a href="https://ibm-qdmi-device.readthedocs.io/en/latest/">

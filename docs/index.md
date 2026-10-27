@@ -10,9 +10,9 @@ job lifecycle. It submits OpenQASM 3 circuits and returns ordered shots and
 histograms. The Python package includes the native library and optional Qiskit
 and PennyLane integrations.
 
-Live metadata validation has passed. Quantum execution remains unverified on
-hardware until the [gated live checks](development.md#gated-quantum-execution)
-succeed. The examples default to local simulation.
+Examples default to local simulation. See the
+[development guide](development.md)
+for offline checks and opt-in hardware validation.
 
 ## Where to start
 

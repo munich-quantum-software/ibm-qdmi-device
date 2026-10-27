@@ -1,22 +1,13 @@
 # Dependencies
 
-This page distinguishes native dependencies, optional Python integrations, and
-development tools. The build configuration defines the supported versions;
-`uv.lock` records the resolved Python environment.
+`uv.lock` records the resolved Python environment. Native dependency versions
+are configured in CMake.
 
 ## Native dependencies
 
-CMake's defaults are defined in
-[ExternalDependencies.cmake](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/cmake/ExternalDependencies.cmake).
-Compatible installed packages can satisfy its `find_package` checks; otherwise,
-CMake downloads the configured sources.
-
-| Dependency    | Default version | Purpose                                   |
-| :------------ | :-------------- | :---------------------------------------- |
-| QDMI          | 1.4.0           | Interface headers and device declarations |
-| nlohmann/json | 3.12.0          | JSON parsing and serialization            |
-| CPR           | 1.14.2          | HTTP requests through libcurl             |
-| GoogleTest    | 1.17.0          | Native tests, when enabled                |
+[ExternalDependencies.cmake](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/cmake/ExternalDependencies.cmake)
+configures QDMI headers, nlohmann/json, CPR, and GoogleTest. CPR is fetched with
+its bundled curl; GoogleTest is required only when native tests are enabled.
 
 The default build uses static CPR and curl dependencies. Linux builds require
 OpenSSL development headers; macOS wheels use Apple's native TLS backend.

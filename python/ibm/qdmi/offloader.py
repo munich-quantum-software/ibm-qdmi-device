@@ -71,20 +71,8 @@ def extract_counts(primitive_result: PrimitiveResult[SamplerPubResult]) -> dict[
 
 
 def _get_jobs_dir() -> Path:
-    """Get the jobs directory path.
-
-    Returns the directory specified by IBM_JOBS_DIR environment variable,
-    or defaults to the user's home directory under `.qdmi_jobs`.
-
-    Returns:
-        Path to the jobs directory. The directory is not created; callers
-        are responsible for creating it.
-    """
-    env_dir = os.getenv("IBM_JOBS_DIR")
-    if env_dir:
-        return Path(env_dir)
-
-    return Path.home() / ".qdmi_jobs"
+    """Return IBM_JOBS_DIR or ~/.qdmi_jobs without creating it."""
+    return Path(os.getenv("IBM_JOBS_DIR") or Path.home() / ".qdmi_jobs")
 
 
 def _new_job_dir() -> Path:
@@ -118,9 +106,7 @@ def _run_srun(
 ) -> subprocess.CompletedProcess[bytes]:
     """Run *command* via `srun` and return the completed process.
 
-    On failure, *job_dir* (containing the serialized inputs) is intentionally
-    left on disk rather than cleaned up, so its path is included in the raised
-    error to make it discoverable for debugging.
+    Failed jobs retain their inputs at *job_dir* for debugging.
 
     Returns:
         The completed process, with captured stdout/stderr.
@@ -189,32 +175,20 @@ def sample(
 ) -> dict[str, int]:
     """Sample from a quantum circuit.
 
-    When `local=False` (default), serializes the given circuit to QPY format
-    and submits it to the Slurm workload manager using the `srun` command.
-    After completion, the counts are parsed and returned as a dictionary.
-
-    When `local=True`, runs the circuit in this process on the selected backend.
+    Run in this process with ``local=True`` or submit a blocking Slurm job.
+    Slurm workers need a shared ``IBM_JOBS_DIR`` and compatible environments.
 
     Args:
         qc: The quantum circuit to run.
         shots: The number of shots to run. Default is 1024.
-        local: If True, run the job in this process on the selected backend.
-            If False (default), offload to Slurm.
-        simulator: If True, run the job on the simulator instead of the quantum computer.
-        timeout: How long to wait for the Slurm job to complete, in seconds,
-            before giving up. Only used when `local=False`.
-        backend_name: IBM backend selection, overriding IBM_QUANTUM_BACKEND.
-            Applies to both local and Slurm execution. Ignored for simulation.
-        licenses: Optional Slurm license request, in name[:count] syntax.
-            Only used when local=False.
-        partition: The Slurm partition to submit to, passed as `--partition`
-            to `srun`. Defaults to the `IBM_SLURM_PARTITION` environment
-            variable, and to `quantum` when that is unset. Only used when
-            `local=False`.
-        nodes: The number of nodes to allocate, passed as `--nodes` to `srun`.
-            The worker always runs as a single task (`--ntasks=1`), so this
-            only sizes the allocation for sites whose partition demands more
-            than one node. Default is 1. Only used when `local=False`.
+        local: Run in this process instead of Slurm.
+        simulator: Use MQT Core's DDSIM backend.
+        timeout: Slurm wait limit in seconds; does not cancel remote execution.
+        backend_name: IBM backend, overriding ``IBM_QUANTUM_BACKEND``;
+            ignored for simulation.
+        licenses: Slurm license request in ``name[:count]`` syntax.
+        partition: Slurm partition; defaults to ``IBM_SLURM_PARTITION`` or ``quantum``.
+        nodes: Slurm allocation size. The worker runs as one task.
 
     Returns:
         A dictionary of measurement counts.
@@ -236,16 +210,12 @@ def sample(
         job = sampler.run([(qc_for_execution,)], shots=shots)
         return extract_counts(job.result())
 
-    # Make sure the `jobs` directory exists on the shared filesystem
     job_dir = _new_job_dir()
 
-    # Serialize the circuit to QPY format
     qc_path = job_dir / "qc.qpy"
     with qc_path.open("wb") as f:
         qpy.dump(qc, f)
 
-    # Run the job using srun, which will return the counts upon completion
-    # This call is blocking and will wait for the job to finish before returning.
     job_name = "sample_sim" if simulator else "sample_qc"
     command = [
         "srun",
@@ -268,7 +238,6 @@ def sample(
 
     result = _load_pickled_result(process)
 
-    # Cleanup artifacts after successful completion.
     qc_path.unlink(missing_ok=True)
     with contextlib.suppress(OSError):
         job_dir.rmdir()
@@ -291,39 +260,23 @@ def estimate(
 ) -> VQEResult:
     """Estimate the optimal parameters for a given ansatz circuit and operator.
 
-    When `local=False` (default), serializes the given ansatz and operator to
-    QPY/pickle format and submits them to the Slurm workload manager using the
-    `srun` command. After completion, the VQE result is parsed and returned.
-
-    When `local=True`, runs the VQE algorithm locally using either the MQT Core
-    DDSIM simulator backend or the packaged IBM backend.
-
-    The returned result has the same semantics as calling
-    `VQE(...).compute_minimum_eigenvalue(...)` directly against the regular
-    (non-offloaded) estimator.
+    Run in this process with ``local=True`` or submit a blocking Slurm job.
+    Slurm workers need a shared ``IBM_JOBS_DIR`` and compatible environments.
+    Pickled operators and results require trusted workers and storage.
 
     Args:
         ansatz: The ansatz circuit to run.
         operator: The operator to run.
         maxiter: The maximum number of iterations for the optimization.
             Default is 80.
-        local: If True, run the job in this process on the selected backend.
-            If False (default), offload to Slurm.
-        simulator: If True, run the job on the simulator instead of the quantum computer.
-        timeout: How long to wait for the Slurm job to complete, in seconds,
-            before giving up. Only used when `local=False`.
-        backend_name: IBM backend selection, overriding IBM_QUANTUM_BACKEND.
-            Applies to both local and Slurm execution. Ignored for simulation.
-        licenses: Optional Slurm license request, in name[:count] syntax.
-            Only used when local=False.
-        partition: The Slurm partition to submit to, passed as `--partition`
-            to `srun`. Defaults to the `IBM_SLURM_PARTITION` environment
-            variable, and to `quantum` when that is unset. Only used when
-            `local=False`.
-        nodes: The number of nodes to allocate, passed as `--nodes` to `srun`.
-            The worker always runs as a single task (`--ntasks=1`), so this
-            only sizes the allocation for sites whose partition demands more
-            than one node. Default is 1. Only used when `local=False`.
+        local: Run in this process instead of Slurm.
+        simulator: Use MQT Core's DDSIM backend.
+        timeout: Slurm wait limit in seconds; does not cancel remote execution.
+        backend_name: IBM backend, overriding ``IBM_QUANTUM_BACKEND``;
+            ignored for simulation.
+        licenses: Slurm license request in ``name[:count]`` syntax.
+        partition: Slurm partition; defaults to ``IBM_SLURM_PARTITION`` or ``quantum``.
+        nodes: Slurm allocation size. The worker runs as one task.
 
     Returns:
         The VQE result, including the optimal parameters and eigenvalue.
@@ -347,20 +300,16 @@ def estimate(
         vqe = VQE(estimator, mapped, optimizer)
         return vqe.compute_minimum_eigenvalue(operator=operator)
 
-    # Make sure the `jobs` directory exists on the shared filesystem
     job_dir = _new_job_dir()
 
-    # Serialize the circuit to QPY format
     qc_path = job_dir / "ansatz.qpy"
     with qc_path.open("wb") as f:
         qpy.dump(ansatz, f)
 
-    # Serialize the operator using pickle
     operator_path = job_dir / "operator.pkl"
     with operator_path.open("wb") as f:
         pickle.dump(operator, f)
 
-    # Run the job using srun, which will return the list of optimal parameters upon completion
     job_name = "estim_sim" if simulator else "estim_qc"
     command = [
         "srun",
@@ -384,7 +333,6 @@ def estimate(
 
     result = _load_pickled_result(process)
 
-    # Cleanup artifacts after successful completion.
     qc_path.unlink(missing_ok=True)
     operator_path.unlink(missing_ok=True)
     with contextlib.suppress(OSError):

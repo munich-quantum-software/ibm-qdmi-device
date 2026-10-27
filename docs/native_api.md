@@ -7,8 +7,8 @@ prefix. Public headers include `ibm_qdmi/device.h` and
 <!-- Doxygen HTML is generated alongside the Sphinx documentation. -->
 <!-- rumdl-disable MD033 -->
 The declarations below are generated from the public headers. The
-<a href="cpp/index.html">standalone Doxygen reference</a> remains available and
-also includes the upstream QDMI client declarations.
+<a href="cpp/index.html">standalone Doxygen reference</a> also includes the
+upstream QDMI client declarations.
 <!-- rumdl-enable MD033 -->
 
 See the [usage guide](api.md) for supported properties, session configuration,

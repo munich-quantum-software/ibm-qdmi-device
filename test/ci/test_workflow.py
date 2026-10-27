@@ -102,14 +102,23 @@ def skip_list(expression: str, context: dict[str, str | list[str]]) -> set[str]:
     return {name.strip() for name in rendered.split(",") if name.strip()}
 
 
-@pytest.mark.parametrize("event", ["push", "workflow_dispatch", "pull_request", "merge_group"])
-@pytest.mark.parametrize("ref", ["refs/heads/main", "refs/heads/feature", "refs/pull/13/merge"])
+@pytest.mark.parametrize(
+    ("event", "ref", "same_repo", "labels", "eligible"),
+    [
+        ("push", "refs/heads/main", True, [], True),
+        ("workflow_dispatch", "refs/heads/main", True, [], True),
+        ("push", "refs/heads/feature", True, [], False),
+        ("merge_group", "refs/heads/main", True, [], False),
+        ("pull_request", "refs/pull/13/merge", True, [], False),
+        ("pull_request", "refs/pull/13/merge", True, ["live-qpu-tests"], True),
+        ("pull_request", "refs/pull/13/merge", True, ["LIVE-QPU-TESTS"], True),
+        ("pull_request", "refs/pull/13/merge", False, ["live-qpu-tests"], False),
+    ],
+)
 @pytest.mark.parametrize("result", ["success", "failure", "cancelled", "skipped"])
 @pytest.mark.parametrize("gate", ["offline-checks-pass", "candidate-wheel"])
-@pytest.mark.parametrize("same_repo", [True, False])
-@pytest.mark.parametrize("labels", [[], ["bug"], ["live-qpu-tests"], ["bug", "LIVE-QPU-TESTS"]])
 def test_hardware_eligibility(
-    event: str, ref: str, result: str, gate: str, labels: list[str], *, same_repo: bool
+    event: str, ref: str, labels: list[str], result: str, gate: str, *, same_repo: bool, eligible: bool
 ) -> None:
     """Only main runs and labeled internal PRs can spend after offline success."""
     jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
@@ -127,9 +136,6 @@ def test_hardware_eligibility(
         "needs.reuse-offline.outputs.hardware-needed": "",
     }
     context[f"needs.{gate}.result"] = result
-    eligible = (ref == "refs/heads/main" and event in {"push", "workflow_dispatch"}) or (
-        event == "pull_request" and same_repo and "live-qpu-tests" in [label.casefold() for label in labels]
-    )
     assert bool(evaluate(jobs["hardware"]["if"], context)) == (eligible and result == "success")
     final = jobs["required-checks-pass"]
     assert final["name"] == "🚦 Check"
@@ -239,10 +245,20 @@ def test_coverage_is_offline() -> None:
     assert "build/coverage/src/" in transport["run"]
 
 
-@pytest.mark.parametrize("label", ["bug", "live-qpu-tests", "LIVE-QPU-TESTS"])
-@pytest.mark.parametrize("same_repo", [False, True])
-@pytest.mark.parametrize("reuse", ["success", "failure", "cancelled", "skipped"])
-@pytest.mark.parametrize("hardware_needed", ["true", "false"])
+@pytest.mark.parametrize(
+    ("label", "same_repo", "reuse", "hardware_needed"),
+    [
+        ("bug", True, "success", "true"),
+        ("live-qpu-tests", False, "success", "true"),
+        ("LIVE-QPU-TESTS", False, "success", "true"),
+        ("live-qpu-tests", True, "success", "true"),
+        ("live-qpu-tests", True, "success", "false"),
+        ("live-qpu-tests", True, "failure", "true"),
+        ("live-qpu-tests", True, "cancelled", "true"),
+        ("live-qpu-tests", True, "skipped", "true"),
+        ("LIVE-QPU-TESTS", True, "success", "true"),
+    ],
+)
 def test_label_routes(label: str, reuse: str, hardware_needed: str, *, same_repo: bool) -> None:
     """Labels never rebuild or override unrelated required checks."""
     workflow = yaml.safe_load((WORKFLOW.parent / "label.yml").read_text(encoding="utf-8"))

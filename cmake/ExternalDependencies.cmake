@@ -20,9 +20,6 @@ include(GNUInstallDirs)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(ENABLE_COVERAGE ${IBM_QDMI_ENABLE_COVERAGE})
-  set(QDMI_MINIMUM_VERSION
-      1.4.0
-      CACHE STRING "Minimum QDMI version")
   set(QDMI_VERSION
       1.4.0
       CACHE STRING "QDMI version")
@@ -39,7 +36,7 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     qdmi
     GIT_REPOSITORY https://github.com/${QDMI_REPO_OWNER}/qdmi.git
     GIT_TAG ${QDMI_REV}
-    FIND_PACKAGE_ARGS ${QDMI_MINIMUM_VERSION})
+    FIND_PACKAGE_ARGS ${QDMI_VERSION})
   FetchContent_MakeAvailable(qdmi)
 
   FetchContent_Declare(
@@ -51,33 +48,72 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(CPR_BUILD_TESTS
       OFF
       CACHE BOOL "Disable CPR tests" FORCE)
-  set(CPR_CURL_USE_LIBPSL
-      OFF
-      CACHE BOOL "Disable libpsl" FORCE)
-  set(CPR_USE_SYSTEM_CURL
-      OFF
-      CACHE BOOL "Use system curl for CPR")
-  set(BUILD_STATIC_CURL
-      ON
-      CACHE BOOL "Build static curl" FORCE)
-  set(BUILD_SHARED_LIBS
-      OFF
-      CACHE BOOL "Build static dependencies" FORCE)
+  if(APPLE)
+    if(NOT TARGET CURL::libcurl)
+      # Prefer the SDK curl over an optional Homebrew installation.
+      set(_curl_sdk "${CMAKE_OSX_SYSROOT}")
+      if(NOT _curl_sdk)
+        set(_curl_sdk macosx)
+      endif()
+      if(NOT IS_DIRECTORY "${_curl_sdk}")
+        execute_process(
+          COMMAND xcrun --sdk "${_curl_sdk}" --show-sdk-path
+          OUTPUT_VARIABLE _curl_sdk
+          OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+      endif()
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(
+        CURL::libcurl PROPERTIES IMPORTED_LOCATION "${_curl_sdk}/usr/lib/libcurl.tbd"
+                                 INTERFACE_INCLUDE_DIRECTORIES "${_curl_sdk}/usr/include")
+    endif()
+  else()
+    if(UNIX)
+      find_package(OpenSSL 3 REQUIRED)
+    endif()
+    set(BUILD_CURL_EXE OFF)
+    set(BUILD_TESTING OFF)
+    set(CURL_DISABLE_INSTALL ON)
+    foreach(
+      PROTOCOL
+      DICT
+      FILE
+      FTP
+      GOPHER
+      IMAP
+      IPFS
+      LDAP
+      LDAPS
+      MQTT
+      POP3
+      RTSP
+      SMTP
+      TELNET
+      TFTP
+      WEBSOCKETS)
+      set(CURL_DISABLE_${PROTOCOL} ON)
+    endforeach()
+    set(CURL_USE_OPENSSL ${UNIX})
+    set(CURL_USE_SCHANNEL ${WIN32})
+    set(CURL_USE_LIBSSH2 OFF)
+    set(USE_LIBIDN2 OFF)
+    set(CURL_USE_LIBPSL OFF)
+    FetchContent_Declare(
+      curl
+      URL https://github.com/curl/curl/releases/download/curl-8_23_0/curl-8.23.0.tar.xz
+      URL_HASH SHA256=8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5)
+  endif()
+  set(CPR_ENABLE_INSTALL OFF)
+  set(CPR_USE_EXISTING_CURL_TARGET ON)
+  set(CPR_FORCE_OPENSSL_BACKEND OFF)
+  set(BUILD_SHARED_LIBS OFF)
   FetchContent_Declare(
     cpr
     GIT_REPOSITORY https://github.com/libcpr/cpr.git
-    GIT_TAG 1.14.2
-    FIND_PACKAGE_ARGS 1.14.2)
-  FetchContent_MakeAvailable(nlohmann_json cpr)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
-     AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
-     AND TARGET cpr)
-    get_target_property(IBM_QDMI_CPR_IMPORTED cpr IMPORTED)
-    if(NOT IBM_QDMI_CPR_IMPORTED)
-      # CPR 1.14.2 treats clang-cl as Unix Clang, combining /Wall with -Werror. Keep its diagnostics
-      # visible without failing the dependency build.
-      target_compile_options(cpr PRIVATE -Wno-error)
-    endif()
+    GIT_TAG 1.15.1)
+  if(APPLE)
+    FetchContent_MakeAvailable(nlohmann_json cpr)
+  else()
+    FetchContent_MakeAvailable(nlohmann_json curl cpr)
   endif()
 endif()
 
@@ -89,25 +125,10 @@ if(BUILD_IBM_QDMI_TESTS)
       OFF
       CACHE BOOL "Do not install GoogleTest" FORCE)
   set(GTEST_VERSION
-      1.17.0
+      1.18.0
       CACHE STRING "GoogleTest version")
   FetchContent_Declare(
     googletest URL https://github.com/google/googletest/archive/refs/tags/v${GTEST_VERSION}.tar.gz
                    FIND_PACKAGE_ARGS ${GTEST_VERSION} NAMES GTest)
   FetchContent_MakeAvailable(googletest)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
-     AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
-     AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 22)
-    # GoogleTest 1.17.0 uses /WX; Clang 22 diagnoses its char8_t printer. Apply this only to built
-    # dependency targets, including GoogleMock's copies of gtest-all.cc, without changing warnings
-    # for consumers.
-    foreach(IBM_QDMI_GTEST_TARGET IN ITEMS gtest gtest_main gmock gmock_main)
-      if(TARGET ${IBM_QDMI_GTEST_TARGET})
-        get_target_property(IBM_QDMI_GTEST_IMPORTED ${IBM_QDMI_GTEST_TARGET} IMPORTED)
-        if(NOT IBM_QDMI_GTEST_IMPORTED)
-          target_compile_options(${IBM_QDMI_GTEST_TARGET} PRIVATE -Wno-error=character-conversion)
-        endif()
-      endif()
-    endforeach()
-  endif()
 endif()

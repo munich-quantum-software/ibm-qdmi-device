@@ -31,9 +31,7 @@ if TYPE_CHECKING:
 
 _SIMULATOR_DEVICE_ID = "mqt.ddsim.default"
 
-#: Optimization level used whenever a circuit is transpiled for execution
-#: (offloader local path and the `ibm-sampler` Slurm worker), so the two
-#: paths stay in sync instead of drifting to different Qiskit defaults.
+#: Transpilation level for local execution and Slurm workers.
 TRANSPILE_OPTIMIZATION_LEVEL = 2
 
 

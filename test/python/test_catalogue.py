@@ -142,6 +142,7 @@ print('installed driver passed')
 @pytest.mark.parametrize(
     ("option", "expected"),
     [
+        ("", "--catalog_path"),
         ("version", qdmi.__version__),
         ("include_dir", str(qdmi.IBM_QDMI_INCLUDE_DIR)),
         ("cmake_dir", str(qdmi.IBM_QDMI_CMAKE_DIR)),
@@ -154,8 +155,13 @@ def test_information_cli(option: str, expected: str) -> None:
     executable = Path(sysconfig.get_path("scripts")) / ("ibm-qdmi.exe" if sys.platform == "win32" else "ibm-qdmi")
     assert executable.is_file()
     for command in ([sys.executable, "-m", "ibm.qdmi"], [str(executable)]):
-        result = subprocess.run([*command, f"--{option}"], check=True, capture_output=True, text=True, timeout=10)
-        assert result.stdout.strip() == expected
+        result = subprocess.run(
+            [*command, *([f"--{option}"] if option else [])], check=True, capture_output=True, text=True, timeout=10
+        )
+        if option:
+            assert result.stdout.strip() == expected
+        else:
+            assert expected in result.stdout
 
 
 def test_import_needs_no_optional_dependencies() -> None:
