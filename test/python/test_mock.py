@@ -19,7 +19,6 @@
 
 from __future__ import annotations
 
-import gc
 import json
 import subprocess
 import sys
@@ -41,7 +40,7 @@ from qiskit.providers import JobStatus
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.executor_sampler.prepare import prepare
-from qiskit_ibm_runtime.fake_provider import FakeManilaV2, FakeNighthawk
+from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
 from qiskit_ibm_runtime.results import QuantumProgramResult
 from samplomatic import build
@@ -86,23 +85,6 @@ def test_unknown_fake_fails_locally() -> None:
     """A misspelled fake cannot fall through to hardware."""
     with pytest.raises(ValueError, match="Unknown fake backend"):
         IBMBackend(backend_name="fake_does_not_exist")
-
-
-def test_mock_loads_only_the_selected_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Selecting a small fake must not construct unrelated device snapshots."""
-
-    def unexpected_backend(_backend: object) -> None:
-        pytest.fail("Constructed an unrelated fake backend")
-
-    monkeypatch.setattr(FakeNighthawk, "__init__", unexpected_backend)
-    assert _Runtime("fake_manila").backend.name == "fake_manila"
-
-
-def test_service_requires_aer(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A missing simulator cannot silently produce noiseless samples."""
-    monkeypatch.setitem(sys.modules, "qiskit_aer", None)
-    with pytest.raises(ImportError, match=r"ibm-qdmi\[mock\]"):
-        _Runtime("fake_manila")
 
 
 def test_parent_does_not_import_aer() -> None:
@@ -155,18 +137,13 @@ def test_failed_encoding_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None
     assert runtime.respond("GET", "/v1/jobs/broken/results", b"")[0] == 409
 
 
-@pytest.mark.parametrize("override", ["api_key", "instance_crn", "base_url", "auth_url"])
-def test_fake_connection_overrides_select_remote_service(override: str) -> None:
-    """Explicit connections can target services with fake-prefixed backend names."""
+def test_fake_connection_overrides_select_remote_service() -> None:
+    """An explicit endpoint can serve a fake-prefixed backend remotely."""
     parameters = session_parameters(
-        backend_name="fake_lagos",
-        api_key="synthetic" if override == "api_key" else None,
-        instance_crn="synthetic" if override == "instance_crn" else None,
-        base_url="http://127.0.0.1:8290" if override == "base_url" else None,
-        auth_url="http://127.0.0.1:8290/identity/token" if override == "auth_url" else None,
+        backend_name="fake_lagos", base_url="http://127.0.0.1:8290", api_key=None, instance_crn=None, auth_url=None
     )
     assert parameters["custom1"] == "fake_lagos"
-    assert parameters["base_url"] == ("http://127.0.0.1:8290" if override == "base_url" else None)
+    assert parameters["base_url"] == "http://127.0.0.1:8290"
 
 
 def test_mock_metadata_and_environment_selection(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -62,10 +62,11 @@ fail locally. See `python -m examples.runtime_mock` for a complete example.
 Fakes are snapshots, not current calibrations. Use small targets: simulation
 cost can grow exponentially with qubit count. Aer wheel availability limits
 supported platforms and Python versions. The local Sampler rejects enabled
-dynamical decoupling and twirling. One service per target stays alive until
-process exit, so jobs can be retrieved from another backend object while that
-process runs. The service binds to `127.0.0.1` with a temporary credential;
-include that address in `no_proxy` if an HTTP proxy is configured.
+dynamical decoupling and twirling; HTTP requests are limited to 16 MiB. One
+service per target stays alive until process exit, so jobs can be retrieved from
+another backend object while that process runs. The service binds to `127.0.0.1`
+with a temporary credential; include that address in `no_proxy` if an HTTP proxy
+is configured.
 
 ## Transpile and execute
 
@@ -161,10 +162,10 @@ Retrieve a job with `executor.retrieve_job(job.job_id())`, including from a
 fresh backend session. A result timeout raises `TimeoutError` and leaves the
 remote job active; cancel it explicitly when needed.
 
-This path submits independent jobs. Runtime sessions, Runtime batches, and local
-Executor simulation are not provided. Nondefault environment options are
-rejected before submission. The Python adapter uses the native 60-second
-execution cap; direct C callers can change it through the custom job parameter.
-Execution and experimental payload options are encoded by IBM's library and
-validated by the service. Shots come from the program and apply to every
-configuration, not to the program's total workload.
+This path submits independent jobs. Runtime session/batch contexts and the
+`local_mode` option are unsupported; use a fake backend for local simulation.
+Nondefault environment options are rejected before submission. The Python
+adapter uses the native 60-second execution cap; direct C callers can change it
+through the custom job parameter. Execution and experimental payload options are
+encoded by IBM's library and validated by the service. Shots come from the
+program and apply to every configuration, not to the program's total workload.
