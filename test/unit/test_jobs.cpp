@@ -170,12 +170,17 @@ TEST(Job, RejectsExcessiveRetrievedExecutionsBeforeDecodingQpy) {
   Service service;
   ibm::Auth auth(configuration(),
                  [&](const auto& request) { return service(request); });
-  const nlohmann::json circuit = {{"__type__", "QuantumCircuit"},
-                                  {"__value__", "invalid!"}};
+  const nlohmann::json circuit = {
+      {"__type__", "QuantumCircuit"},
+      {"__value__", "invalid!"},
+  };
   const auto pub = nlohmann::json::array({circuit, nullptr, 6'000'000});
   service.submitted = {
-      {"params",
-       {{"version", 2}, {"support_qiskit", false}, {"pubs", {pub, pub}}}}};
+      {
+          "params",
+          {{"version", 2}, {"support_qiskit", false}, {"pubs", {pub, pub}}},
+      },
+  };
   ibm::Job job(auth, "ibm_test", 2);
   fails([&] { job.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
   EXPECT_TRUE(job.programs.empty());

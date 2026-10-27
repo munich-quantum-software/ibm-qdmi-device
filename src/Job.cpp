@@ -290,8 +290,10 @@ void Job::submit() {
     for (const auto& source : programs) {
       const nlohmann::json circuit =
           format == QDMI_PROGRAM_FORMAT_QPY
-              ? nlohmann::json{{"__type__", "QuantumCircuit"},
-                               {"__value__", encodeQpy(source)}}
+              ? nlohmann::json{
+                    {"__type__", "QuantumCircuit"},
+                    {"__value__", encodeQpy(source)},
+                }
               : nlohmann::json(source);
       payload["params"]["pubs"].push_back(
           nlohmann::json::array({circuit, nullptr, shots}));
