@@ -38,6 +38,7 @@ from offline_service import CRN
 from qiskit_service import configure
 
 from ibm import qdmi
+from ibm.qdmi.__main__ import main
 
 if TYPE_CHECKING:
     from offline_service import Service
@@ -143,25 +144,32 @@ print('installed driver passed')
     ("option", "expected"),
     [
         ("", "--catalog_path"),
-        ("version", qdmi.__version__),
         ("include_dir", str(qdmi.IBM_QDMI_INCLUDE_DIR)),
         ("cmake_dir", str(qdmi.IBM_QDMI_CMAKE_DIR)),
         ("lib_path", str(qdmi.IBM_QDMI_LIBRARY_PATH)),
         ("catalog_path", str(qdmi.IBM_QDMI_CATALOG_PATH)),
     ],
 )
-def test_information_cli(option: str, expected: str) -> None:
-    """Both CLI entry points expose installed paths without loading the driver."""
+def test_information_cli(
+    option: str, expected: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The CLI reports the installed package's paths and help."""
+    monkeypatch.setattr(sys, "argv", ["ibm-qdmi", *([f"--{option}"] if option else [])])
+    main()
+    output = capsys.readouterr().out
+    if option:
+        assert output.strip() == expected
+    else:
+        assert expected in output
+
+
+def test_installed_cli_entry_points() -> None:
+    """Both installed launchers report the package version."""
     executable = Path(sysconfig.get_path("scripts")) / ("ibm-qdmi.exe" if sys.platform == "win32" else "ibm-qdmi")
     assert executable.is_file()
     for command in ([sys.executable, "-m", "ibm.qdmi"], [str(executable)]):
-        result = subprocess.run(
-            [*command, *([f"--{option}"] if option else [])], check=True, capture_output=True, text=True, timeout=10
-        )
-        if option:
-            assert result.stdout.strip() == expected
-        else:
-            assert expected in result.stdout
+        result = subprocess.run([*command, "--version"], check=True, capture_output=True, text=True, timeout=10)
+        assert result.stdout.strip() == qdmi.__version__
 
 
 def test_import_needs_no_optional_dependencies() -> None:

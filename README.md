@@ -23,9 +23,10 @@ authentication, calibration queries, and the job lifecycle. It submits OpenQASM
 3 circuits and returns ordered shots and histograms. Optional Qiskit and
 PennyLane integrations use the same native interface.
 
-Examples default to local simulation. See the
-[development guide](https://ibm-qdmi-device.readthedocs.io/en/latest/development.html)
-for offline checks and opt-in hardware validation.
+Use
+[MQT Core's QDMI guides](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/)
+for application workflows and local simulation. This documentation covers IBM
+configuration and device behavior.
 
 <p align="center">
   <a href="https://ibm-qdmi-device.readthedocs.io/en/latest/">
@@ -61,14 +62,14 @@ through the process environment or a secret manager; the device does not load
 
 ## Where to Start
 
-| I want to…                                   | Guide                                                                                    |
-| :------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)       |
-| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html) |
-| Walk through end-to-end workloads            | [Examples](https://ibm-qdmi-device.readthedocs.io/en/latest/examples.html)               |
-| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                 |
-| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)   |
-| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)       |
+| I want to…                                   | Guide                                                                                      |
+| :------------------------------------------- | :----------------------------------------------------------------------------------------- |
+| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)         |
+| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html)   |
+| Coordinate workloads with Slurm              | [MQT Core Slurm guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/slurm.html) |
+| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                   |
+| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)     |
+| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)         |
 
 ## Contributing
 

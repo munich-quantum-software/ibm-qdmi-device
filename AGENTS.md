@@ -35,9 +35,9 @@ commands. Keep this file focused on repository-specific guardrails.
 - Keep cleanup separate from behavior changes unless correctness requires both.
   Retain only narrow, justified suppressions.
 - Keep documentation at its existing source of truth and link to it.
-- Keep project documentation and configuration self-contained. Do not name or
-  link other device implementations. Preserve required copyright and license
-  notices in copied material.
+- Document IBM-specific setup and behavior; link to MQT Core for shared QDMI,
+  framework, and Slurm usage. Do not duplicate application examples, offloaders,
+  or cluster playgrounds in device repositories.
 - Group related changes in a concise changelog entry. Once a PR exists, include
   its reference and every contributing author as `([#123]) ([**@username**])`
   and define their links at the bottom of `CHANGELOG.md`. Do not invent PRs.
@@ -91,22 +91,22 @@ Keep live tests marked `live` and skipped before credential access unless
 `--run-live` is explicit. Preserve sequential execution and fixed diagnostic
 categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
-before fixing them. Quantum checks require the separate `quantum` marker and
-`--run-quantum` opt-in. Run them only through an explicitly authorized CI
-dispatch on `main` or by adding `live-qpu-tests` to a same-repository PR. Each
-request runs fresh offline checks and tests a candidate wheel before hardware
-execution. A persistent label does not trigger hardware on later PR updates; a
-new label addition is a new paid request. Unrelated label changes must not start
-jobs or cancel CI. Fork PRs remain offline. Rerunning a workflow or hardware job
-must not submit another job; start a newly authorized request. The authorized CI
-budget is one job each on Berlin and Aachen, two programs with 64 shots each
-(128 total) per job, and at most 60 seconds of QPU execution per job. Do not
-make paid local submissions or automatically retry hardware tests. Preserve the
-tested candidate wheel across offline and hardware jobs. The `🚦 Check`
-aggregate covers every Actions prerequisite on `main`. Pre-commit.ci and Read
-the Docs are required before merging; hardware execution uses the Actions
-prerequisites on the tested commit. Hardware results and job IDs must not be
-uploaded as artifacts.
+before fixing them. Quantum checks require `--run-quantum` and a new explicit
+request: dispatch `hardware.yml` on `main` or add `live-qpu-tests` to a
+same-repository PR. The independent hardware workflow tests the native device
+and installed candidate wheel offline before running that wheel on hardware.
+Credentials are scoped to the final step. Ordinary CI, persistent labels, fork
+PRs, and workflow/job reruns must never authorize hardware execution.
+
+The budget is one job each on Berlin and Aachen, two programs with 64 shots each
+per job, and at most 60 seconds of QPU execution per job. Never retry a
+submission automatically or upload hardware results or job IDs as artifacts.
+
+Keep ordinary CI as change detection, reusable workflow calls, and one
+`🚦 Check` aggregate. Use the shared MQT workflows and CMake presets instead of
+copying runner setup. Keep hardware triggers separate; do not add check history
+lookups, artifact reuse, or a custom workflow-expression test harness.
+Pre-commit.ci and Read the Docs are also required before merging.
 
 ## Git and GitHub
 

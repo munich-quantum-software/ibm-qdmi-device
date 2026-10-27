@@ -10,9 +10,10 @@ job lifecycle. It submits OpenQASM 3 circuits and returns ordered shots and
 histograms. The Python package includes the native library and optional Qiskit
 and PennyLane integrations.
 
-Examples default to local simulation. See the
-[development guide](development.md)
-for offline checks and opt-in hardware validation.
+See
+[MQT Core's QDMI guides](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/)
+for application workflows, local simulation, and Slurm integration. This
+documentation covers IBM configuration and device behavior.
 
 ## Where to start
 
@@ -21,7 +22,6 @@ for offline checks and opt-in hardware validation.
 | Install the native library or Python package | [Installation](installation.md)       |
 | Run circuits from Python / Qiskit            | [Qiskit integration](qiskit.md)       |
 | Execute PennyLane QNodes                     | [PennyLane integration](pennylane.md) |
-| Run example workloads                        | [Examples](examples.md)               |
 | Configure native sessions and manage jobs    | [Usage guide](api.md)                 |
 | Locate installed files and discover devices  | [Python package](python_package.md)   |
 | Build and test the project                   | [Development](development.md)         |
@@ -41,10 +41,7 @@ supported properties, and job behavior, start with the [usage guide](api.md).
 :caption: User Guide
 
 installation
-examples
 qiskit
-offloading
-slurm
 pennylane
 Usage guide <api>
 python_package

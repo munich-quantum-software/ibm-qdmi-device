@@ -3,7 +3,9 @@
 Install the optional adapter with `uv pip install "ibm-qdmi[pennylane]"`. The
 {py:class}`~ibm.qdmi.pennylane.IBMDevice` class reuses MQT Core's PennyLane
 preprocessing, job orchestration, and sample decoding. It exports `ibm.default`,
-`ibm.berlin`, and `ibm.aachen` as PennyLane device names.
+`ibm.berlin`, and `ibm.aachen` as PennyLane device names. See the
+[MQT Core PennyLane guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/pennylane_device.html)
+for QNodes, measurements, differentiation, batches, and local simulation.
 
 ## Configure a device
 
@@ -46,15 +48,7 @@ order. The adapter validates each gate's parameters and physical placement
 against backend metadata. It does not route circuits or reverse directed
 couplings.
 
-## Measurements and differentiation
-
-Set finite shots on the QNode with `shots=128`, or use `qml.set_shots`. Analytic
-execution and device-level `shots` are unsupported. Samples, counts,
-probabilities, expectation values, and variances are computed from returned
-samples. Programs with the same format and shot count share one sampler request,
-including equal shot-vector partitions. Different shot counts create separate
-jobs. Parameter-shift and finite-difference differentiation use ordinary sampled
-jobs; the device does not provide analytic gradients.
+## IBM gate support
 
 PennyLane decomposes operations into the advertised native basis. The IBM
 adapter expresses single-qubit rotations using SX and RZ while preserving
@@ -63,19 +57,11 @@ ECR and RZZ remain native when the backend advertises their signatures and
 placements. CNOT decomposes into CZ or ECR when CX is unavailable. Bound RZZ
 angles, including parameter-shift circuits, are folded into IBM's calibrated
 range with equivalent single-qubit corrections. Incompatible operations or
-placements fail before any job in a prepared batch is submitted. A submission or
-result failure raises `PennyLaneExecutionError` with a retained `job` handle.
-Use that handle to inspect the batch or explicitly cancel earlier jobs;
-cancellation can race with completion. Automatic retries are disabled. Unknown
-submission outcomes are never automatically replaced.
+placements fail before submission. The adapter retains MQT Core's error and
+cancellation handling; unknown submission outcomes are never retried.
 
 The adapter forwards compatible custom job settings through `job_parameters`;
 the native parameter contracts are documented in {doc}`api`. MQT Core 4's Python
 custom-parameter interface cannot encode the `uint64_t` execution-time cap.
 PennyLane therefore retains the native default of 60 seconds; use the native C
 interface to change that cap.
-
-For local development without IBM access, use MQT Core's
-`qml.device("mqt.ddsim.default", wires=2)` with the same finite-shot QNode API.
-This simulator checks circuit logic without validating IBM connectivity or
-hardware behavior.

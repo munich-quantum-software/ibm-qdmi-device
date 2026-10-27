@@ -52,7 +52,6 @@ jobs:
             build/coverage/**/*.gcda
             build/coverage/**/*.gcno
       - name: Upload native coverage
-        if: vars.CODECOV_ENABLED == 'true'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           fail_ci_if_error: true

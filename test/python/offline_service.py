@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import json
-import ssl
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -34,7 +33,6 @@ from native_support import Native, load_native
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
-    from ssl import SSLContext
 
 CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::"
 
@@ -79,9 +77,7 @@ class Service:
 
 
 @contextmanager
-def serve(
-    *, tls: SSLContext | None = None, address: tuple[str, int] = ("127.0.0.1", 0)
-) -> Generator[Service, None, None]:
+def serve() -> Generator[Service, None, None]:
     """Serve IBM-shaped responses without external network access.
 
     Yields:
@@ -127,15 +123,8 @@ def serve(
             """Handle the IAM form exchange."""
             self.respond(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
 
-    with LoopbackHTTPServer(address, Handler) as server:
-        if tls is not None:
-            minimum = tls.minimum_version
-            tls.minimum_version = ssl.TLSVersion.TLSv1_2
-            if minimum > ssl.TLSVersion.TLSv1_2:
-                tls.minimum_version = minimum
-            server.socket = tls.wrap_socket(server.socket, server_side=True)
-        scheme = "https" if tls is not None else "http"
-        state.url = f"{scheme}://127.0.0.1:{server.server_port}"
+    with LoopbackHTTPServer(("127.0.0.1", 0), Handler) as server:
+        state.url = f"http://127.0.0.1:{server.server_port}"
         thread = Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
         thread.start()
         try:

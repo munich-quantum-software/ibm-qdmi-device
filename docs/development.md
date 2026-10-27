@@ -17,9 +17,9 @@ opt-ins below. Dependency installation requires network access.
 ## Native checks
 
 ```console
-cmake -S . -B build/native -DCMAKE_BUILD_TYPE=Release
-cmake --build build/native --config Release
-ctest --test-dir build/native -C Release --output-on-failure
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
 uvx nox -s native_tests
 cmake -P test/install.cmake
 ```
@@ -30,9 +30,10 @@ runs separately from framework tests because MQT Core retains its driver library
 while ABI tests own initialization and finalization. `test/install.cmake` checks
 installation, relocation, and a CMake consumer.
 
-Use `Debug` in configuration and build commands for a debug build. On Linux, add
-`-DIBM_QDMI_SANITIZERS="address;undefined"` for sanitizer checks. For coverage,
-select the instrumented library explicitly in the ABI tests:
+Use the `debug` preset for a debug build. On Linux, add
+`-DIBM_QDMI_SANITIZERS="address;undefined"` when configuring for sanitizer
+checks. For coverage, select the instrumented library explicitly in the ABI
+tests:
 
 ```console
 cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_ENABLE_COVERAGE=ON
@@ -57,16 +58,15 @@ Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
 direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
 Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
-minimum-version sessions, examples, and chemistry. Hardware requests always run
-the full offline suite.
+minimum-version sessions. Hardware requests test a fresh candidate wheel offline
+before submitting jobs.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 
-| Selection                         | Purpose                           |
-| --------------------------------- | --------------------------------- |
-| `-m integration -n 0`             | Native ABI and loopback transport |
-| `-m ci`                           | Repository tooling                |
-| `-m "not integration and not ci"` | Package and framework tests       |
+| Selection              | Purpose                           |
+| ---------------------- | --------------------------------- |
+| `-m integration -n 0`  | Native ABI and loopback transport |
+| `-m "not integration"` | Package and framework tests       |
 
 The `live` and `quantum` markers require their opt-in flags even when selected.
 
@@ -84,12 +84,6 @@ package version comes from `project()` in `CMakeLists.txt`.
 CI tests platform wheels with cibuildwheel. Windows ARM wheels are built and
 repaired, but optional framework dependencies prevent Python wheel tests there;
 native Windows ARM tests run separately.
-
-## Slurm integration
-
-The [Slurm smoke test](slurm.md#run-the-offline-smoke-test) runs both adapters
-against the synthetic IBM service without credentials. See
-`test/slurm/README.md` for the local command.
 
 ## Live IBM metadata
 
@@ -127,21 +121,19 @@ Reproduce compatibility failures with synthetic fixtures before fixing them.
 
 ## Gated quantum execution
 
-Hardware checks require an explicit, authorized request. Dispatch CI on merged
-`main` with `run_hardware=true`, or add `live-qpu-tests` to a same-repository
-PR. Fork PRs remain offline. Main pushes and ordinary PR updates never run
-hardware. Pre-commit.ci and Read the Docs guard PR merges; hardware execution
-uses fresh Actions prerequisites on the tested commit.
+Hardware checks require an explicit, authorized request. Dispatch the hardware
+workflow on merged `main`, or add `live-qpu-tests` to a same-repository PR. Fork
+PRs remain offline. Main pushes and ordinary PR updates never run hardware.
 
 ```console
-gh workflow run ci.yml --ref main -f run_hardware=true
+gh workflow run hardware.yml --ref main
 ```
 
 The `ibm-quantum` environment allows `main` and `refs/pull/*/merge` for PR
-checks. Keep its protection rules enabled. Each request runs all offline checks,
-tests a candidate wheel without credentials, and passes that exact artifact to
-the hardware job in the same workflow run. Secrets are available only during the
-final test step.
+checks. Keep its protection rules enabled. Each request runs native CTest, then
+builds and installs a candidate wheel. Its offline package and ABI tests must
+pass before hardware validation uses that same installation. Secrets are
+available only during the final test step.
 
 Adding the label starts one fresh validation of the PR merge commit. Keeping the
 label does not opt later commits into hardware checks. To request another run,
@@ -191,13 +183,6 @@ For C++, reproduce `.github/workflows/cpp-linter.yml` using its Clang version
 and a Ninja compilation database. Run clang-format and clang-tidy on every line
 of each changed file, including tests.
 
-## Chemistry showcase
-
-`uvx nox -s examples` checks portable workloads with local simulation and the
-loopback service. `uvx nox -s chemistry` runs the full H₂ QSCI workflow with
-PySCF and Python 3.13 on Linux or macOS; Windows skips it. See
-[runnable examples](examples.md) for commands and parameters.
-
 ## Documentation
 
 Install Doxygen 1.16.1 on `PATH`, then run:
@@ -211,15 +196,13 @@ The session builds the package in `build/docs/`, generates the native reference
 with Doxygen, and builds Sphinx pages in `docs/_build/html/`. The native
 reference lives under `cpp/`; Python API pages come from AutoAPI. Warnings fail
 the build. Edit public header comments and Python docstrings for API references.
-Notebook cells run only on the local simulator and cache successful execution;
-pass `-- -D nb_execution_mode=force` to rerun them all.
 
 ## Automation
 
 CI covers native and Python tests, installation, sanitizers, coverage, lint, and
-source and wheel distributions. The `🚦 Check` aggregate rejects failed,
-cancelled, or unexpectedly skipped prerequisites. PRs use change detection;
-`main` runs all Actions prerequisites. The main ruleset also requires
+source and wheel distributions. The `🚦 Check` aggregate rejects failed or
+cancelled prerequisites. PRs use change detection; `main` runs the full offline
+suite. Hardware validation runs independently. The main ruleset also requires
 `pre-commit.ci - pr` and the Read the Docs preview before merging.
 
 Read the Docs publishes PR previews and `latest` from `main` using the strict

@@ -37,7 +37,7 @@ master_doc = "index"
 
 extensions = [
     "autoapi.extension",
-    "myst_nb",
+    "myst_parser",
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx.ext.intersphinx",
@@ -63,9 +63,6 @@ source_suffix = [".rst", ".md"]
 exclude_patterns = [
     "_build",
     "_static/README.md",
-    "**.ipynb_checkpoints",
-    "**.jupyter_cache",
-    "**.jupyter_execute",
     "Thumbs.db",
     ".DS_Store",
 ]
@@ -94,7 +91,6 @@ intersphinx_mapping = {
     "mqt-core": ("https://mqt.readthedocs.io/projects/core/en/stable", None),
     "qiskit": ("https://docs.quantum.ibm.com/api/qiskit", None),
     "qiskit-ibm-runtime": ("https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime", None),
-    "qiskit-algorithms": ("https://qiskit-community.github.io/qiskit-algorithms", None),
     "pennylane": ("https://docs.pennylane.ai/en/stable", None),
 }
 
@@ -114,10 +110,6 @@ toc_object_entries_show_parents = "hide"
 python_use_unqualified_type_names = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-
-nb_execution_mode = "cache"
-nb_execution_timeout = 300
-nb_execution_raise_on_error = True
 
 copybutton_prompt_text = r"(?:\(\.?venv\) )?(?:\[.*\] )?\$ "
 copybutton_prompt_is_regexp = True

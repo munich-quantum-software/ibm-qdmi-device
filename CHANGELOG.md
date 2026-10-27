@@ -18,7 +18,7 @@ releases may include breaking changes.
   directly with Doxygen. ([#92]) ([**@burgholzer**])
 - 🔧 Simplify package license metadata and configuration. ([#92])
   ([**@burgholzer**])
-- 👷 Run hardware checks only on explicit requests after fresh offline
+- 👷 Run hardware checks independently on explicit requests after fresh offline
   validation. ([#92]) ([**@burgholzer**])
 - 👷 Run selected Python sessions for draft PRs and the full range when ready
   for review. ([#92]) ([**@burgholzer**])
@@ -26,11 +26,19 @@ releases may include breaking changes.
   ([**@burgholzer**])
 - 👷 Lint whole changed files on PRs and all files on `main`. ([#92])
   ([**@burgholzer**])
+- 👷 Use shared native CI workflows and one offline check aggregate. ([#92])
+  ([**@burgholzer**])
+- ♻️ Remove the offloader, worker commands, and application examples; refer to
+  MQT Core for shared QDMI and Slurm workflows. ([#92]) ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
 ### Fixed
 
+- 🐛 Select OpenSSL 3 when building Linux wheels. ([#92])
+  ([**@burgholzer**])
+- 🐛 Create the documentation output directory before running Doxygen. ([#92])
+  ([**@burgholzer**])
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
 
