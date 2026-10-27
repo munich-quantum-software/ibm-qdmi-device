@@ -32,7 +32,7 @@ from urllib.parse import urlsplit
 import numpy as np
 import pennylane as qml
 import pytest
-from mqt.core.qdmi import Job
+from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
@@ -78,6 +78,7 @@ def test_mock_round_trip_without_cloud_credentials(monkeypatch: pytest.MonkeyPat
         assert result.get_counts(index).get("00", 0) + result.get_counts(index).get("11", 0) > 48
     fresh = IBMBackend(backend_name="fake_manila")
     retrieved = fresh.device.retrieve_job_by_id(job.job_id())
+    assert retrieved.program_format == ProgramFormat.QPY
     assert retrieved.get_shots(0) == result.get_memory(0)
 
 

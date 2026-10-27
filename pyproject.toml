@@ -260,7 +260,6 @@ extend-ignore-re = [
 ]
 
 [tool.typos.default.extend-words]
-aer = "aer"
 optin = "optin"
 
 
