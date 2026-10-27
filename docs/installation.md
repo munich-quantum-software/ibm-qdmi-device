@@ -36,8 +36,8 @@ includes typing metadata and exposes `ibm.qdmi.__version__`. See the
 ## Native package
 
 For local IBM device simulation without Cloud access, install `ibm-qdmi[mock]`.
-See [mock targets](qiskit.md#run-without-ibm-cloud-access) for backend
-selection, platform requirements, and execution examples.
+See [backend selection](qiskit.md#select-a-backend) for backend selection,
+platform requirements, and execution examples.
 
 The wheel includes the headers and CMake package configuration. C and C++
 projects can build against an installed wheel by passing

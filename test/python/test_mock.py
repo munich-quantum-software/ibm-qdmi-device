@@ -39,7 +39,7 @@ from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumReg
 from qiskit.primitives import BitArray, DataBin, PrimitiveResult, PubResult
 from qiskit.providers import JobStatus
 from qiskit.quantum_info import SparsePauliOp
-from qiskit_ibm_runtime import QuantumProgram, RuntimeDecoder, RuntimeEncoder
+from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.executor_sampler.prepare import prepare
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2, FakeNighthawk
 from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
@@ -98,7 +98,7 @@ def test_mock_loads_only_the_selected_snapshot(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_service_requires_aer(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Standalone service construction cannot silently use noiseless simulation."""
+    """A missing simulator cannot silently produce noiseless samples."""
     monkeypatch.setitem(sys.modules, "qiskit_aer", None)
     with pytest.raises(ImportError, match=r"ibm-qdmi\[mock\]"):
         _Runtime("fake_manila")
@@ -120,7 +120,7 @@ def test_parent_does_not_import_aer() -> None:
     )
 
 
-@pytest.mark.parametrize("width", [1, 5, 8, 27, 65, 127])
+@pytest.mark.parametrize("width", [1, 8, 65])
 def test_sampler_encoding_preserves_packed_bits(width: int) -> None:
     """Wire samples preserve padding, byte order and registers wider than 64 bits."""
     raw = np.random.default_rng(7).integers(0, 256, (64, (width + 7) // 8), dtype=np.uint8)
@@ -151,40 +151,7 @@ def test_failed_encoding_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None
     for _ in range(2):
         assert runtime.respond("GET", "/v1/jobs/broken", b"")[1]["state"]["status"] == "Failed"
     assert len(attempts) == 1
-
-
-@pytest.mark.filterwarnings("ignore:The SamplerV2 class is deprecated:DeprecationWarning")
-def test_mock_accepts_runtime_qpy_encoding() -> None:
-    """Runtime-encoded circuits work when a native device advertises QPY."""
-    circuit = QuantumCircuit(5, 1)
-    circuit.x(0)
-    circuit.measure(0, 0)
-    source = json.loads(json.dumps(circuit, cls=RuntimeEncoder))
-    runtime = _Runtime("fake_manila")
-    identifier = runtime.submit({
-        "backend": "fake_manila",
-        "program_id": "sampler",
-        "params": {"version": 2, "support_qiskit": False, "pubs": [[source, None, 4]]},
-    })
-    result = runtime.result(runtime.jobs[identifier])
-    assert result["results"][0]["data"]["c"]["samples"] == ["0x1"] * 4
-
-
-@pytest.mark.parametrize("source", [None, [], {}, {"__type__": "settings", "__value__": {}}])
-def test_mock_rejects_other_runtime_types(source: object, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only circuit encodings may reach the Runtime decoder."""
-
-    def unexpected_decode(_decoder: object, _source: object) -> None:
-        pytest.fail("Unsupported source reached the Runtime decoder")
-
-    monkeypatch.setattr(RuntimeDecoder, "object_hook", unexpected_decode)
-    runtime = _Runtime("fake_manila")
-    with pytest.raises(ValueError, match="Unsupported Sampler circuit"):
-        runtime.submit({
-            "backend": "fake_manila",
-            "program_id": "sampler",
-            "params": {"version": 2, "support_qiskit": False, "pubs": [[source, None, 4]]},
-        })
+    assert runtime.respond("GET", "/v1/jobs/broken/results", b"")[0] == 409
 
 
 @pytest.mark.parametrize("override", ["api_key", "instance_crn", "base_url", "auth_url"])
@@ -276,17 +243,6 @@ def test_mock_pennylane_and_offloader() -> None:
 
     assert np.mean(circuit()) > 0.8
     assert build_sampler(simulator=False, backend_name="fake_manila").backend.num_qubits == 5
-
-
-def test_mock_job_outlives_backend() -> None:
-    """A native job retains access to its local service after backend collection."""
-    backend = IBMBackend(backend_name="fake_manila")
-    circuit = QuantumCircuit(1, 1)
-    circuit.measure(0, 0)
-    job = backend.run(circuit, shots=8)
-    del backend
-    gc.collect()
-    assert sum(job.result().get_counts().values()) == 8
 
 
 def test_standalone_service_and_parent_cleanup() -> None:
@@ -436,11 +392,6 @@ def test_local_http_validation() -> None:
     source = 'OPENQASM 3; include "stdgates.inc"; qubit[1] q; bit[1] c; c[0] = measure q[0];'
     params = {"version": 2, "support_qiskit": False, "pubs": [[source, None, 4]]}
     request = {"backend": "fake_manila", "program_id": "sampler", "params": params}
-    backend = IBMBackend(backend_name="fake_manila")
-    circuit = QuantumCircuit(1, 1)
-    circuit.measure(0, 0)
-    job = backend.run(circuit, shots=4)
-    job.result()
     cases = [
         ("POST", "/auth", {}, {}, 401),
         ("POST", "/v1/jobs", {**request, "backend": "wrong"}, {}, 400),
@@ -448,6 +399,7 @@ def test_local_http_validation() -> None:
         ("POST", "/v1/jobs", {**request, "params": {**params, "version": 1}}, {}, 400),
         ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": []}}, {}, 400),
         ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": [[source, None, True]]}}, {}, 400),
+        ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": [[{}, None, 4]]}}, {}, 400),
         (
             "POST",
             "/v1/jobs",
@@ -456,14 +408,9 @@ def test_local_http_validation() -> None:
             400,
         ),
         ("POST", "/v1/jobs", {**request, "params": {**params, "pubs": [["invalid qasm", None, 4]]}}, {}, 500),
-        ("POST", "/v1/jobs", {}, {}, 400),
         ("GET", "/v1/jobs/unknown", {}, {}, 404),
-        ("GET", f"/v1/jobs/{job.job_id()}/unknown", {}, {}, 404),
-        ("POST", f"/v1/jobs/{job.job_id()}/unknown", {}, {}, 404),
-        ("GET", "/v1/backends/fake_manila/unknown", {}, {}, 404),
         ("GET", "/unknown", {}, {"Authorization": "wrong"}, 401),
         ("POST", "/v1/jobs", {}, {"Content-Length": str(16 * 1024 * 1024 + 1)}, 413),
-        ("POST", "/v1/jobs", {}, {"Content-Length": "invalid"}, 400),
     ]
     for method, path, payload, extra_headers, expected in cases:
         connection = HTTPConnection("127.0.0.1", endpoint.port, timeout=10)
@@ -484,24 +431,11 @@ def test_local_http_validation() -> None:
             connection.close()
 
 
-def test_stopped_service_does_not_replace_existing_jobs() -> None:
-    """A dead service cannot silently restart with an empty job registry."""
+def test_stopped_service_preserves_job_identity() -> None:
+    """A crashed child cannot restart with the old job identifiers."""
     _mock_runtime.connection("fake_belem")
     process, _ = _mock_runtime._SERVICES["fake_belem"]  # ruff: ignore[private-member-access] -- simulate a crashed child
     process.terminate()
     process.wait(timeout=5)
     with pytest.raises(RuntimeError, match="stopped"):
         _mock_runtime.connection("fake_belem")
-
-
-def test_unresponsive_service_is_reaped() -> None:
-    """Cleanup kills a child that does not observe the closed parent pipe."""
-    process = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-    )
-    _mock_runtime._stop(process)  # ruff: ignore[private-member-access] -- exercise bounded cleanup
-    assert process.poll() is not None

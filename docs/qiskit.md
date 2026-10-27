@@ -10,8 +10,8 @@ extra:
 uv pip install "ibm-qdmi[qiskit]"
 ```
 
-Importing the adapter is offline. Constructing a backend reads live metadata;
-executing circuits creates paid quantum jobs. The examples below require
+Importing the adapter is offline. Constructing a remote backend reads live
+metadata; remote execution creates paid quantum jobs. The examples below require
 authorized IBM access and are not executed during documentation builds.
 
 ## Select a backend
@@ -38,58 +38,34 @@ adapts an already-open device and rejects connection overrides. `device_id` and
 `provider` can supply identity metadata for that device; registered devices also
 support the inherited `IBMBackend.from_device_id()` factory.
 
-## Run without IBM Cloud access
-
-Install the optional mock support on a platform supported by Qiskit Aer:
+For local development, install the optional mock support on a platform supported
+by Qiskit Aer:
 
 ```console
 uv pip install 'ibm-qdmi[mock]'
 ```
 
-Select an official Qiskit Runtime fake by name:
-
 ```python
-from ibm.qdmi.qiskit import IBMBackend
-
 backend = IBMBackend(backend_name="fake_manila")
 ```
 
-The same transpilation, execution, Sampler, Estimator, and Executor interfaces
-work with this backend. The service accepts QASM and Runtime-encoded QPY
-circuits when the native device supports them. Jobs pass through the installed
-native QDMI device to an automatically started loopback service. No IBM account
-or credentials are required. The generic device also accepts
-`IBM_QUANTUM_BACKEND=fake_manila`. An explicit backend name takes precedence.
-Concrete catalogue entries retain their defaults. PennyLane's `IBMDevice` and
-offloader workers accept the same `backend_name` selector.
+The backend uses Runtime's bundled
+[fake device snapshots](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider)
+and runs QASM3 Sampler jobs and Executor programs through the installed native
+device. The same transpilation, Sampler, Estimator, and Executor interfaces work
+locally; PennyLane's `IBMDevice` and offloader workers accept `backend_name` as
+well. No IBM account is needed. `IBM_QUANTUM_BACKEND=fake_manila` also selects a
+fake for `ibm.default`; explicit connection settings instead select a remote
+service. Unknown fake names fail locally. See `python -m examples.runtime_mock`
+for a complete example.
 
-Names come from Runtime's
-[fake provider](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider).
-Unknown mock names fail locally. Explicit credentials or endpoint overrides
-select a remote connection, including services with names such as `fake_lagos`.
-Automatic mock selection ignores inherited cloud credentials. Other backend
-names retain their existing cloud behavior.
-
-Fakes use bundled device snapshots and noisy local simulation. They do not
-represent current hardware calibration. Snapshots are never refreshed
-automatically. Use small targets such as `fake_manila` for development:
-simulation cost can grow exponentially with qubit count. Aer wheel availability
-limits supported platforms and Python versions; Python 3.13 on x86-64 is the CI
-reference. Local Sampler execution rejects enabled dynamical decoupling and
-twirling rather than silently ignoring them.
-
-One service per target stays alive until the Python process exits, so jobs can
-outlive their backend object and be retrieved from another session. Mock job IDs
-last only for that service's lifetime. The service binds to `127.0.0.1` and uses
-a random per-process credential; it is a development tool on a trusted local
-machine. If you configure an HTTP proxy, include `127.0.0.1` in `no_proxy` (or
-`NO_PROXY`) so native requests reach the local service directly.
-
-Run the complete sampling and Executor example:
-
-```console
-python -m examples.runtime_mock
-```
+Fakes are snapshots, not current calibrations. Use small targets: simulation
+cost can grow exponentially with qubit count. Aer wheel availability limits
+supported platforms and Python versions. The local Sampler rejects enabled
+dynamical decoupling and twirling. One service per target stays alive until
+process exit, so jobs can be retrieved from another backend object while that
+process runs. The service binds to `127.0.0.1` with a temporary credential;
+include that address in `no_proxy` if an HTTP proxy is configured.
 
 ## Transpile and execute
 
