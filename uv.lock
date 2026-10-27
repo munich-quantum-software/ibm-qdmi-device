@@ -768,7 +768,6 @@ executor = [
 mock = [
     { name = "mqt-core", extra = ["qiskit"] },
     { name = "qiskit-aer", marker = "(python_full_version < '3.14' and platform_machine == 'aarch64') or (python_full_version < '3.15' and platform_machine != 'ARM64' and platform_machine != 'aarch64')" },
-    { name = "qiskit-algorithms" },
     { name = "qiskit-ibm-runtime" },
 ]
 pennylane = [
@@ -824,7 +823,6 @@ requires-dist = [
     { name = "qiskit", marker = "extra == 'qiskit'", specifier = ">=2.5" },
     { name = "qiskit-aer", marker = "python_full_version == '3.14.*' and platform_machine != 'ARM64' and platform_machine != 'aarch64' and extra == 'mock'", specifier = ">=0.17.2" },
     { name = "qiskit-aer", marker = "python_full_version < '3.14' and platform_machine != 'ARM64' and extra == 'mock'", specifier = ">=0.17.2" },
-    { name = "qiskit-algorithms", marker = "extra == 'mock'", specifier = ">=0.4" },
     { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = "~=0.50.0" },
     { name = "qiskit-ibm-runtime", marker = "extra == 'mock'", specifier = "~=0.50.0" },
 ]
@@ -2151,22 +2149,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/30/42/27630b76d91d743a8c6531b3a455662ca8e703ffed7ac0d223248aa4285c/qiskit_aer-0.18.2-cp315-cp315-manylinux_2_27_s390x.manylinux_2_28_s390x.whl", hash = "sha256:0b75628349dfc1eb745d392b63b9001248d045bc42a97112235c2194cd42c620", size = 8477585, upload-time = "2026-10-26T22:32:39.315Z" },
     { url = "https://files.pythonhosted.org/packages/df/b3/5372633d9d176a781426529ad4d86780fa1ee4e85fdb5878455afc4c96dc/qiskit_aer-0.18.2-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:eacd82b70dbad3963f44e50db2d9075d7c89b3ecb879626211413af4a261c496", size = 14220637, upload-time = "2026-10-26T20:02:46.339Z" },
     { url = "https://files.pythonhosted.org/packages/78/40/34ef29b60b0c2bb270a5b3dc195f4f1c7f420aa6785ada922007ecc3fedb/qiskit_aer-0.18.2-cp315-cp315-win_amd64.whl", hash = "sha256:5932c0c15fbb6ac2451d8773e1426e21f03d7c9b0086c3d49fb4f7b9d8903eb8", size = 10006913, upload-time = "2026-10-26T20:02:48.539Z" },
-]
-
-[[package]]
-name = "qiskit-algorithms"
-version = "0.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "qiskit" },
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/86/d0f8ccae25281d49ebb0e2b59076c2d815389c16a4f7a379936f21065e94/qiskit_algorithms-0.4.0.tar.gz", hash = "sha256:b945e807c9b94ba2e0d2e02898b1f1e1a33efd3b4a6dc5a45bb787c6832d4093", size = 259556, upload-time = "2025-08-29T18:32:24.076Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/23/ab868be0ea11e0054ac4962d27f80cc064e007f8e34b7b61808a25227cca/qiskit_algorithms-0.4.0-py3-none-any.whl", hash = "sha256:c8bfc119e270c7cd7d6013e62193914381bd71fd4cdc847c07b50c749fd0114d", size = 327840, upload-time = "2025-08-29T18:32:22.659Z" },
 ]
 
 [[package]]

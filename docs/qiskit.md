@@ -11,8 +11,8 @@ uv pip install "ibm-qdmi[qiskit]"
 ```
 
 Importing the adapter is offline. Constructing a remote backend reads live
-metadata; remote execution creates paid quantum jobs. The examples below require
-authorized IBM access and are not executed during documentation builds.
+metadata; remote execution creates paid quantum jobs and requires authorized IBM
+access.
 
 ## Select a backend
 
@@ -53,11 +53,10 @@ The backend uses Runtime's bundled
 [fake device snapshots](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider)
 and runs QPY or OpenQASM 3 Sampler jobs and Executor programs through the
 installed native device. The same transpilation, Sampler, Estimator, and
-Executor interfaces work locally; PennyLane's `IBMDevice` and offloader workers
-accept `backend_name` as well. No IBM account is needed.
-`IBM_QUANTUM_BACKEND=fake_manila` also selects a fake for `ibm.default`;
-explicit connection settings instead select a remote service. Unknown fake names
-fail locally. See `python -m examples.runtime_mock` for a complete example.
+Executor interfaces work locally; PennyLane's `IBMDevice` accepts `backend_name`
+as well. No IBM account is needed. `IBM_QUANTUM_BACKEND=fake_manila` also
+selects a fake for `ibm.default`; explicit connection settings instead select a
+remote service. Unknown fake names fail locally.
 
 Fakes are snapshots, not current calibrations. Use small targets: simulation
 cost can grow exponentially with qubit count. Aer wheel availability limits

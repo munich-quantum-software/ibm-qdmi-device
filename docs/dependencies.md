@@ -35,8 +35,8 @@ PennyLane and define their supported versions.
 
 | Dependency           | Version            | License    | Purpose                                                                   |
 | :------------------- | :----------------- | :--------- | :------------------------------------------------------------------------ |
-| [MQT Core]           | [package metadata] | MIT        | QDMI driver and adapters for `qiskit`, `executor`, and `pennylane` extras |
-| [Qiskit IBM Runtime] | ~=0.50.0           | Apache-2.0 | Executor encoding and decoding in the `executor` extra                    |
+| [MQT Core]           | [package metadata] | MIT        | QDMI driver and adapters for `qiskit`, `executor`, `mock`, and `pennylane` extras |
+| [Qiskit IBM Runtime] | ~=0.50.0           | Apache-2.0 | Executor encoding and fake metadata in the `executor` and `mock` extras                    |
 
 See [installation](installation.md#python-package) to select extras.
 

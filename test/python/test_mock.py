@@ -31,6 +31,9 @@ from urllib.parse import urlsplit
 import numpy as np
 import pennylane as qml
 import pytest
+
+pytest.importorskip("qiskit_ibm_runtime")
+
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
 from qiskit import QuantumCircuit, transpile
@@ -47,7 +50,6 @@ from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
 
 from ibm.qdmi import _mock_runtime  # ruff: ignore[import-private-name]
-from ibm.qdmi._backends import build_sampler  # ruff: ignore[import-private-name]
 from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name]
 from ibm.qdmi.mock import _Job, _Runtime  # ruff: ignore[import-private-name]
 from ibm.qdmi.pennylane import IBMDevice
@@ -210,7 +212,7 @@ def test_executor_simulates_circuit_and_samplex_items() -> None:
     np.testing.assert_array_equal(retrieved[1]["c"], result[1]["c"])
 
 
-def test_mock_pennylane_and_offloader() -> None:
+def test_mock_pennylane() -> None:
     """Framework helpers share the same native mock selection."""
     device = IBMDevice(wires=1, backend_name="fake_manila")
 
@@ -220,7 +222,6 @@ def test_mock_pennylane_and_offloader() -> None:
         return qml.sample(wires=0)
 
     assert np.mean(circuit()) > 0.8
-    assert build_sampler(simulator=False, backend_name="fake_manila").backend.num_qubits == 5
 
 
 def test_standalone_service_and_parent_cleanup() -> None:

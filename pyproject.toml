@@ -63,7 +63,6 @@ mock = [
   "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394",
   "qiskit-aer>=0.17.2; python_version<'3.14' and platform_machine!='ARM64'",
   "qiskit-aer>=0.17.2; python_version=='3.14' and platform_machine!='ARM64' and platform_machine!='aarch64'",
-  "qiskit-algorithms>=0.4",
   "qiskit-ibm-runtime~=0.50.0",
 ]
 pennylane = [

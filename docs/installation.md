@@ -18,6 +18,10 @@ uv pip install "ibm-qdmi[executor]"
 uv pip install "ibm-qdmi[pennylane]"
 ```
 
+For local IBM device simulation without Cloud access, install `ibm-qdmi[mock]`.
+See [backend selection](qiskit.md#select-a-backend) for configuration and
+platform requirements.
+
 The `executor` extra adds `qiskit-ibm-runtime` for
 [Executor programs](qiskit.md#optional-executor-primitive). The `pennylane`
 extra also installs Qiskit for circuit serialization. See the
@@ -34,10 +38,6 @@ includes typing metadata and exposes `ibm.qdmi.__version__`. See the
 [Python package guide](python_package.md) for installed paths and CLI options.
 
 ## Native package
-
-For local IBM device simulation without Cloud access, install `ibm-qdmi[mock]`.
-See [backend selection](qiskit.md#select-a-backend) for backend selection,
-platform requirements, and execution examples.
 
 The wheel includes the headers and CMake package configuration. C and C++
 projects can build against an installed wheel by passing
