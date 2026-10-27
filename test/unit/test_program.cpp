@@ -20,7 +20,6 @@
 #include "Http.hpp"
 #include "Job.hpp"
 
-#include <cstddef>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
