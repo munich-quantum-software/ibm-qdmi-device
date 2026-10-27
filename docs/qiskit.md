@@ -68,8 +68,6 @@ Results preserve circuit names, metadata, classical register boundaries, and bit
 order. Unsupported instructions, unbound parameters, invalid site tuples, and
 scheduled delays fail before submission.
 
-(dynamic-circuits)=
-
 Backends advertising `if_else` support conditional execution through QPY.
 Conditions compare one classical bit or a register of at most 32 bits with an
 integer. Both branches preserve physical qubit mappings:
@@ -89,10 +87,6 @@ Ideal samples are `00` and `11`. Nested conditionals, measurements or resets
 inside branches, loops, switches, classical expressions, and `Store` are
 unsupported. The whole batch is validated before submission. See IBM's
 [dynamic-circuit limits](https://quantum.cloud.ibm.com/docs/en/guides/execute-dynamic-circuits#quantum-compute-limitations).
-Run the example locally with
-`uv run --group examples python -m examples.dynamic_circuit --shots 128`. It
-uses Aer without IBM access; select `--backend ibm --device ibm.berlin` only
-within an authorized hardware budget.
 
 `shots` must be positive and defaults to 1,024. Set `memory=True` to retrieve
 ordered samples, including leading zeros. Compatible circuits share one Sampler

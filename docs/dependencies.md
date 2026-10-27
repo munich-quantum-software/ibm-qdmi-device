@@ -36,7 +36,7 @@ PennyLane and define their supported versions.
 | Dependency           | Version   | License    | Purpose                                                                   |
 | :------------------- | :-------- | :--------- | :------------------------------------------------------------------------ |
 | [MQT Core]           | `e4cd6cf` | MIT        | QDMI driver and adapters for `qiskit`, `executor`, and `pennylane` extras |
-| [Qiskit IBM Runtime] | ~=0.50.0 | Apache-2.0 | Executor encoding and decoding in the `executor` extra                    |
+| [Qiskit IBM Runtime] | ~=0.50.0  | Apache-2.0 | Executor encoding and decoding in the `executor` extra                    |
 
 MQT Core is pinned to `e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394` for its QPY
 serializer. Installation builds Core from source and downloads its LLVM/MLIR SDK
