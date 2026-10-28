@@ -38,13 +38,6 @@ PennyLane and define their supported versions.
 | [MQT Core]           | [package metadata] | MIT        | QDMI driver and adapters for `qiskit`, `executor`, `mock`, and `pennylane` extras |
 | [Qiskit IBM Runtime] | ~=0.50.0           | Apache-2.0 | Executor encoding and fake metadata in the `executor` and `mock` extras           |
 
-MQT Core is pinned in the [package metadata] for its shared compiler and
-Qiskit/PennyLane result decoding. Installation builds Core from source and
-downloads its LLVM/MLIR SDK when needed. A published package must raise its
-minimum Core version to the release containing
-[Core #2886](https://github.com/munich-quantum-toolkit/core/pull/2886) and
-[Core #2767](https://github.com/munich-quantum-toolkit/core/pull/2767).
-
 See [installation](installation.md#python-package) to select extras.
 
 [CPR]: https://github.com/libcpr/cpr

@@ -1,10 +1,7 @@
 # PennyLane integration
 
-This draft requires
-[Core #2767](https://github.com/munich-quantum-toolkit/core/pull/2767) on top of
-[Core #2886](https://github.com/munich-quantum-toolkit/core/pull/2886). Use
-`uv sync --extra pennylane` from this checkout to install its exact source pin.
-The {py:class}`~ibm.qdmi.pennylane.IBMDevice` class reuses MQT Core's PennyLane
+Install the optional adapter with `uv pip install "ibm-qdmi[pennylane]"`. The
+{py:class}`~ibm.qdmi.pennylane.IBMDevice` class reuses MQT Core's PennyLane
 preprocessing, job orchestration, and sample decoding. It exports `ibm.default`,
 `ibm.berlin`, and `ibm.aachen` as PennyLane device names. See the
 [MQT Core PennyLane guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/pennylane_device.html)
