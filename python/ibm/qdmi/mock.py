@@ -94,7 +94,8 @@ def _simulate(request: dict[str, Any]) -> dict[str, Any]:
                 "data": {
                     name: {
                         "samples": [
-                            hex(int.from_bytes(row, "little")) for row in np.packbits(bits, axis=-1, bitorder="little")
+                            hex(int.from_bytes(row.tobytes(), "little"))
+                            for row in np.packbits(bits, axis=-1, bitorder="little")
                         ],
                         "num_bits": bits.shape[-1],
                     }
