@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from native_support import Native
     from offline_service import Service
 
-PROGRAM = b"OPENQASM 3; qubit[2] q; bit[2] z; bit a; z[0] = measure q[1]; a = measure q[0];"
+PROGRAM = b'OPENQASM 3; include "stdgates.inc"; qubit[2] q; bit[2] z; bit a; z[0] = measure q[1]; a = measure q[0];'
 
 
 def configure(native: Native, job: ctypes.c_void_p) -> None:
