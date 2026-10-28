@@ -27,7 +27,7 @@
 #include <vector>
 
 namespace {
-const std::string PROGRAM =
+constexpr auto* PROGRAM =
     "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; "
     "bit[2] z; bit a; x q[1]; z[0] = measure q[1]; a = measure q[0];";
 template <class Function> void fails(Function&& function, int expected) {
@@ -64,20 +64,26 @@ TEST(Program, PreservesDeclarationOrderAndPhysicalIndices) {
             2);
 }
 TEST(Program, RejectsAmbiguousOrUnsupportedPrograms) {
-  for (const auto* source :
-       {"OPENQASM 2;", "OPENQASM 3; bit[0] c;", "OPENQASM 3; bit[2] c; bit c;",
-        "OPENQASM 3; bit c; c = measure $2;", "OPENQASM 3; /* unterminated",
-        "OPENQASM 3; bit c; c = measure $0",
-        "OPENQASM 3; qubit[2] physical; bit physical;",
-        "OPENQASM 3; bit physical; qubit[2] physical;"}) {
+  for (const auto* source : {
+           "OPENQASM 2;",
+           "OPENQASM 3; bit[0] c;",
+           "OPENQASM 3; bit[2] c; bit c;",
+           "OPENQASM 3; bit c; c = measure $2;",
+           "OPENQASM 3; /* unterminated",
+           "OPENQASM 3; bit c; c = measure $0",
+           "OPENQASM 3; qubit[2] physical; bit physical;",
+           "OPENQASM 3; bit physical; qubit[2] physical;",
+       }) {
     fails([&] { (void)ibm::outputRegisters(source, 2); },
           QDMI_ERROR_INVALIDARGUMENT);
   }
-  for (const auto* source :
-       {"OPENQASM 3; qubit[1] q;", "OPENQASM 3; input float theta;",
-        "OPENQASM 3; bit c; if (true) { c = measure $0; }",
-        "OPENQASM 3; bit c; rz(theta) $0; c = measure $0;",
-        "OPENQASM 3; bit c; c = true; c = measure $0;"}) {
+  for (const auto* source : {
+           "OPENQASM 3; qubit[1] q;",
+           "OPENQASM 3; input float theta;",
+           "OPENQASM 3; bit c; if (true) { c = measure $0; }",
+           "OPENQASM 3; bit c; rz(theta) $0; c = measure $0;",
+           "OPENQASM 3; bit c; c = true; c = measure $0;",
+       }) {
     fails([&] { (void)ibm::outputRegisters(source, 2); },
           QDMI_ERROR_NOTSUPPORTED);
   }
@@ -91,20 +97,22 @@ TEST(Program, PreservesResultsAcrossStaticGateDefinitions) {
   ASSERT_EQ(registers.size(), 1);
   EXPECT_EQ(registers[0].name, "c");
   EXPECT_EQ(registers[0].width, 2);
-  for (const auto* program :
-       {"OPENQASM 3; gate g a { bit c; c = measure a; } bit c; c = measure $0;",
-        "OPENQASM 3; gate g a { rz(unbound) a; } bit c; c = measure $0;",
-        "OPENQASM 3; gate g a { x outside; } bit c; c = measure $0;",
-        "OPENQASM 3; gate g a { reset a; } bit c; c = measure $0;",
-        "OPENQASM 3; gate g a { if (true) { x a; } } bit c; c = measure $0;"}) {
+  for (const auto* program : {
+           "OPENQASM 3; gate g a{bit c;c=measure a;} bit c;c=measure $0;",
+           "OPENQASM 3; gate g a { rz(unbound) a; } bit c; c = measure $0;",
+           "OPENQASM 3; gate g a { x outside; } bit c; c = measure $0;",
+           "OPENQASM 3; gate g a { reset a; } bit c; c = measure $0;",
+           "OPENQASM 3; gate g a { if (true) { x a; } } bit c; c = measure $0;",
+       }) {
     fails([&] { (void)ibm::outputRegisters(program, 5); },
           QDMI_ERROR_NOTSUPPORTED);
   }
-  for (const auto* program :
-       {"OPENQASM 3; gate g a { x a;",
-        "OPENQASM 3; gate g(p,p) a { rz(p) a; } bit c; c = measure $0;",
-        "OPENQASM 3; gate g a { x a; } gate g a { x a; } bit c; c = measure "
-        "$0;"}) {
+  for (const auto* program : {
+           "OPENQASM 3; gate g a { x a;",
+           "OPENQASM 3; gate g(p,p) a { rz(p) a; } bit c; c = measure $0;",
+           "OPENQASM 3; gate g a { x a; } gate g a { x a; } bit c; c = measure "
+           "$0;",
+       }) {
     fails([&] { (void)ibm::outputRegisters(program, 5); },
           QDMI_ERROR_INVALIDARGUMENT);
   }

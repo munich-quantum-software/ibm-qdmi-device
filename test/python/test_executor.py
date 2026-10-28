@@ -25,6 +25,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
+
+pytest.importorskip("qiskit_ibm_runtime")
+
 from ibm_quantum_schemas.common import CompressedTensorModel
 from ibm_quantum_schemas.executor.version_2_0 import QuantumProgramResultModel
 from mqt.core.qdmi import Job

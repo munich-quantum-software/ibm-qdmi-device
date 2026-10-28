@@ -1,89 +1,25 @@
 # C/C++ API reference
 
-The native library exposes the QDMI device interface with the `IBM_` symbol
-prefix. Public headers include `ibm_qdmi/device.h` and
-`ibm-qdmi-device/constants.h`.
+The library implements the QDMI device interface with the `IBM_` symbol prefix.
+Include `ibm_qdmi/device.h` for the device API and `ibm-qdmi-device/constants.h`
+or `ibm-qdmi-device/diagnostics.h` for IBM extensions. See the
+[usage guide](api.md) for supported properties and job behavior, and
+[native installation](installation.md#native-package) for CMake integration.
 
-<!-- Doxygen HTML is generated alongside the Sphinx documentation. -->
+The reference is generated directly from the public headers:
+
 <!-- rumdl-disable MD033 -->
-The declarations below are generated from the public headers. The
-<a href="cpp/index.html">standalone Doxygen reference</a> remains available and
-also includes the upstream QDMI client declarations.
+| Reference                                                                   | Contents                                         |
+| --------------------------------------------------------------------------- | ------------------------------------------------ |
+| <a href="cpp/index.html">Native API</a>                                     | Complete generated reference                     |
+| <a href="cpp/group__device__interface.html">Device lifecycle</a>            | Initialization and finalization                  |
+| <a href="cpp/group__device__session__interface.html">Sessions</a>           | Configuration and resource ownership             |
+| <a href="cpp/group__device__query__interface.html">Queries</a>              | Device, site, and operation properties           |
+| <a href="cpp/group__device__job__interface.html">Jobs</a>                   | Submission, results, cancellation, and retrieval |
+| <a href="cpp/include_2ibm-qdmi-device_2constants_8h.html">IBM constants</a> | Custom parameters and formats                    |
+| <a href="cpp/diagnostics_8h.html">Diagnostics</a>                           | Fixed failure categories                         |
 <!-- rumdl-enable MD033 -->
 
-See the [usage guide](api.md) for supported properties, session configuration,
-and job behavior. Follow [native installation](installation.md#native-package)
-to link a downstream application.
-
-<!-- MyST directives embed declarations from the generated Doxygen XML. -->
-<!-- rumdl-disable MD040 -->
-
-## Device lifecycle
-
-```{doxygengroup} device_interface
-:members:
-```
-
-## Device sessions
-
-```{doxygengroup} device_session_interface
-:members:
-```
-
-## Device queries
-
-```{doxygengroup} device_query_interface
-:members:
-```
-
-## Device jobs
-
-```{doxygengroup} device_job_interface
-:members:
-```
-
-## Client lifecycle
-
-```{doxygengroup} client_interface
-:members:
-```
-
-## Client sessions
-
-```{doxygengroup} client_session_interface
-:members:
-```
-
-## Client queries
-
-```{doxygengroup} client_query_interface
-:members:
-```
-
-## Client jobs
-
-```{doxygengroup} client_job_interface
-:members:
-```
-
-## IBM handle types
-
-```{doxygenfile} ibm_qdmi/types.h
-```
-
-## Client handle types
-
-```{doxygenfile} include/qdmi/types.h
-```
-
-## QDMI constants
-
-```{doxygenfile} include/qdmi/constants.h
-```
-
-## IBM constants
-
-```{doxygenfile} ibm-qdmi-device/constants.h
-```
-
-<!-- rumdl-enable MD040 -->
+The
+[QDMI reference](https://munich-quantum-software-stack.github.io/QDMI/v1.4.0/)
+documents the client interface and shared types.

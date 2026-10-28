@@ -37,6 +37,7 @@ target_include_directories(
 target_compile_definitions(
   ibm-qdmi-core
   PRIVATE IBM_QDMI_device_EXPORTS QDMI_VERSION="${IBM_QDMI_QDMI_VERSION}"
+          $<$<PLATFORM_ID:Windows>:NOMINMAX>
   INTERFACE $<$<PLATFORM_ID:Windows>:IBM_QDMI_STATIC_DEFINE>)
 target_link_libraries(
   ibm-qdmi-core

@@ -28,7 +28,12 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pennylane as qml
 import pytest
-from mqt.core.plugins.pennylane import PennyLaneConfigurationError, PennyLaneExecutionError, PennyLaneValidationError
+from mqt.core.plugins.pennylane import (
+    PennyLaneConfigurationError,
+    PennyLaneExecutionError,
+    PennyLaneUnsupportedOperationError,
+    PennyLaneValidationError,
+)
 from offline_service import CRN
 from pennylane import numpy as pnp
 from qiskit import QuantumCircuit, qasm3
@@ -204,6 +209,20 @@ def test_native_gate_declarations(runtime: RuntimeProxy, name: str) -> None:
     assert "q[0], q[1]" in source
 
 
+def test_unsupported_native_spelling_submits_nothing(runtime: RuntimeProxy) -> None:
+    """An advertised gate outside the IBM emitter's basis rejects the batch."""
+    config = runtime.snapshot()["configuration"]
+    config["gates"].append({"name": "sxdg", "parameters": [], "coupling_map": [[0]]})
+    runtime.set_configuration("gates", config["gates"])
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "sxdg"])
+    device = open_device(runtime)
+    valid = qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=[0, 1])], shots=3)
+    invalid = qml.tape.QuantumScript([qml.adjoint(qml.SX(0))], [qml.sample(wires=[0, 1])], shots=3)
+    with pytest.raises(PennyLaneUnsupportedOperationError, match="sxdg"):
+        device.execute((valid, invalid))
+    assert not runtime.snapshot()["submissions"]
+
+
 def test_invalid_batch_submits_nothing(runtime: RuntimeProxy) -> None:
     """A later unsupported directed pair is rejected before the first submission."""
     device = open_device(runtime)
@@ -254,6 +273,7 @@ def reject_connection(*args, **kwargs):
     raise AssertionError('Import attempted a network connection')
 socket.socket.connect = reject_connection
 import ibm.qdmi.pennylane
+assert 'qiskit' not in sys.modules
 from importlib.metadata import entry_points
 plugins = {
     entry.name: entry.load()

@@ -20,9 +20,6 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
@@ -35,13 +32,10 @@ from qiskit.circuit import Parameter
 from qiskit.providers import JobStatus
 from qiskit_service import open_backend
 
-from ibm import qdmi
 from ibm.qdmi import qiskit as adapter
 from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from qiskit_service import RuntimeProxy
 
 
@@ -206,75 +200,3 @@ def test_generic_selection_required(runtime: RuntimeProxy, monkeypatch: pytest.M
     with pytest.raises(ValueError, match="Allocating QDMI session"):
         IBMBackend(api_key="synthetic-key", instance_crn=CRN, base_url=url, auth_url=url + "/auth")
     assert not runtime.snapshot()["requests"]
-
-
-def test_inherited_factory(runtime: RuntimeProxy) -> None:
-    """The shared factory can pass provider and registry metadata to the subclass."""
-    registered = open_backend(runtime)
-    url = runtime.snapshot()["url"]
-    backend = IBMBackend.from_device_id(
-        "ibm.default",
-        token="synthetic-key",  # ruff: ignore[hardcoded-password-func-arg] -- synthetic test credential
-        custom1="ibm_test",
-        custom2=CRN,
-        base_url=url,
-        auth_url=url + "/auth",
-    )
-    assert isinstance(backend, IBMBackend)
-    assert backend.device_id == "ibm.default"
-    assert backend.device is not registered.device
-    circuit = QuantumCircuit(1, 1)
-    circuit.x(0)
-    circuit.measure(0, 0)
-    assert backend.run(circuit, shots=3).result().get_counts() == {"1": 3}
-
-
-def test_administrator_default(runtime: RuntimeProxy, tmp_path: Path) -> None:
-    """An isolated registry keeps configured defaults and explicit precedence."""
-    catalogue = tmp_path / "administrator.qdmi.json"
-    catalogue.write_text(
-        json.dumps({
-            "schema-version": 1,
-            "qdmi": {
-                "devices": [
-                    {
-                        "id": "site.ibm",
-                        "library": str(qdmi.IBM_QDMI_LIBRARY_PATH),
-                        "prefix": "IBM",
-                        "enabled": True,
-                        "session": {
-                            "custom1": "ibm_test",
-                            "token": "synthetic-key",
-                            "custom2": CRN,
-                            "base-url": runtime.snapshot()["url"],
-                            "auth-url": runtime.snapshot()["url"] + "/auth",
-                        },
-                    }
-                ]
-            },
-        }),
-        encoding="utf-8",
-    )
-    script = """
-import os
-from ibm.qdmi.qiskit import IBMBackend
-assert IBMBackend(device_id="site.ibm").device.name() == 'ibm_test'
-os.environ['IBM_QUANTUM_BACKEND'] = 'wrong-backend'
-assert IBMBackend(device_id="site.ibm", backend_name='ibm_test').device.name() == 'ibm_test'
-del os.environ['IBM_QUANTUM_BACKEND']
-assert IBMBackend(device_id="site.ibm").device.name() == 'ibm_test'
-"""
-    env = {
-        key: value for key, value in os.environ.items() if not key.startswith(("IBM_QUANTUM_", "MQT_CORE_QDMI_CONFIG_"))
-    }
-    env["MQT_CORE_QDMI_CONFIG_FILE"] = str(catalogue)
-    result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed script and loopback inputs
-        [sys.executable, "-c", script, runtime.snapshot()["url"], CRN],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
-    assert not runtime.snapshot()["submissions"]

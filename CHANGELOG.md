@@ -12,11 +12,39 @@ releases may include breaking changes.
 
 ### Changed
 
+- ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
+  ([#92]) ([**@burgholzer**])
+- 📝 Consolidate usage and development guidance and publish the native API
+  directly with Doxygen. ([#92]) ([**@burgholzer**])
+- 🔧 Simplify package license metadata and configuration. ([#92])
+  ([**@burgholzer**])
+- 👷 Run hardware checks independently on explicit requests after fresh offline
+  validation. ([#92]) ([**@burgholzer**])
+- 👷 Run selected Python sessions for draft PRs and the full range when ready
+  for review. ([#92]) ([**@burgholzer**])
+- 👷 Separate native coverage from Python test coverage uploads. ([#92])
+  ([**@burgholzer**])
+- 👷 Use Clang 23 to lint whole changed files on PRs and all files on `main`.
+  ([#92]) ([**@burgholzer**])
+- 👷 Use shared native CI workflows with MSVC on Windows and one check
+  aggregate. ([#92]) ([**@burgholzer**])
+- 👷 Check IBM metadata automatically in trusted CI. ([#92])
+  ([**@burgholzer**])
+- ♻️ Remove the offloader, worker commands, and application examples; refer to
+  MQT Core for shared QDMI and Slurm workflows. ([#92]) ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
 ### Fixed
 
+- 🐛 Build Windows Debug binaries with embedded debug information. ([#92])
+  ([**@burgholzer**])
+- 🐛 Use the PennyLane adapter without requiring Qiskit. ([#92])
+  ([**@burgholzer**])
+- 🐛 Select OpenSSL 3 when building Linux wheels. ([#92])
+  ([**@burgholzer**])
+- 🐛 Create the documentation output directory before running Doxygen. ([#92])
+  ([**@burgholzer**])
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
 
@@ -69,6 +97,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66

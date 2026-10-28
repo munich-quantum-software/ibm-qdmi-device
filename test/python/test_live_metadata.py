@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Metadata-only IBM checks, disabled until explicitly requested."""
+"""Read-only IBM metadata checks."""
 
 from __future__ import annotations
 

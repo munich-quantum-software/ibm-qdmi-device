@@ -43,31 +43,18 @@ jobs:
         run: >-
           uvx nox -s native_tests --
           --native-library="$GITHUB_WORKSPACE/build/coverage/src/libibm-qdmi-device.so"
-      - name: Test Python package
-        run: uvx nox -s tests-3.14 -- -m "not integration and not ci" --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
         with:
-          name: coverage
+          name: cpp-coverage
+          if-no-files-found: error
           path: |
             build/coverage/**/*.gcda
             build/coverage/**/*.gcno
-            build/python-coverage/coverage.xml
       - name: Upload native coverage
-        if: vars.CODECOV_ENABLED == 'true'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           fail_ci_if_error: true
           flags: cpp
-          use_oidc: true
-          exclude: python-coverage
+          use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
           plugins: gcov
-      - name: Upload Python coverage
-        if: vars.CODECOV_ENABLED == 'true'
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          fail_ci_if_error: true
-          flags: python
-          files: build/python-coverage/coverage.xml
-          disable_search: true
-          plugins: noop
-          use_oidc: true

@@ -5,11 +5,9 @@
 
 ## Native interface
 
-The library implements IBM-prefixed QDMI 1.4.0 device
-initialization/finalization, session
-allocation/configuration/initialization/free, and device, site, and operation
-queries, and the complete job lifecycle. Supported program formats are OpenQASM
-3 and the [Executor extension](api.md#executor-extension). Child-device
+The library implements the IBM-prefixed QDMI 1.4.0 device interface: device
+lifecycle, sessions, metadata queries, and jobs. Supported program formats are
+OpenQASM 3 and the [Executor extension](api.md#executor-extension). Child-device
 enumeration is unsupported.
 
 The [generated QDMI declaration reference](native_api.md) describes the
@@ -48,15 +46,13 @@ explicit empty value, which fails validation. Defaults are read during session
 initialization. A failed attempt does not freeze them; an initialized session
 retains its configuration when the environment changes.
 
-An explicit token takes precedence over an explicit key file. A selected key
-file takes precedence over `IBM_QUANTUM_API_KEY`; an unreadable or invalid file
-does not fall back to environment credentials. The library does not discover
-credential files or read saved Qiskit accounts. Files contain a raw UTF-8 API
-key, optionally followed by one LF or CRLF. Empty files, invalid UTF-8, embedded
-newlines, and null bytes are rejected. Other whitespace is preserved. Files are
-read only during initialization; IAM refresh uses the session's resolved key. An
-unreadable file returns `QDMI_ERROR_PERMISSIONDENIED`; malformed content or an
-empty path returns `QDMI_ERROR_INVALIDARGUMENT`.
+Credential precedence is explicit token, explicit key file, then
+`IBM_QUANTUM_API_KEY`. A selected invalid or unreadable file never falls back to
+environment credentials. Files contain one raw UTF-8 key, optionally followed by
+LF or CRLF. Empty content, embedded newlines, and null bytes are rejected; other
+whitespace is preserved. Files are read during initialization. Unreadable files
+return `QDMI_ERROR_PERMISSIONDENIED`; malformed content or an empty path returns
+`QDMI_ERROR_INVALIDARGUMENT`. Saved Qiskit accounts are not read.
 
 The API key is exchanged at IAM. Backend requests use the resulting bearer
 token, `Service-CRN`, and `IBM-API-Version: 2026-04-15`. Tokens and their expiry
@@ -71,12 +67,9 @@ including IAM exchanges, job submission, and cancellation, are never retried.
 See
 [IBM authentication](https://quantum.cloud.ibm.com/docs/en/guides/cloud-setup-rest-api).
 
-Independent device queries, job retrievals, and operations on different job
-handles may perform HTTP requests concurrently. IAM refresh remains serialized
-within each session, and a delayed unauthorized response cannot invalidate a
-newer token. Operations on one job remain serialized to protect its state and
-result cache. Job-wait deadlines include time spent waiting for the job lock or
-an IAM refresh. Submission is always attempted at most once per job handle.
+Requests on different jobs and independent queries can run concurrently.
+Operations on one job and IAM refresh within a session are serialized. Job-wait
+deadlines include lock and authentication waits.
 
 ## Query behavior
 
@@ -118,16 +111,12 @@ request deadlines to `QDMI_ERROR_TIMEOUT`, allocation failures to
 `QDMI_ERROR_OUTOFMEM`, and other transport/server/parsing failures to
 `QDMI_ERROR_FATAL`. Errors never include raw server responses or credentials.
 
-Include `ibm-qdmi-device/diagnostics.h` to inspect a fixed diagnostic category
-after a failed native call. `IBM_QDMI_device_last_diagnostic()` reports the last
-QDMI call on the current thread. A successful call resets it to `NONE`.
-`TRANSPORT` marks a connection failure, `RATE_LIMIT` marks a final HTTP 429, and
-`SERVICE` marks another unsuccessful HTTP response. `JOB_FAILED` marks a failed
-job without exposing its server reason. Other categories match the QDMI status
-or report `INTERNAL`. Read the category before another QDMI call on the same
-thread. The query sends no request and never returns server text, URLs,
-credentials, or backend details. It is an IBM extension; standard QDMI clients
-can ignore it.
+Include `ibm-qdmi-device/diagnostics.h` and call
+`IBM_QDMI_device_last_diagnostic()` immediately after a failed call for its
+fixed diagnostic category. It describes the last QDMI call on the current
+thread; successful calls reset it to `NONE`. Categories distinguish transport,
+rate limits, service errors, failed jobs, and internal errors without exposing
+server text or credentials. The diagnostic query sends no request.
 
 The supported backend response shapes follow the
 [IBM backend API](https://quantum.cloud.ibm.com/docs/en/api/qiskit-runtime-rest/tags/backends).
@@ -266,11 +255,9 @@ null-terminated JSON object; include the terminator in `size`.
 
 These defaults follow IBM's [dynamical-decoupling options]. Each assignment
 replaces the previous object and fills omitted fields with these defaults. An
-empty object resets all options. A null pointer only probes support. Malformed
-JSON, unknown fields, incorrect types, and unsupported values return
-`QDMI_ERROR_INVALIDARGUMENT` without changing the last valid configuration or
-making a request. Configuration is frozen after submission starts and on
-retrieved jobs. The execution-time cap and disabled twirling remain unchanged.
+empty object resets all options. A null pointer probes support. Invalid options
+return `QDMI_ERROR_INVALIDARGUMENT` without changing configuration. Options are
+frozen after submission starts and on retrieved jobs.
 
 For a configurable native job:
 
@@ -325,11 +312,11 @@ IBM's encoder and service validate circuit and samplex contents.
 `quantum_program.shots` supplies `SHOTSNUM`. Setting the separate `SHOTSNUM`
 parameter or the Sampler dynamical-decoupling parameter is unsupported for this
 format. Selecting Executor after setting those parameters is also unsupported.
-The existing maximum-execution-time parameter applies to both formats.
+The maximum-execution-time parameter applies to both formats.
 
 Read `IBM_QDMI_JOB_RESULT_EXECUTOR` (`QDMI_JOB_RESULT_CUSTOM1`) to obtain the
 null-terminated result JSON. Size queries include the terminating null byte. The
 device caches the complete result, including tensor encodings and metadata.
 Standard shots and histogram result queries return `QDMI_ERROR_NOTSUPPORTED` for
 Executor jobs. The custom result is unsupported for Sampler jobs. Job status,
-waiting, cancellation, and retrieval by ID use the existing QDMI API.
+waiting, cancellation, and retrieval by ID use the standard QDMI API.

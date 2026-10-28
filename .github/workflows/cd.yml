@@ -13,9 +13,6 @@ jobs:
     permissions:
       contents: read
 
-  # Builds wheels on all supported platforms using cibuildwheel.
-  # The wheels are uploaded as GitHub artifacts `dev-cibw-*` or `cibw-*`, depending on whether
-  # the workflow is triggered from a PR or a release, respectively.
   build-wheel:
     name: 🐍 Packaging
     strategy:
@@ -35,7 +32,6 @@ jobs:
     permissions:
       contents: read
 
-  # Downloads the previously generated artifacts and deploys to PyPI on published releases.
   deploy:
     if: github.event_name == 'release' && github.event.action == 'published'
     name: 🚀 Deploy to PyPI
