@@ -28,10 +28,10 @@ from qiskit import QuantumCircuit, transpile
 from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_metadata_target_and_transpilation(runtime: RuntimeProxy) -> None:
+def test_metadata_target_and_transpilation(runtime: Runtime) -> None:
     """Target properties use physical sites, signatures, and seconds."""
     backend = open_backend(runtime)
     assert backend.num_qubits == 5
@@ -63,7 +63,7 @@ def test_metadata_target_and_transpilation(runtime: RuntimeProxy) -> None:
     assert runtime.snapshot()["submissions"][0]["params"]["support_qiskit"] is False
 
 
-def test_repeated_measurement_calibration_opens_backend(runtime: RuntimeProxy) -> None:
+def test_repeated_measurement_calibration_opens_backend(runtime: Runtime) -> None:
     """IBM's qubit and gate readout records describe one target calibration."""
     runtime.set_properties({
         "qubits": [
@@ -90,7 +90,7 @@ def test_repeated_measurement_calibration_opens_backend(runtime: RuntimeProxy) -
     assert backend.target["measure"][4,].error == pytest.approx(0.02)
 
 
-def test_incomplete_gate_signature_is_not_exposed(runtime: RuntimeProxy) -> None:
+def test_incomplete_gate_signature_is_not_exposed(runtime: Runtime) -> None:
     """Missing or contradictory metadata cannot widen the transpilation target."""
     gates = runtime.snapshot()["configuration"]["gates"]
     gates[0]["parameters"] = ["unexpected"]

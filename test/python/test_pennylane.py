@@ -44,10 +44,10 @@ from ibm.qdmi.pennylane import IBMDevice
 if TYPE_CHECKING:
     from collections.abc import Hashable, Sequence
 
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def open_device(runtime: RuntimeProxy, wires: int | Sequence[Hashable] = 2) -> IBMDevice:
+def open_device(runtime: Runtime, wires: int | Sequence[Hashable] = 2) -> IBMDevice:
     """Open a fresh PennyLane session against the loopback service.
 
     Returns:
@@ -64,7 +64,7 @@ def open_device(runtime: RuntimeProxy, wires: int | Sequence[Hashable] = 2) -> I
     )
 
 
-def configure_entangler(runtime: RuntimeProxy, name: str) -> None:
+def configure_entangler(runtime: Runtime, name: str) -> None:
     """Replace CX with one native entangler on the directed synthetic chain."""
     config = runtime.snapshot()["configuration"]
     gates = [gate for gate in config["gates"] if gate["name"] != "cx"]
@@ -78,7 +78,7 @@ def configure_entangler(runtime: RuntimeProxy, name: str) -> None:
 
 
 @pytest.mark.parametrize("wires", [2, ["control", "target"], [4, 2]])
-def test_subset_wires_and_measurement_order(runtime: RuntimeProxy, wires: int | list[str] | list[int]) -> None:
+def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[str] | list[int]) -> None:
     """Wire labels map by position while QASM declares the full physical width."""
     device = open_device(runtime, wires)
     first, second = device.wires
@@ -108,7 +108,7 @@ def test_subset_wires_and_measurement_order(runtime: RuntimeProxy, wires: int | 
     ],
 )
 def test_catalogue_entrypoints(
-    runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch, identifier: str, backend: str
+    runtime: Runtime, monkeypatch: pytest.MonkeyPatch, identifier: str, backend: str
 ) -> None:
     """PennyLane resolves all installed stable IDs and honors concrete defaults."""
     runtime.set_configuration("backend_name", backend)
@@ -125,7 +125,7 @@ def test_catalogue_entrypoints(
 
 @pytest.mark.parametrize("use_environment", [False, True])
 def test_session_overrides_and_existing_device(
-    runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch, *, use_environment: bool
+    runtime: Runtime, monkeypatch: pytest.MonkeyPatch, *, use_environment: bool
 ) -> None:
     """Explicit connection values take precedence and an open device is exclusive."""
     monkeypatch.setenv("IBM_QUANTUM_API_KEY", "synthetic-key" if use_environment else "wrong-key")
@@ -140,7 +140,7 @@ def test_session_overrides_and_existing_device(
     assert all("wrong-key" not in body.decode() for _, _, body in runtime.snapshot()["requests"])
 
 
-def test_sampled_measurements(runtime: RuntimeProxy) -> None:
+def test_sampled_measurements(runtime: Runtime) -> None:
     """Counts, probabilities, expectations, and variances share the sample decoder."""
     device = open_device(runtime)
 
@@ -156,7 +156,7 @@ def test_sampled_measurements(runtime: RuntimeProxy) -> None:
     assert variance == 0
 
 
-def test_shot_vectors(runtime: RuntimeProxy) -> None:
+def test_shot_vectors(runtime: Runtime) -> None:
     """Equal shot-vector partitions share a job and retain ordered results."""
     device = open_device(runtime, 1)
 
@@ -170,7 +170,7 @@ def test_shot_vectors(runtime: RuntimeProxy) -> None:
     assert [[pub[2] for pub in request["params"]["pubs"]] for request in submissions] == [[5], [3, 3]]
 
 
-def test_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
+def test_parameter_shift_gradient(runtime: Runtime) -> None:
     """Bound parameter-shift circuits execute through the native basis."""
     device = open_device(runtime, 1)
 
@@ -187,7 +187,7 @@ def test_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gate_declarations(runtime: RuntimeProxy, name: str) -> None:
+def test_native_gate_declarations(runtime: Runtime, name: str) -> None:
     """Native ECR and RZZ survive serialization with importable declarations."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[0, 1]]})
@@ -209,7 +209,7 @@ def test_native_gate_declarations(runtime: RuntimeProxy, name: str) -> None:
     assert "q[0], q[1]" in source
 
 
-def test_unsupported_native_spelling_submits_nothing(runtime: RuntimeProxy) -> None:
+def test_unsupported_native_spelling_submits_nothing(runtime: Runtime) -> None:
     """An advertised gate outside the IBM emitter's basis rejects the batch."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({"name": "sxdg", "parameters": [], "coupling_map": [[0]]})
@@ -223,7 +223,7 @@ def test_unsupported_native_spelling_submits_nothing(runtime: RuntimeProxy) -> N
     assert not runtime.snapshot()["submissions"]
 
 
-def test_invalid_batch_submits_nothing(runtime: RuntimeProxy) -> None:
+def test_invalid_batch_submits_nothing(runtime: Runtime) -> None:
     """A later unsupported directed pair is rejected before the first submission."""
     device = open_device(runtime)
     valid = qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=[0, 1])], shots=3)
@@ -233,7 +233,7 @@ def test_invalid_batch_submits_nothing(runtime: RuntimeProxy) -> None:
     assert not runtime.snapshot()["submissions"]
 
 
-def test_failed_batch_retains_previous_jobs_for_cancellation(runtime: RuntimeProxy) -> None:
+def test_failed_batch_retains_previous_jobs_for_cancellation(runtime: Runtime) -> None:
     """A failed second submission retains the first for explicit cancellation."""
     device = open_device(runtime, 1)
     tapes = tuple(qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=0)], shots=shots) for shots in (3, 4, 5))
@@ -247,7 +247,7 @@ def test_failed_batch_retains_previous_jobs_for_cancellation(runtime: RuntimePro
     assert len(runtime.snapshot()["submissions"]) == 2
 
 
-def test_analytic_execution_submits_nothing(runtime: RuntimeProxy) -> None:
+def test_analytic_execution_submits_nothing(runtime: Runtime) -> None:
     """Analytic measurements fail before any quantum job is submitted."""
     device = open_device(runtime, 1)
 
@@ -296,7 +296,7 @@ assert set(plugins) == {'ibm.default', 'ibm.berlin', 'ibm.aachen'}
 
 
 @pytest.mark.parametrize("entangler", ["cx", "cz", "ecr"])
-def test_qaoa_decomposition(runtime: RuntimeProxy, entangler: str) -> None:
+def test_qaoa_decomposition(runtime: Runtime, entangler: str) -> None:
     """Ordinary QAOA gates compile to IBM's basis with matching probabilities."""
     configure_entangler(runtime, entangler)
     device = open_device(runtime)
@@ -320,7 +320,7 @@ def test_qaoa_decomposition(runtime: RuntimeProxy, entangler: str) -> None:
 
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr"])
-def test_cnot_native_synthesis(runtime: RuntimeProxy, entangler: str) -> None:
+def test_cnot_native_synthesis(runtime: Runtime, entangler: str) -> None:
     """CNOT synthesis preserves the full unitary and produces Bell samples."""
     configure_entangler(runtime, entangler)
     device = open_device(runtime, ["control", "target"])
@@ -344,7 +344,7 @@ def test_cnot_native_synthesis(runtime: RuntimeProxy, entangler: str) -> None:
 
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr"])
-def test_synthesized_cnot_preserves_directed_placement(runtime: RuntimeProxy, entangler: str) -> None:
+def test_synthesized_cnot_preserves_directed_placement(runtime: Runtime, entangler: str) -> None:
     """A reversed synthesized pair rejects the entire batch before submission."""
     configure_entangler(runtime, entangler)
     device = open_device(runtime)
@@ -376,7 +376,7 @@ def test_synthesized_cnot_preserves_directed_placement(runtime: RuntimeProxy, en
         9 * math.pi / 4,
     ],
 )
-def test_native_rzz_angle_folding(runtime: RuntimeProxy, angle: float) -> None:
+def test_native_rzz_angle_folding(runtime: Runtime, angle: float) -> None:
     """Bound RZZ angles remain equivalent across signs, quadrants, and periods."""
     configure_entangler(runtime, "rzz")
     device = open_device(runtime)
@@ -393,7 +393,7 @@ def test_native_rzz_angle_folding(runtime: RuntimeProxy, angle: float) -> None:
     assert QiskitOperator(emitted.remove_final_measurements(inplace=False)).equiv(QiskitOperator(expected))
 
 
-def test_native_rzz_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
+def test_native_rzz_parameter_shift_gradient(runtime: Runtime) -> None:
     """Gradient shifts use calibrated RZZ angles and preserve the derivative."""
     configure_entangler(runtime, "rzz")
     device = open_device(runtime)
@@ -417,7 +417,7 @@ def test_native_rzz_parameter_shift_gradient(runtime: RuntimeProxy) -> None:
         assert all(0 < angle <= math.pi / 2 for angle in angles)
 
 
-def test_rzz_corrections_validate_placement(runtime: RuntimeProxy) -> None:
+def test_rzz_corrections_validate_placement(runtime: Runtime) -> None:
     """Unavailable correction gates reject the batch before any submission."""
     configure_entangler(runtime, "rzz")
     config = runtime.snapshot()["configuration"]
@@ -435,7 +435,7 @@ def test_rzz_corrections_validate_placement(runtime: RuntimeProxy) -> None:
     assert not runtime.snapshot()["submissions"]
 
 
-def test_noncommuting_observables(runtime: RuntimeProxy) -> None:
+def test_noncommuting_observables(runtime: Runtime) -> None:
     """Observable basis changes use the same native synthesis as user gates."""
     device = open_device(runtime, 1)
 

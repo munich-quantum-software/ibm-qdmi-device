@@ -28,10 +28,10 @@ from qiskit.circuit import Parameter
 from qiskit_service import open_backend
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_sampler_parameter_broadcast_and_registers(runtime: RuntimeProxy) -> None:
+def test_sampler_parameter_broadcast_and_registers(runtime: Runtime) -> None:
     """The shared BackendSamplerV2 expands bound PUBs and preserves registers."""
     backend = open_backend(runtime)
     theta = Parameter("theta")

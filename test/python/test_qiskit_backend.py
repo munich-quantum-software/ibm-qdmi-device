@@ -36,10 +36,10 @@ from ibm.qdmi import qiskit as adapter
 from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_direct_qdmi_dynamical_decoupling(runtime: RuntimeProxy) -> None:
+def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
     """Send the documented JSON string through MQT Core's direct job API."""
     backend = open_backend(runtime)
     program = 'OPENQASM 3; include "stdgates.inc"; qubit[5] q; bit[1] c; x q[4]; c[0] = measure q[4];'
@@ -58,7 +58,7 @@ def test_direct_qdmi_dynamical_decoupling(runtime: RuntimeProxy) -> None:
 
 
 @pytest.mark.parametrize("shots", [0, -1, True, 1.5])
-def test_invalid_shots_submit_nothing(runtime: RuntimeProxy, shots: object) -> None:
+def test_invalid_shots_submit_nothing(runtime: Runtime, shots: object) -> None:
     """Invalid shots never reach the native submission endpoint."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
@@ -69,7 +69,7 @@ def test_invalid_shots_submit_nothing(runtime: RuntimeProxy, shots: object) -> N
 
 
 @pytest.mark.parametrize("invalid", ["gate", "sites", "unbound", "unmeasured"])
-def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid: str) -> None:
+def test_entire_batch_validated_before_submission(runtime: Runtime, invalid: str) -> None:
     """A later invalid circuit prevents even the first batch submission."""
     backend = open_backend(runtime)
     valid = QuantumCircuit(2, 2)
@@ -88,7 +88,7 @@ def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid
     assert not runtime.snapshot()["submissions"]
 
 
-def test_multi_program_submission_and_indexed_results(runtime: RuntimeProxy) -> None:
+def test_multi_program_submission_and_indexed_results(runtime: Runtime) -> None:
     """Distinct circuits share one request and retain their input order."""
     backend = open_backend(runtime)
     zero = QuantumCircuit(1, 1, name="zero", metadata={"index": 0})
@@ -112,7 +112,7 @@ def test_multi_program_submission_and_indexed_results(runtime: RuntimeProxy) -> 
     assert retrieved.get_shots(1) == ["1"] * 4
 
 
-def test_failed_multi_program_submission_is_not_retried(runtime: RuntimeProxy) -> None:
+def test_failed_multi_program_submission_is_not_retried(runtime: Runtime) -> None:
     """An uncertain native submission never creates a replacement execution."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
@@ -124,7 +124,7 @@ def test_failed_multi_program_submission_is_not_retried(runtime: RuntimeProxy) -
     assert not runtime.snapshot()["cancellations"]
 
 
-def test_status_cancellation_and_retrieval(runtime: RuntimeProxy) -> None:
+def test_status_cancellation_and_retrieval(runtime: Runtime) -> None:
     """Job state and genuine results remain accessible through a fresh session."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
@@ -179,7 +179,7 @@ def test_session_overrides_and_existing_device(monkeypatch: pytest.MonkeyPatch, 
 
 @pytest.mark.parametrize(("device_id", "backend_name"), [("ibm.berlin", "ibm_berlin"), ("ibm.aachen", "ibm_aachen")])
 def test_concrete_catalogue_selection(
-    runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch, device_id: str, backend_name: str
+    runtime: Runtime, monkeypatch: pytest.MonkeyPatch, device_id: str, backend_name: str
 ) -> None:
     """Concrete IDs select their backend despite the generic environment default."""
     monkeypatch.setenv("IBM_QUANTUM_BACKEND", "wrong-backend")
@@ -190,7 +190,7 @@ def test_concrete_catalogue_selection(
     assert any(f"/backends/{backend_name}/configuration" in path for path, _, _ in runtime.snapshot()["requests"])
 
 
-def test_generic_selection_required(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generic_selection_required(runtime: Runtime, monkeypatch: pytest.MonkeyPatch) -> None:
     """Missing backend selection fails before authentication or metadata access."""
     monkeypatch.delenv("IBM_QUANTUM_BACKEND", raising=False)
     url = runtime.snapshot()["url"]

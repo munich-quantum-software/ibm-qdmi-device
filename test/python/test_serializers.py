@@ -29,10 +29,10 @@ from qiskit.circuit import Parameter
 from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> None:
+def test_classical_registers_batch_and_ordered_memory(runtime: Runtime) -> None:
     """Register names, declaration order, memory, and experiments survive a batch."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
@@ -58,7 +58,7 @@ def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> 
     assert [pub[2] for pub in pubs] == [9, 9]
 
 
-def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
+def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
     """Binding preserves an independently named classical register."""
     backend = open_backend(runtime)
     theta = Parameter("theta")
@@ -77,7 +77,7 @@ def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gates_preserve_physical_sites(runtime: RuntimeProxy, name: str) -> None:
+def test_native_gates_preserve_physical_sites(runtime: Runtime, name: str) -> None:
     """QPY preserves named ECR/RZZ gates and their physical sites."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[3, 4]]})

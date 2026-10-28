@@ -23,19 +23,19 @@ import gc
 from typing import TYPE_CHECKING
 
 import pytest
-from qiskit_service import RuntimeProxy, remote_runtime
+from qiskit_service import Runtime, runtime_service
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
 @pytest.fixture
-def runtime() -> Iterator[RuntimeProxy]:
+def runtime() -> Iterator[Runtime]:
     """Attach the synthetic runtime and release any Python job cycles.
 
     Yields:
         The loopback service and its recorded submissions.
     """
-    with remote_runtime() as proxy:
-        yield proxy
+    with runtime_service() as service:
+        yield service
         gc.collect()
