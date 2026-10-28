@@ -324,7 +324,7 @@ def test_qaoa_decomposition(runtime: Runtime, entangler: str) -> None:
     assert f"{entangler} $0, $1;" in source
 
 
-@pytest.mark.parametrize("entangler", ["cz", "ecr"])
+@pytest.mark.parametrize("entangler", ["cz", "ecr", "rzz"])
 def test_cnot_native_synthesis(runtime: Runtime, entangler: str) -> None:
     """Bell samples and X correlations verify amplitude and relative phase."""
     configure_entangler(runtime, entangler)
@@ -334,6 +334,7 @@ def test_cnot_native_synthesis(runtime: Runtime, entangler: str) -> None:
     def circuit() -> tuple[qml.measurements.CountsMP, qml.measurements.ExpectationMP]:
         qml.Hadamard("control")
         qml.CNOT(["control", "target"])
+        qml.IsingZZ(0.2, ["control", "target"])
         return qml.counts(wires=["control", "target"]), qml.expval(qml.X("control") @ qml.X("target"))
 
     counts, correlation = circuit()
