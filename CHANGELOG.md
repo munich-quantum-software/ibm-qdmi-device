@@ -14,7 +14,7 @@ releases may include breaking changes.
 
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
   access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
-  ([#72]) ([**@marcelwa**])
+  ([#72]) ([**@marcelwa**], [**@burgholzer**])
 - ✨ Support binary QPY 17 submission and retrieval. ([#71]) ([**@marcelwa**],
   [**@burgholzer**])
 - ✨ Support measurement-based `if_else` conditions through QPY and OpenQASM 3.

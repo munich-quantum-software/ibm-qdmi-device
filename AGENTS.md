@@ -68,7 +68,8 @@ wheel, documentation, and installed-consumer build directories under `build/`.
 Do not run package builds concurrently in the same build directory. For
 dependency-only setup, use `uv sync --locked --only-group dev`. Keep Runtime
 dependencies out of the shared test group; feature-test sessions install the
-appropriate optional extra.
+appropriate optional extra. Runtime mock tests run in the regular test sessions
+and use ideal MQT Core simulation with official fake-device metadata.
 
 - Run `uvx nox -s lint` after each completed batch of changes. Inspect formatter
   changes, keep only relevant changes, and rerun the check.

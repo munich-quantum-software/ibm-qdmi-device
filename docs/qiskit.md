@@ -38,8 +38,7 @@ adapts an already-open device and rejects connection overrides. `device_id` and
 `provider` can supply identity metadata for that device; registered devices also
 support the inherited `IBMBackend.from_device_id()` factory.
 
-For local development, install the optional mock support on a platform supported
-by Qiskit Aer:
+For local development, install the optional mock support:
 
 ```console
 uv pip install 'ibm-qdmi[mock]'
@@ -58,14 +57,14 @@ as well. No IBM account is needed. `IBM_QUANTUM_BACKEND=fake_manila` also
 selects a fake for `ibm.default`; explicit connection settings instead select a
 remote service. Unknown fake names fail locally.
 
-Fakes are snapshots, not current calibrations. Use small targets: simulation
-cost can grow exponentially with qubit count. Aer wheel availability limits
-supported platforms and Python versions. The local Sampler rejects enabled
-dynamical decoupling and twirling; HTTP requests are limited to 16 MiB. One
-service per target stays alive until process exit, so jobs can be retrieved from
-another backend object while that process runs. The service binds to `127.0.0.1`
-with a temporary credential; include that address in `no_proxy` if an HTTP proxy
-is configured.
+Fake metadata supplies connectivity and calibration properties; MQT Core samples
+ideal circuits without noise. Use small workloads: simulation can grow
+exponentially with circuit size. The local Sampler rejects dynamical decoupling
+and twirling, and Executor rejects noise models. Requests are limited to 16 MiB.
+Pending jobs can be cancelled; running simulations finish normally. One loopback
+service per fake stays alive until process exit, so another backend object can
+retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;
+include that address in `no_proxy` if an HTTP proxy is configured.
 
 ## Transpile and execute
 

@@ -54,7 +54,7 @@ def session_parameters(
         selected = os.getenv("IBM_QUANTUM_BACKEND")
     remote = any(value is not None for key, value in parameters.items() if key != "custom1")
     if selected is not None and selected.startswith("fake_") and not remote:
-        from ._mock_runtime import connection  # ruff: ignore[import-outside-top-level]
+        from .mock import connection  # ruff: ignore[import-outside-top-level]
 
         return connection(selected)
     return parameters

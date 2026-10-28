@@ -59,12 +59,7 @@ email = "lukas@mq.sc"
 
 [project.optional-dependencies]
 executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
-mock = [
-  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394",
-  "qiskit-aer>=0.17.2; python_version<'3.14' and platform_machine!='ARM64'",
-  "qiskit-aer>=0.17.2; python_version=='3.14' and platform_machine!='ARM64' and platform_machine!='aarch64'",
-  "qiskit-ibm-runtime~=0.50.0",
-]
+mock = [ "ibm-qdmi[executor]" ]
 pennylane = [
   """\
   mqt-core[pennylane] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\
@@ -278,10 +273,10 @@ error-on-warning = true
 [tool.pytest]
 addopts = [
   "-ra",
-  "--numprocesses=auto",          # Automatically use all available CPU cores for parallel testing
+  "--numprocesses=auto", # Automatically use all available CPU cores for parallel testing
   "--durations=10",
   "-m",
-  "not integration and not mock",
+  "not integration",
 ]
 filterwarnings = [
   "error",
@@ -290,7 +285,6 @@ filterwarnings = [
 ]
 log_level = "INFO"
 markers = [
-  "mock: official Runtime fakes through native QDMI (requires Qiskit Aer)",
   "integration: offline native ABI and loopback transport tests (run in a separate process)",
   "live: IBM metadata requests (requires --run-live)",
   "quantum: IBM QPU execution (requires --run-quantum)",

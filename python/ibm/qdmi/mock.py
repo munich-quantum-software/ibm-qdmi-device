@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Serve official Qiskit Runtime fake backends through the native IBM transport.
+"""Serve IBM fake metadata and ideal MQT Core simulation through native QDMI.
 
 Run ``python -m ibm.qdmi.mock --backend-name fake_manila`` for native clients.
 The first stdout line contains synthetic QDMI session parameters as JSON.
@@ -24,15 +24,17 @@ The first stdout line contains synthetic QDMI session parameters as JSON.
 from __future__ import annotations
 
 import argparse
+import atexit
+import base64
+import io
 import json
-import os
 import secrets
-import sys
 import uuid
+import zlib
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from importlib.util import find_spec
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Lock, Thread
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
@@ -40,191 +42,142 @@ from urllib.parse import parse_qs, urlsplit
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from qiskit_ibm_runtime.fake_provider.fake_backend import FakeBackendV2
+    import numpy as np
+    from mqt.core.typing import QDMISessionParameters
+    from qiskit import QuantumCircuit
 
-_TOKEN = secrets.token_urlsafe(32)
 _CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:local::"
-_SEED = 7
 _MAX_BODY = 16 * 1024 * 1024
+_SERVICES: dict[str, tuple[HTTPServer, QDMISessionParameters]] = {}
+_LOCK = Lock()
 
 
-def _backend_type(name: str) -> type[FakeBackendV2]:
-    """Resolve a bundled fake without loading unrelated snapshots.
+def _sample(circuit: QuantumCircuit, shots: int, rng: np.random.Generator) -> dict[str, np.ndarray]:
+    """Sample ideal circuits with correlated classical registers.
 
     Returns:
-        The requested Runtime backend class.
+        Boolean arrays indexed by shot and register bit.
+    """
+    import numpy as np  # ruff: ignore[import-outside-top-level]
+    from mqt.core.mlir import sample  # ruff: ignore[import-outside-top-level]
+
+    histogram = sample(circuit, shots=shots, seed=int(rng.integers(1, 2**32)))
+    memory = [bits for bits, count in histogram.items() for _ in range(count)]
+    rng.shuffle(memory)
+    bits = np.array([[bit == "1" for bit in sample[::-1]] for sample in memory], dtype=bool)
+    return {register.name: bits[:, [circuit.find_bit(bit).index for bit in register]] for register in circuit.cregs}
+
+
+def _simulate(request: dict[str, Any]) -> dict[str, Any]:
+    """Execute the native Sampler or Executor payload using MQT Core.
+
+    Returns:
+        Results in the IBM wire format.
 
     Raises:
-        ImportError: The mock extra is missing.
-        ValueError: The requested fake backend does not exist.
+        ValueError: A noise model is requested.
     """
-    if find_spec("qiskit_aer") is None or find_spec("qiskit_ibm_runtime") is None:
-        msg = "Install 'ibm-qdmi[mock]' on a platform supported by Qiskit Aer to use fake backends."
-        raise ImportError(msg)
-    from qiskit_ibm_runtime import fake_provider  # ruff: ignore[import-outside-top-level]
-    from qiskit_ibm_runtime.fake_provider.fake_backend import FakeBackendV2  # ruff: ignore[import-outside-top-level]
+    import numpy as np  # ruff: ignore[import-outside-top-level]
+    from qiskit import qasm3, qpy  # ruff: ignore[import-outside-top-level]
 
-    for backend in vars(fake_provider).values():
-        if isinstance(backend, type) and issubclass(backend, FakeBackendV2) and backend.backend_name == name:
-            return backend
-    msg = f"Unknown fake backend: {name}."
-    raise ValueError(msg)
+    params = request["params"]
+    rng = np.random.default_rng(7)
+    if request["program_id"] == "sampler":
+        results = []
+        for source, _, shots in params["pubs"]:
+            if isinstance(source, str):
+                circuit = qasm3.loads(source)
+            else:
+                (circuit,) = qpy.load(io.BytesIO(zlib.decompress(base64.b64decode(source["__value__"], validate=True))))
+            data = _sample(circuit, shots, rng)
+            results.append({
+                "data": {
+                    name: {
+                        "samples": [
+                            hex(int.from_bytes(row, "little")) for row in np.packbits(bits, axis=-1, bitorder="little")
+                        ],
+                        "num_bits": bits.shape[-1],
+                    }
+                    for name, bits in data.items()
+                }
+            })
+        return {"results": results}
+
+    from ibm_quantum_schemas.common import CompressedTensorModel  # ruff: ignore[import-outside-top-level]
+    from ibm_quantum_schemas.executor.version_2_0 import ParamsModel, QuantumProgramResultModel  # ruff: ignore[import-outside-top-level]
+    from qiskit_ibm_runtime.fake_provider.executor.broadcast_sample import broadcast_sample  # ruff: ignore[import-outside-top-level]
+    from qiskit_ibm_runtime.quantum_program.converters import quantum_program_from_2_0  # ruff: ignore[import-outside-top-level]
+    from samplomatic.quantum_program import CircuitItem, SamplexItem  # ruff: ignore[import-outside-top-level]
+
+    program, options = quantum_program_from_2_0(ParamsModel.model_validate(params))
+    if options.simulator.layer_noise_model:
+        msg = "The mock supports ideal simulation only."
+        raise ValueError(msg)
+    outputs = []
+    for item in program.items:
+        if isinstance(item, SamplexItem):
+            item.samplex.finalize()
+            data = broadcast_sample(item.samplex, item.samplex_arguments, item.shape, rng)
+            bindings = data.pop("parameter_values")
+        else:
+            assert isinstance(item, CircuitItem)
+            data = {}
+            bindings = item.circuit_arguments
+        for register in item.circuit.cregs:
+            data[register.name] = np.empty((*item.shape, program.shots, len(register)), dtype=bool)
+        for index in np.ndindex(item.shape):
+            circuit = item.circuit.assign_parameters(bindings[index])
+            for name, samples in _sample(circuit, program.shots, rng).items():
+                data[name][index] = samples
+        outputs.append({
+            "results": {name: CompressedTensorModel.from_numpy(value) for name, value in data.items()},
+            "metadata": {},
+        })
+    return QuantumProgramResultModel.model_validate({
+        "data": outputs,
+        "metadata": {"chunk_timing": []},
+        "passthrough_data": params["quantum_program"].get("passthrough_data"),
+        "semantic_role": params["quantum_program"].get("semantic_role"),
+    }).model_dump(mode="json")
 
 
 @dataclass
 class _Job:
     request: dict[str, Any]
-    primitive: Any
-    output: dict[str, Any] | None = None
-    failed: bool = False
+    future: Future[dict[str, Any]]
 
 
 class _Runtime:
-    """Adapt Runtime's local primitives to the REST subset used by native QDMI."""
+    """Keep fake metadata and local jobs for one backend."""
 
     def __init__(self, name: str) -> None:
-        self.backend = _backend_type(name)()
+        try:
+            from qiskit_ibm_runtime import fake_provider  # ruff: ignore[import-outside-top-level]
+            from qiskit_ibm_runtime.fake_provider.fake_backend import FakeBackendV2  # ruff: ignore[import-outside-top-level]
+        except ImportError as error:
+            msg = "Install 'ibm-qdmi[mock]' to use fake backends."
+            raise ImportError(msg) from error
+        for backend in vars(fake_provider).values():
+            if isinstance(backend, type) and issubclass(backend, FakeBackendV2) and backend.backend_name == name:
+                self.backend = backend()
+                break
+        else:
+            msg = f"Unknown fake backend: {name}."
+            raise ValueError(msg)
+        self.token = secrets.token_urlsafe(32)
         self.jobs: dict[str, _Job] = {}
-        self.lock = Lock()
-
-    def submit(self, request: dict[str, Any]) -> str:
-        """Execute validated native requests using official local primitives.
-
-        Returns:
-            The local job identifier.
-
-        Raises:
-            TypeError: A Sampler circuit has an unsupported type.
-            ValueError: The program or its options are unsupported.
-        """
-        from qiskit import QuantumCircuit, qasm3  # ruff: ignore[import-outside-top-level]
-        from qiskit.primitives.containers import SamplerPub  # ruff: ignore[import-outside-top-level]
-        from qiskit_ibm_runtime import Executor, RuntimeDecoder, SamplerV2  # ruff: ignore[import-outside-top-level]
-
-        if request["backend"] != self.backend.name:
-            msg = "Wrong backend."
-            raise ValueError(msg)
-        params = request["params"]
-        if request["program_id"] == "sampler":
-            if params["version"] != 2 or params.get("support_qiskit", True):
-                msg = "Unsupported Sampler encoding."
-                raise ValueError(msg)
-            options = params.get("options", {})
-            if (
-                options.get("dynamical_decoupling", {}).get("enable", False)
-                or any(options.get("twirling", {}).values())
-                or options.get("execution", {}).get("meas_type", "classified") != "classified"
-            ):
-                msg = "Unsupported local Sampler options."
-                raise ValueError(msg)
-            pubs = []
-            for source, bindings, shots in params["pubs"]:
-                if bindings not in (None, []) or isinstance(shots, bool) or not isinstance(shots, int) or shots <= 0:
-                    msg = "Invalid Sampler PUB."
-                    raise ValueError(msg)
-                if isinstance(source, str):
-                    circuit = qasm3.loads(source)
-                elif (
-                    isinstance(source, dict)
-                    and source.get("__type__") == "QuantumCircuit"
-                    and isinstance(source.get("__value__"), str)
-                ):
-                    circuit = RuntimeDecoder().object_hook(source)
-                else:
-                    msg = "Unsupported Sampler circuit."
-                    raise ValueError(msg)
-                if not isinstance(circuit, QuantumCircuit):
-                    msg = "Unsupported Sampler circuit."
-                    raise TypeError(msg)
-                pubs.append(SamplerPub(circuit, shots=shots))
-            if not pubs:
-                msg = "Empty Sampler request."
-                raise ValueError(msg)
-            primitive = SamplerV2(mode=self.backend, options={"simulator": {"seed_simulator": _SEED}}).run(pubs)
-        elif request["program_id"] == "executor":
-            from ibm_quantum_schemas.executor.version_2_0 import ParamsModel  # ruff: ignore[import-outside-top-level]
-            from qiskit_ibm_runtime.quantum_program.converters import (  # ruff: ignore[import-outside-top-level]
-                quantum_program_from_2_0,
-            )
-            from samplomatic.quantum_program import SamplexItem  # ruff: ignore[import-outside-top-level]
-
-            program, options = quantum_program_from_2_0(ParamsModel.model_validate(params))
-            # Schema decoding reconstructs graphs without their sampling traversal.
-            for item in program.items:
-                if isinstance(item, SamplexItem):
-                    item.samplex.finalize()
-            options.simulator.seed_simulator = _SEED
-            primitive = Executor(mode=self.backend, options=options).run(program)
-        else:
-            msg = "Unsupported program."
-            raise ValueError(msg)
-        identifier = "mock-" + uuid.uuid4().hex
-        with self.lock:
-            self.jobs[identifier] = _Job(request, primitive)
-        return identifier
-
-    @staticmethod
-    def result(job: _Job) -> dict[str, Any]:
-        """Encode real samples without changing the native result decoder.
-
-        Returns:
-            Cached IBM wire-format results.
-        """
-        if job.output is not None:
-            return job.output
-        if job.request["program_id"] == "executor":
-            from ibm_quantum_schemas.common import CompressedTensorModel  # ruff: ignore[import-outside-top-level]
-            from ibm_quantum_schemas.executor.version_2_0 import (  # ruff: ignore[import-outside-top-level]
-                QuantumProgramResultModel,
-            )
-            from qiskit.primitives.primitive_job import PrimitiveJob  # ruff: ignore[import-outside-top-level]
-
-            # Preserve raw arrays; ExecutorJob applies semantic post-processing after transport.
-            result = PrimitiveJob.result(job.primitive)
-            params = job.request["params"]["quantum_program"]
-            output = QuantumProgramResultModel.model_validate({
-                "data": [
-                    {
-                        "results": {name: CompressedTensorModel.from_numpy(value) for name, value in item.items()},
-                        "metadata": {},
-                    }
-                    for item in result
-                ],
-                "metadata": {"chunk_timing": []},
-                "passthrough_data": params.get("passthrough_data"),
-                "semantic_role": params.get("semantic_role"),
-            }).model_dump(mode="json")
-        else:
-            result = job.primitive.result()
-            output = {
-                "results": [
-                    {
-                        "data": {
-                            name: {
-                                "samples": [
-                                    hex(int.from_bytes(row, "big") & ((1 << value.num_bits) - 1)) for row in value.array
-                                ],
-                                "num_bits": value.num_bits,
-                            }
-                            for name, value in pub.data.items()
-                        }
-                    }
-                    for pub in result
-                ]
-            }
-        job.output = output
-        return output
+        self.executor = ThreadPoolExecutor(max_workers=1)
 
     def respond(self, method: str, path: str, body: bytes) -> tuple[int, Any]:
-        """Handle the bounded native API subset; unknown routes remain errors.
+        """Handle the REST subset used by the native device.
 
         Returns:
-            An HTTP status and its response data.
+            HTTP status and response data.
         """
         if path == "/auth" and method == "POST":
-            if parse_qs(body.decode()).get("apikey") != [_TOKEN]:
+            if parse_qs(body.decode()).get("apikey") != [self.token]:
                 return 401, {}
-            return 200, {"access_token": _TOKEN, "expires_in": 86400, "token_type": "Bearer"}
+            return 200, {"access_token": self.token, "expires_in": 86400, "token_type": "Bearer"}
         prefix = f"/v1/backends/{self.backend.name}/"
         if method == "GET" and path.startswith(prefix):
             resource = path.removeprefix(prefix)
@@ -238,83 +191,96 @@ class _Runtime:
             if resource == "status":
                 return 200, {"state": True, "length_queue": 0}
         if path == "/v1/jobs" and method == "POST":
-            identifier = self.submit(json.loads(body))
+            request = json.loads(body)
+            if request["backend"] != self.backend.name or request["program_id"] not in {"sampler", "executor"}:
+                return 400, {}
+            if request["program_id"] == "sampler":
+                params = request["params"]
+                options = params.get("options", {})
+                if (
+                    params["version"] != 2
+                    or params.get("support_qiskit", True)
+                    or not params["pubs"]
+                    or options.get("dynamical_decoupling", {}).get("enable", False)
+                    or any(options.get("twirling", {}).values())
+                    or options.get("execution", {}).get("meas_type", "classified") != "classified"
+                ):
+                    return 400, {}
+                for source, bindings, shots in params["pubs"]:
+                    if (
+                        bindings not in (None, [])
+                        or isinstance(shots, bool)
+                        or not isinstance(shots, int)
+                        or shots <= 0
+                        or not (
+                            isinstance(source, str)
+                            or (
+                                isinstance(source, dict)
+                                and source.get("__type__") == "QuantumCircuit"
+                                and isinstance(source.get("__value__"), str)
+                            )
+                        )
+                    ):
+                        return 400, {}
+            identifier = "mock-" + uuid.uuid4().hex
+            self.jobs[identifier] = _Job(request, self.executor.submit(_simulate, request))
             return 200, {"id": identifier, "backend": self.backend.name}
         parts = path.split("/")
-        if len(parts) not in {4, 5} or parts[1:3] != ["v1", "jobs"]:
+        if len(parts) not in {4, 5} or parts[1:3] != ["v1", "jobs"] or parts[3] not in self.jobs:
             return 404, {}
-        with self.lock:
-            job = self.jobs.get(parts[3])
-        if job is None:
-            return 404, {}
+        job = self.jobs[parts[3]]
         if method == "POST" and len(parts) == 5 and parts[4] == "cancel":
-            return (204 if job.primitive.cancel() else 409), {}
+            return (204 if job.future.cancel() else 409), {}
         if method != "GET":
             return 404, {}
-        state = job.primitive.status().name
-        if state == "DONE" and not job.failed:
-            try:
-                self.result(job)
-            except Exception:  # ruff: ignore[blind-except] -- simulator failures become failed native jobs
-                job.failed = True
+        if job.future.cancelled():
+            status = "Cancelled"
+        elif job.future.done():
+            status = "Failed" if job.future.exception() else "Completed"
+        else:
+            status = "Running" if job.future.running() else "Queued"
         if len(parts) == 5:
             if parts[4] != "results":
                 return 404, {}
-            if state != "DONE" or job.failed:
-                return 409, {}
-            return 200, job.output
-        status = {
-            "DONE": "Completed",
-            "ERROR": "Failed",
-            "CANCELLED": "Cancelled",
-            "RUNNING": "Running",
-            "QUEUED": "Queued",
-            "INITIALIZING": "Queued",
-        }[state]
+            return (200, job.future.result()) if status == "Completed" else (409, {})
         return 200, {
             "id": parts[3],
             "backend": self.backend.name,
             "program": {"id": job.request["program_id"]},
             "params": job.request["params"],
-            "state": {"status": "Failed" if job.failed else status},
+            "state": {"status": status},
         }
 
 
-def main(argv: Sequence[str] | None = None) -> None:
-    """Run a loopback mock until interrupted or its owning parent closes stdin."""
+def _server(name: str, port: int = 0) -> tuple[HTTPServer, QDMISessionParameters]:
+    """Create an authenticated loopback service.
+
+    Returns:
+        The server and synthetic native session settings.
+    """
     from qiskit_ibm_runtime import RuntimeEncoder  # ruff: ignore[import-outside-top-level]
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend-name", default="fake_manila")
-    parser.add_argument("--port", type=int, default=0)
-    parser.add_argument("--parent-pipe", action="store_true", help=argparse.SUPPRESS)
-    args = parser.parse_args(argv)
-    try:
-        runtime = _Runtime(args.backend_name)
-    except ValueError as error:
-        parser.error(str(error))
+    runtime = _Runtime(name)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:  # ruff: ignore[builtin-argument-shadowing]
             """Keep request contents out of logs."""
 
         def respond(self) -> None:
-            """Validate framing and translate errors into local HTTP responses."""
+            """Validate framing and translate request errors into HTTP responses."""
             try:  # ruff: ignore[too-many-statements-in-try-clause] -- one HTTP error boundary
                 size = int(self.headers.get("Content-Length", "0"))
-                if size < 0 or size > _MAX_BODY or self.headers.get("Transfer-Encoding"):
+                if not 0 <= size <= _MAX_BODY or self.headers.get("Transfer-Encoding"):
                     self.send_error(413)
                     return
                 path = urlsplit(self.path).path
-                if path != "/auth" and self.headers.get("Authorization") != f"Bearer {_TOKEN}":
+                if path != "/auth" and self.headers.get("Authorization") != f"Bearer {runtime.token}":
                     self.send_error(401)
                     return
                 status, data = runtime.respond(self.command, path, self.rfile.read(size))
                 content = json.dumps(data, cls=RuntimeEncoder).encode()
             except (KeyError, TypeError, ValueError):
                 status, content = 400, b"{}"
-            except Exception:  # ruff: ignore[blind-except] -- simulator errors must not expose request data
-                status, content = 500, b"{}"
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(content)))
@@ -330,30 +296,54 @@ def main(argv: Sequence[str] | None = None) -> None:
             """Handle authentication, submission, or cancellation."""
             self.respond()
 
-    with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
-        server.daemon_threads = True
-        url = f"http://127.0.0.1:{server.server_port}"
-        print(  # ruff: ignore[print] -- stdout is the parent startup protocol
-            json.dumps({
-                "base_url": url,
-                "auth_url": url + "/auth",
-                "token": _TOKEN,
-                "custom1": runtime.backend.name,
-                "custom2": _CRN,
-            }),
-            flush=True,
-        )
-        if args.parent_pipe:
+    server = HTTPServer(("127.0.0.1", port), Handler)
+    url = f"http://127.0.0.1:{server.server_port}"
+    return server, {
+        "base_url": url,
+        "auth_url": url + "/auth",
+        "token": runtime.token,
+        "custom1": name,
+        "custom2": _CRN,
+    }
 
-            def watch_parent() -> None:
-                sys.stdin.buffer.read()
-                server.shutdown()
-                # Aer worker threads cannot keep an orphaned service alive.
-                os._exit(0)
 
-            Thread(target=watch_parent, daemon=True).start()
-        with suppress(KeyboardInterrupt):
-            server.serve_forever(poll_interval=0.05)
+def _shutdown() -> None:
+    for server, _ in _SERVICES.values():
+        server.shutdown()
+        server.server_close()
+    _SERVICES.clear()
+
+
+atexit.register(_shutdown)
+
+
+def connection(name: str) -> QDMISessionParameters:
+    """Reuse one local service per fake backend for this process.
+
+    Returns:
+        Synthetic native session settings.
+    """
+    with _LOCK:
+        if name not in _SERVICES:
+            server, parameters = _server(name)
+            Thread(target=server.serve_forever, daemon=True).start()
+            _SERVICES[name] = server, parameters
+        return _SERVICES[name][1].copy()
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Run a standalone loopback mock until interrupted."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--backend-name", default="fake_manila")
+    parser.add_argument("--port", type=int, default=0)
+    args = parser.parse_args(argv)
+    try:
+        server, parameters = _server(args.backend_name, args.port)
+    except ValueError as error:
+        parser.error(str(error))
+    print(json.dumps(parameters), flush=True)  # ruff: ignore[print] -- native client startup protocol
+    with server, suppress(KeyboardInterrupt):
+        server.serve_forever()
 
 
 if __name__ == "__main__":
