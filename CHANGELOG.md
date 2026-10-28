@@ -13,7 +13,7 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
-  property consumed by MQT Core. ([**@burgholzer**])
+  property consumed by MQT Core. ([#94]) ([**@burgholzer**])
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
   access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
   ([#72]) ([**@marcelwa**], [**@burgholzer**])
@@ -146,3 +146,5 @@ _This is the initial release of the IBM QDMI Device._
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [documentation]: https://ibm-qdmi-device.readthedocs.io/en/latest/
+
+[#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
