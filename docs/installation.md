@@ -18,6 +18,10 @@ uv pip install "ibm-qdmi[executor]"
 uv pip install "ibm-qdmi[pennylane]"
 ```
 
+For local IBM device simulation without Cloud access, install `ibm-qdmi[mock]`.
+See [backend selection](qiskit.md#select-a-backend) for configuration and
+platform requirements.
+
 The `executor` extra adds `qiskit-ibm-runtime` for
 [Executor programs](qiskit.md#optional-executor-primitive). The `pennylane`
 extra also installs Qiskit for circuit serialization. See the

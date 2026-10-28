@@ -59,6 +59,7 @@ email = "lukas@mq.sc"
 
 [project.optional-dependencies]
 executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
+mock = [ "ibm-qdmi[executor]" ]
 pennylane = [
   """\
   mqt-core[pennylane] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\

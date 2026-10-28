@@ -765,6 +765,11 @@ executor = [
     { name = "qiskit" },
     { name = "qiskit-ibm-runtime" },
 ]
+mock = [
+    { name = "mqt-core", extra = ["qiskit"] },
+    { name = "qiskit" },
+    { name = "qiskit-ibm-runtime" },
+]
 pennylane = [
     { name = "mqt-core", extra = ["pennylane"] },
 ]
@@ -811,13 +816,14 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ibm-qdmi", extras = ["executor"], marker = "extra == 'mock'" },
     { name = "ibm-qdmi", extras = ["qiskit"], marker = "extra == 'executor'" },
     { name = "mqt-core", extras = ["pennylane"], marker = "extra == 'pennylane'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394" },
     { name = "qiskit", marker = "extra == 'qiskit'", specifier = ">=2.5" },
     { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = "~=0.50.0" },
 ]
-provides-extras = ["executor", "pennylane", "qiskit"]
+provides-extras = ["executor", "mock", "pennylane", "qiskit"]
 
 [package.metadata.requires-dev]
 build = [

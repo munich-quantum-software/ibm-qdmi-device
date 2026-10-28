@@ -43,7 +43,7 @@ from samplomatic.transpiler import generate_boxing_pass_manager
 from ibm.qdmi import executor as adapter
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
 def test_missing_optional_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -73,7 +73,7 @@ def program() -> QuantumProgram:
     return result
 
 
-def test_executor_round_trip_preserves_shapes_and_corrections(runtime: RuntimeProxy) -> None:
+def test_executor_round_trip_preserves_shapes_and_corrections(runtime: Runtime) -> None:
     """Real encoders and decoders preserve both item kinds and correction arrays."""
     samples = np.array([[[False], [True], [False]], [[True], [False], [True]]])
     randomized = np.stack([samples, ~samples])
@@ -114,7 +114,7 @@ def test_executor_round_trip_preserves_shapes_and_corrections(runtime: RuntimePr
     assert len(runtime.snapshot()["submissions"]) == 1
 
 
-def test_executor_timeout_cancel_and_submission_failure(runtime: RuntimeProxy) -> None:
+def test_executor_timeout_cancel_and_submission_failure(runtime: Runtime) -> None:
     """A timed-out wait leaves the job available for explicit cancellation."""
     runtime.set_state("Queued", 0)
     executor = open_backend(runtime).executor()
@@ -131,7 +131,7 @@ def test_executor_timeout_cancel_and_submission_failure(runtime: RuntimeProxy) -
     assert len(runtime.snapshot()["submissions"]) == 2
 
 
-def test_executor_invalid_inputs_submit_nothing(runtime: RuntimeProxy) -> None:
+def test_executor_invalid_inputs_submit_nothing(runtime: Runtime) -> None:
     """Reject empty programs and options the native transport cannot honor."""
     backend = open_backend(runtime)
     with pytest.raises(ValueError, match="at least one"):
@@ -145,7 +145,7 @@ def test_executor_invalid_inputs_submit_nothing(runtime: RuntimeProxy) -> None:
     assert not runtime.snapshot()["submissions"]
 
 
-def test_executor_retrieval_rejects_sampler_job(runtime: RuntimeProxy) -> None:
+def test_executor_retrieval_rejects_sampler_job(runtime: Runtime) -> None:
     """The optional decoder cannot reinterpret an ordinary sampler job."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)

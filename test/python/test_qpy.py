@@ -30,11 +30,11 @@ from qiskit.circuit.classical import expr
 from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
-def test_nonfinite_angles_submit_nothing(runtime: RuntimeProxy, value: float) -> None:
+def test_nonfinite_angles_submit_nothing(runtime: Runtime, value: float) -> None:
     """Native gate parameters must be finite before QPY serialization."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(5, 1)
@@ -45,7 +45,7 @@ def test_nonfinite_angles_submit_nothing(runtime: RuntimeProxy, value: float) ->
     assert not runtime.snapshot()["submissions"]
 
 
-def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy) -> None:
+def test_native_binary_batch_and_retrieval(runtime: Runtime) -> None:
     """Binary programs and register ordering survive submission and retrieval."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
@@ -66,7 +66,7 @@ def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy) -> None:
     assert retrieved.get_shots(1) == ["001"] * 7
 
 
-def test_overlapping_registers_reject_before_submission(runtime: RuntimeProxy) -> None:
+def test_overlapping_registers_reject_before_submission(runtime: Runtime) -> None:
     """Reject QPY register aliases before an unrepresentable result reaches IBM."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
@@ -81,7 +81,7 @@ def test_overlapping_registers_reject_before_submission(runtime: RuntimeProxy) -
 @pytest.mark.parametrize("register_condition", [False, True])
 @pytest.mark.parametrize("program_format", [ProgramFormat.QPY, ProgramFormat.QASM3])
 def test_dynamic_feedforward(
-    runtime: RuntimeProxy, initial: int, program_format: ProgramFormat, *, register_condition: bool
+    runtime: Runtime, initial: int, program_format: ProgramFormat, *, register_condition: bool
 ) -> None:
     """Native transports preserve conditional bit indices and physical branch sites."""
     backend = open_backend(runtime)
@@ -113,7 +113,7 @@ def test_dynamic_feedforward(
 
 
 @pytest.mark.parametrize("invalid", ["nested", "measure", "reset", "loop", "wide", "expression", "sites"])
-def test_dynamic_validation_prevents_batch_submission(runtime: RuntimeProxy, invalid: str) -> None:
+def test_dynamic_validation_prevents_batch_submission(runtime: Runtime, invalid: str) -> None:
     """Unsupported control flow or invalid physical placements reject the whole batch."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(5, 33 if invalid == "wide" else 2)

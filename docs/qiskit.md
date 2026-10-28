@@ -10,9 +10,9 @@ extra:
 uv pip install "ibm-qdmi[qiskit]"
 ```
 
-Importing the adapter is offline. Constructing a backend reads live metadata;
-executing circuits creates paid quantum jobs. The examples below require
-authorized IBM access and are not executed during documentation builds.
+Importing the adapter is offline. Constructing a remote backend reads live
+metadata; remote execution creates paid quantum jobs and requires authorized IBM
+access.
 
 ## Select a backend
 
@@ -37,6 +37,34 @@ Each construction opens a fresh session. `IBMBackend(device=device)` instead
 adapts an already-open device and rejects connection overrides. `device_id` and
 `provider` can supply identity metadata for that device; registered devices also
 support the inherited `IBMBackend.from_device_id()` factory.
+
+For local development, install the optional mock support:
+
+```console
+uv pip install 'ibm-qdmi[mock]'
+```
+
+```python
+backend = IBMBackend(backend_name="fake_manila")
+```
+
+The backend uses Runtime's bundled
+[fake device snapshots](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider)
+and runs QPY or OpenQASM 3 Sampler jobs and Executor programs through the
+installed native device. The same transpilation, Sampler, Estimator, and
+Executor interfaces work locally; PennyLane's `IBMDevice` accepts `backend_name`
+as well. No IBM account is needed. `IBM_QUANTUM_BACKEND=fake_manila` also
+selects a fake for `ibm.default`; explicit connection settings instead select a
+remote service. Unknown fake names fail locally.
+
+Fake metadata supplies connectivity and calibration properties; MQT Core samples
+ideal circuits without noise. Use small workloads: simulation can grow
+exponentially with circuit size. The local Sampler rejects dynamical decoupling
+and twirling, and Executor rejects noise models. Requests are limited to 16 MiB.
+Pending jobs can be cancelled; running simulations finish normally. One loopback
+service per fake stays alive until process exit, so another backend object can
+retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;
+include that address in `no_proxy` if an HTTP proxy is configured.
 
 ## Transpile and execute
 
@@ -132,10 +160,10 @@ Retrieve a job with `executor.retrieve_job(job.job_id())`, including from a
 fresh backend session. A result timeout raises `TimeoutError` and leaves the
 remote job active; cancel it explicitly when needed.
 
-This path submits independent jobs. Runtime sessions, Runtime batches, and local
-Executor simulation are not provided. Nondefault environment options are
-rejected before submission. The Python adapter uses the native 60-second
-execution cap; direct C callers can change it through the custom job parameter.
-Execution and experimental payload options are encoded by IBM's library and
-validated by the service. Shots come from the program and apply to every
-configuration, not to the program's total workload.
+This path submits independent jobs. Runtime session/batch contexts and the
+`local_mode` option are unsupported; use a fake backend for local simulation.
+Nondefault environment options are rejected before submission. The Python
+adapter uses the native 60-second execution cap; direct C callers can change it
+through the custom job parameter. Execution and experimental payload options are
+encoded by IBM's library and validated by the service. Shots come from the
+program and apply to every configuration, not to the program's total workload.
