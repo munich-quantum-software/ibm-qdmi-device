@@ -492,13 +492,16 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
 
 TEST_F(DeviceTest, FractionalRzzReportsInclusiveParameterBounds) {
   for (const std::string name : {"rx", "rzz"}) {
+    const auto coupling =
+        name == "rx" ? nlohmann::json{{0}, {1}} : nlohmann::json{{0, 1}};
     data.at("configuration").at("basis_gates").push_back(name);
     data.at("configuration")
         .at("gates")
-        .push_back({{"name", name},
-                    {"parameters", {"theta"}},
-                    {"coupling_map", name == "rx" ? nlohmann::json{{0}, {1}}
-                                                  : nlohmann::json{{0, 1}}}});
+        .push_back({
+            {"name", name},
+            {"parameters", {"theta"}},
+            {"coupling_map", coupling},
+        });
   }
   initialize();
   const auto operations =

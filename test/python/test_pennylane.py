@@ -24,6 +24,7 @@ import os
 import subprocess
 import sys
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import numpy as np
 import pennylane as qml
@@ -31,15 +32,17 @@ import pytest
 from mqt.core.plugins.pennylane import (
     PennyLaneConfigurationError,
     PennyLaneExecutionError,
-    PennyLaneUnsupportedOperationError,
+    PennyLaneTranslationError,
     PennyLaneValidationError,
 )
+from mqt.core.plugins.pennylane.device import QDMIDevice
 from offline_service import CRN
 from pennylane import numpy as pnp
 from qiskit import QuantumCircuit, qasm3
 from qiskit.quantum_info import Operator as QiskitOperator
 
-from ibm.qdmi.pennylane import IBMDevice
+from ibm.qdmi import mock
+from ibm.qdmi.pennylane import IBMBerlinDevice, IBMDevice
 
 if TYPE_CHECKING:
     from collections.abc import Hashable, Sequence
@@ -79,7 +82,7 @@ def configure_entangler(runtime: Runtime, name: str) -> None:
 
 @pytest.mark.parametrize("wires", [2, ["control", "target"], [4, 2]])
 def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[str] | list[int]) -> None:
-    """Wire labels map by position while QASM declares the full physical width."""
+    """Logical wire order survives compilation while QASM declares the backend width."""
     device = open_device(runtime, wires)
     first, second = device.wires
 
@@ -91,10 +94,10 @@ def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[
     np.testing.assert_array_equal(circuit(), [[0, 1]] * 7)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     assert "qubit[5] q;" in source
-    assert "bit[2] c0;" in source
+    assert "bit[2] c;" in source
     assert "x q[0];" in source
-    assert "c0[0] = measure q[0];" in source
-    assert "c0[1] = measure q[1];" in source
+    assert "c[0] = measure q[0];" in source
+    assert "c[1] = measure q[1];" in source
     assert "measure q[2]" not in source
     assert device.submitted_jobs == 1
 
@@ -121,6 +124,18 @@ def test_catalogue_entrypoints(
     assert device.device_id == identifier
     assert device.qdmi_device.name() == backend
     assert not runtime.snapshot()["submissions"]
+
+
+def test_concrete_catalogue_device_ignores_generic_mock_selector(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A generic fake selector cannot replace a concrete catalogue device."""
+    monkeypatch.setenv("IBM_QUANTUM_BACKEND", "fake_manila")
+    initialize = Mock(return_value=None)
+    connection = Mock(side_effect=AssertionError("Concrete device selected a mock"))
+    monkeypatch.setattr(QDMIDevice, "__init__", initialize)
+    monkeypatch.setattr(mock, "connection", connection)
+    IBMBerlinDevice(wires=1)
+    assert initialize.call_args.args == ("ibm.berlin",)
+    connection.assert_not_called()
 
 
 @pytest.mark.parametrize("use_environment", [False, True])
@@ -190,7 +205,11 @@ def test_parameter_shift_gradient(runtime: Runtime) -> None:
 def test_native_gate_declarations(runtime: Runtime, name: str) -> None:
     """Native ECR and RZZ survive serialization with importable declarations."""
     config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[0, 1]]})
+    config["gates"].append({
+        "name": name,
+        "parameters": ["theta"] if name == "rzz" else [],
+        "coupling_map": config["coupling_map"],
+    })
     runtime.set_configuration("gates", config["gates"])
     runtime.set_configuration("basis_gates", [*config["basis_gates"], name])
     device = open_device(runtime)
@@ -209,26 +228,12 @@ def test_native_gate_declarations(runtime: Runtime, name: str) -> None:
     assert "q[0], q[1]" in source
 
 
-def test_unsupported_native_spelling_submits_nothing(runtime: Runtime) -> None:
-    """An advertised gate outside the IBM emitter's basis rejects the batch."""
-    config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": "sxdg", "parameters": [], "coupling_map": [[0]]})
-    runtime.set_configuration("gates", config["gates"])
-    runtime.set_configuration("basis_gates", [*config["basis_gates"], "sxdg"])
-    device = open_device(runtime)
-    valid = qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=[0, 1])], shots=3)
-    invalid = qml.tape.QuantumScript([qml.adjoint(qml.SX(0))], [qml.sample(wires=[0, 1])], shots=3)
-    with pytest.raises(PennyLaneUnsupportedOperationError, match="sxdg"):
-        device.execute((valid, invalid))
-    assert not runtime.snapshot()["submissions"]
-
-
 def test_invalid_batch_submits_nothing(runtime: Runtime) -> None:
-    """A later unsupported directed pair is rejected before the first submission."""
+    """A later nonfinite gate parameter is rejected before the first submission."""
     device = open_device(runtime)
     valid = qml.tape.QuantumScript([qml.X(0)], [qml.sample(wires=[0, 1])], shots=3)
-    invalid = qml.tape.QuantumScript([qml.CNOT([1, 0])], [qml.sample(wires=[0, 1])], shots=3)
-    with pytest.raises(PennyLaneValidationError, match="not advertised"):
+    invalid = qml.tape.QuantumScript([qml.RX(float("nan"), 0)], [qml.sample(wires=[0, 1])], shots=3)
+    with pytest.raises(PennyLaneTranslationError, match="finite"):
         device.execute((valid, invalid))
     assert not runtime.snapshot()["submissions"]
 
@@ -321,40 +326,45 @@ def test_qaoa_decomposition(runtime: Runtime, entangler: str) -> None:
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr"])
 def test_cnot_native_synthesis(runtime: Runtime, entangler: str) -> None:
-    """CNOT synthesis preserves the full unitary and produces Bell samples."""
+    """Bell samples and X correlations verify amplitude and relative phase."""
     configure_entangler(runtime, entangler)
     device = open_device(runtime, ["control", "target"])
 
     @qml.qnode(device, shots=128)
-    def circuit() -> qml.measurements.CountsMP:
+    def circuit() -> tuple[qml.measurements.CountsMP, qml.measurements.ExpectationMP]:
         qml.Hadamard("control")
         qml.CNOT(["control", "target"])
-        return qml.counts(wires=["control", "target"])
+        return qml.counts(wires=["control", "target"]), qml.expval(qml.X("control") @ qml.X("target"))
 
-    counts = circuit()
+    counts, correlation = circuit()
     assert set(counts) == {"00", "11"}
     assert sum(counts.values()) == 128
-    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    emitted = qasm3.loads(source)
-    assert set(emitted.count_ops()) <= {"x", "sx", "rz", entangler, "measure"}
-    expected = QuantumCircuit(5)
-    expected.h(0)
-    expected.cx(0, 1)
-    assert QiskitOperator(emitted.remove_final_measurements(inplace=False)).equiv(QiskitOperator(expected))
+    assert correlation == 1
+    for request in runtime.snapshot()["submissions"]:
+        for source, _, _ in request["params"]["pubs"]:
+            emitted = qasm3.loads(source)
+            assert set(emitted.count_ops()) <= {"x", "sx", "rz", entangler, "measure"}
 
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr"])
 def test_synthesized_cnot_preserves_directed_placement(runtime: Runtime, entangler: str) -> None:
-    """A reversed synthesized pair rejects the entire batch before submission."""
+    """Compile either logical CNOT direction into advertised native placements."""
     configure_entangler(runtime, entangler)
     device = open_device(runtime)
     tapes = tuple(
-        qml.tape.QuantumScript([qml.CNOT(wires)], [qml.sample(wires=[0, 1])], shots=3) for wires in ([0, 1], [1, 0])
+        qml.tape.QuantumScript([qml.X(0), qml.CNOT(wires)], [qml.sample(wires=[0, 1])], shots=3)
+        for wires in ([0, 1], [1, 0])
     )
-    prepared, _ = device.preprocess_transforms()(tapes)
-    with pytest.raises(PennyLaneValidationError, match="not advertised"):
-        device.execute(prepared)
-    assert not runtime.snapshot()["submissions"]
+    forward, reverse = device.execute(tapes)
+    np.testing.assert_array_equal(forward, [[1, 1]] * 3)
+    np.testing.assert_array_equal(reverse, [[1, 0]] * 3)
+    allowed = runtime.snapshot()["configuration"]["coupling_map"]
+    for request in runtime.snapshot()["submissions"]:
+        for source, _, _ in request["params"]["pubs"]:
+            emitted = qasm3.loads(source)
+            for item in emitted.data:
+                if item.operation.name == entangler:
+                    assert [emitted.find_bit(wire).index for wire in item.qubits] in allowed
 
 
 @pytest.mark.parametrize(
@@ -417,21 +427,16 @@ def test_native_rzz_parameter_shift_gradient(runtime: Runtime) -> None:
         assert all(0 < angle <= math.pi / 2 for angle in angles)
 
 
-def test_rzz_corrections_validate_placement(runtime: Runtime) -> None:
-    """Unavailable correction gates reject the batch before any submission."""
+def test_heterogeneous_metadata_rejected_before_submission(runtime: Runtime) -> None:
+    """Core's current compiler target requires a homogeneous native basis."""
     configure_entangler(runtime, "rzz")
     config = runtime.snapshot()["configuration"]
     for gate in config["gates"]:
         if gate["name"] == "x":
             gate["coupling_map"] = [[i] for i in range(1, 5)]
     runtime.set_configuration("gates", config["gates"])
-    device = open_device(runtime)
-    tapes = tuple(
-        qml.tape.QuantumScript([qml.IsingZZ(angle, [0, 1])], [qml.sample(wires=[0, 1])], shots=1)
-        for angle in (math.pi / 4, -math.pi / 4)
-    )
-    with pytest.raises(PennyLaneValidationError, match="not advertised"):
-        device.execute(tapes)
+    with pytest.raises(PennyLaneConfigurationError, match="not homogeneous"):
+        open_device(runtime)
     assert not runtime.snapshot()["submissions"]
 
 
