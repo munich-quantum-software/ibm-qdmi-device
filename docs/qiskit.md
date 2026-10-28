@@ -10,10 +10,6 @@ extra:
 uv pip install "ibm-qdmi[qiskit]"
 ```
 
-Installation builds the
-[pinned MQT Core revision](dependencies.md#python-package-and-integrations) from
-source for its QPY serializer.
-
 Importing the adapter is offline. Constructing a backend reads live metadata;
 executing circuits creates paid quantum jobs. The examples below require
 authorized IBM access and are not executed during documentation builds.
@@ -63,14 +59,14 @@ shots = result.get_memory()
 
 The backend prefers QPY, preserving conditions, global phase, classical
 registers, and physical indices. Serialization uses the full backend width.
-Devices advertising only OpenQASM 3 accept static circuits through that format.
+OpenQASM 3 preserves the same physical indices and conditional operations.
 Results preserve circuit names, metadata, classical register boundaries, and bit
 order. Unsupported instructions, unbound parameters, invalid site tuples, and
 scheduled delays fail before submission.
 
-Backends advertising `if_else` support conditional execution through QPY.
-Conditions compare one classical bit or a register of at most 32 bits with an
-integer. Both branches preserve physical qubit mappings:
+Backends advertising `if_else` support conditional execution through QPY and
+OpenQASM 3. Conditions compare one classical bit or a register of at most 32
+bits with an integer. Both branches preserve physical qubit mappings:
 
 ```python
 circuit = QuantumCircuit(2, 2)

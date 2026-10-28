@@ -33,14 +33,10 @@ dependencies. Extras install the following packages into the user's environment;
 they are **not bundled** in the IBM wheel. MQT Core's extras supply Qiskit and
 PennyLane and define their supported versions.
 
-| Dependency           | Version   | License    | Purpose                                                                   |
-| :------------------- | :-------- | :--------- | :------------------------------------------------------------------------ |
-| [MQT Core]           | `e4cd6cf` | MIT        | QDMI driver and adapters for `qiskit`, `executor`, and `pennylane` extras |
-| [Qiskit IBM Runtime] | ~=0.50.0  | Apache-2.0 | Executor encoding and decoding in the `executor` extra                    |
-
-MQT Core is pinned to `e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394` for its QPY
-serializer. Installation builds Core from source and downloads its LLVM/MLIR SDK
-when needed.
+| Dependency           | Version            | License    | Purpose                                                                   |
+| :------------------- | :----------------- | :--------- | :------------------------------------------------------------------------ |
+| [MQT Core]           | [package metadata] | MIT        | QDMI driver and adapters for `qiskit`, `executor`, and `pennylane` extras |
+| [Qiskit IBM Runtime] | ~=0.50.0           | Apache-2.0 | Executor encoding and decoding in the `executor` extra                    |
 
 See [installation](installation.md#python-package) to select extras.
 
@@ -52,3 +48,5 @@ See [installation](installation.md#python-package) to select extras.
 [QDMI]: https://github.com/Munich-Quantum-Software-Stack/qdmi
 [Qiskit IBM Runtime]: https://github.com/Qiskit/qiskit-ibm-runtime
 [zlib-ng]: https://github.com/zlib-ng/zlib-ng
+
+[package metadata]: https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/pyproject.toml

@@ -187,20 +187,24 @@ The custom `IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a
 bounds QPU execution time, not queue or wall-clock time. A null parameter value
 probes support without changing configuration.
 
-OpenQASM programs must be static and bound, with explicit classical declarations
-and indexed measurements. A quantum register must span the backend's physical
+OpenQASM programs must be bound, with explicit classical declarations and
+indexed measurements. A quantum register must span the backend's physical
 qubits; physical `$n` references are also accepted. Use backend-native
-operations and route circuits before submitting them. Classical control flow,
-parameter inputs, register broadcasting, and scheduled delays are unsupported.
+operations and route circuits before submitting them. Parameter inputs, register
+broadcasting, and scheduled delays are unsupported. Unnested `if`/`else` blocks
+can compare a classical bit or a register of at most 32 bits with an integer.
+Branches contain unitary instructions and barriers; measurements, resets, and
+classical storage inside branches are unsupported.
+
 Static unitary gate declarations support native instructions absent from
 `stdgates.inc`, such as ECR and RZZ. Their local arguments cannot introduce
 classical storage or control flow. The service validates native gate semantics.
 
 (qpy-programs)=
 
-For `QDMI_PROGRAM_FORMAT_QPY`, pass raw QPY 13–17 bytes with exact sizes and no
+For `QDMI_PROGRAM_FORMAT_QPY`, pass raw QPY 17 bytes with exact sizes and no
 null terminator. Each program contains one bound circuit compiled for the
-backend's full physical width. Classical registers must partition its bits in
+backend's physical qubits. Classical registers must partition its bits in
 declaration order; loose bits, overlapping registers, and standalone classical
 variables are unsupported. Each program and decompressed remote input is limited
 to 64 MiB. The native reader validates the header and register layout; Qiskit

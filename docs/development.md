@@ -60,9 +60,8 @@ direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
 Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
 minimum-version sessions. Hardware requests test a fresh candidate wheel offline
-before submitting jobs. Conditional circuits use Aer where wheels are available;
-Linux x86_64 Python 3.14 CI runs these semantic tests. Unsupported platforms
-skip the Aer cases.
+before submitting jobs. The synthetic service uses MQT Core's decision-diagram
+simulator for static and conditional circuits.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 

@@ -41,11 +41,7 @@ def qiskit_to_qasm3(circuit: QuantumCircuit, num_qubits: int) -> str:
         QuantumRegister(num_qubits, "q"),
         *(ClassicalRegister(len(register), f"c{index}") for index, register in enumerate(circuit.cregs)),
     )
-    for instruction in circuit.data:
-        translated.append(
-            instruction.operation,
-            [circuit.find_bit(bit).index for bit in instruction.qubits],
-            [circuit.find_bit(bit).index for bit in instruction.clbits],
-        )
+    translated.compose(circuit, qubits=range(circuit.num_qubits), clbits=range(circuit.num_clbits), inplace=True)
     # Global phase does not affect classified samples.
+    translated.global_phase = 0
     return qasm3.dumps(translated)

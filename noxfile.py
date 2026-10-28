@@ -28,7 +28,6 @@ import argparse
 import contextlib
 import os
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -43,10 +42,6 @@ nox.options.default_venv_backend = "uv"
 
 
 PYTHON_ALL_VERSIONS = ["3.11", "3.12", "3.13", "3.14", "3.15"]
-
-if sys.platform == "linux":
-    # Reserve static TLS for the late-loaded Aer OpenMP runtime.
-    os.environ["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=16384"
 
 if os.environ.get("CI", None):
     nox.options.error_on_missing_interpreters = True

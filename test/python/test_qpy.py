@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import io
-from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 import pytest
@@ -29,6 +28,8 @@ from mqt.core.qdmi import ProgramFormat
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qpy
 from qiskit.circuit.classical import expr
 from qiskit_service import open_backend, submitted_circuit
+
+from ibm.qdmi.serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
     from qiskit_service import RuntimeProxy
@@ -46,16 +47,15 @@ def test_nonfinite_angles_submit_nothing(runtime: RuntimeProxy, value: float) ->
     assert not runtime.snapshot()["submissions"]
 
 
-@pytest.mark.parametrize("version", range(13, 18))
-def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy, version: int) -> None:
-    """Every supported QPY version survives the public device and remote retrieval."""
+def test_native_binary_batch_and_retrieval(runtime: RuntimeProxy) -> None:
+    """Binary programs and register ordering survive submission and retrieval."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
     circuit.x(4)
     circuit.measure(4, 0)
     circuit.measure(0, 2)
     stream = io.BytesIO()
-    qpy.dump(circuit, stream, version=version)
+    qpy.dump(circuit, stream, version=17)
     encoded = stream.getvalue()
     job = backend.device.submit_job([encoded, encoded], ProgramFormat.QPY, num_shots=7)
     assert job.wait(10)
@@ -81,25 +81,35 @@ def test_overlapping_registers_reject_before_submission(runtime: RuntimeProxy) -
 
 @pytest.mark.parametrize("initial", [0, 1])
 @pytest.mark.parametrize("register_condition", [False, True])
-def test_dynamic_feedforward(runtime: RuntimeProxy, initial: int, *, register_condition: bool) -> None:
-    """Both condition outcomes and both branches execute after QPY transport."""
-    # Aer runs in the spawned service; do not load its OpenMP runtime into pytest.
-    if find_spec("qiskit_aer") is None:
-        pytest.skip("Qiskit Aer is not installed.")
+@pytest.mark.parametrize("program_format", [ProgramFormat.QPY, ProgramFormat.QASM3])
+def test_dynamic_feedforward(
+    runtime: RuntimeProxy, initial: int, program_format: ProgramFormat, *, register_condition: bool
+) -> None:
+    """Native transports preserve conditional bit indices and physical branch sites."""
     backend = open_backend(runtime)
-    circuit = QuantumCircuit(5, 3)
+    circuit = QuantumCircuit(
+        QuantumRegister(5, "physical"), ClassicalRegister(2, "z_flag"), ClassicalRegister(2, "a_out")
+    )
     if initial:
         circuit.x(3)
-    circuit.measure(3, 0)
-    operand = circuit.cregs[0] if register_condition else circuit.clbits[0]
-    with circuit.if_test((operand, 1)) as otherwise:
+    circuit.measure(0, 0)
+    circuit.measure(3, 1)
+    operand = circuit.cregs[0] if register_condition else circuit.clbits[1]
+    with circuit.if_test((operand, 2 if register_condition else 1)) as otherwise:
         circuit.x(4)
     with otherwise:
         circuit.x(2)
-    circuit.measure(4, 1)
-    circuit.measure(2, 2)
-    job = backend.run(circuit, shots=9, memory=True)
-    assert job.result().get_counts() == {"011" if initial else "100": 9}
+    circuit.measure(4, 2)
+    circuit.measure(2, 3)
+    expected = "0110" if initial else "1000"
+    if program_format == ProgramFormat.QPY:
+        job = backend.run(circuit, shots=9, memory=True)
+        assert job.result().get_counts() == {f"{expected[:2]} {expected[2:]}": 9}
+    else:
+        program = qiskit_to_qasm3(circuit, backend.num_qubits)
+        native_job = backend.device.submit_job(program, program_format, num_shots=9)
+        assert native_job.wait(10)
+        assert native_job.get_shots() == [expected] * 9
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     assert submitted_circuit(source).count_ops()["if_else"] == 1
 
@@ -135,15 +145,3 @@ def test_dynamic_validation_prevents_batch_submission(runtime: RuntimeProxy, inv
     with pytest.raises((CircuitValidationError, UnsupportedOperationError)):
         backend.run([valid, circuit])
     assert not runtime.snapshot()["submissions"]
-
-
-def test_qasm_fallback_remains_available(runtime: RuntimeProxy) -> None:
-    """Static clients can still serialize for a device advertising only OpenQASM."""
-    backend = open_backend(runtime)
-    circuit = QuantumCircuit(2, 2)
-    circuit.x(1)
-    circuit.measure([0, 1], [0, 1])
-    program, program_format = backend._serialize_circuit(circuit, iter([ProgramFormat.QASM3]))  # ruff: ignore[private-member-access]
-    assert program_format == ProgramFormat.QASM3
-    assert isinstance(program, str)
-    assert submitted_circuit(program).num_qubits == 5

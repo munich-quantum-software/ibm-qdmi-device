@@ -29,10 +29,9 @@ from multiprocessing import get_context
 from multiprocessing.managers import BaseManager
 from typing import TYPE_CHECKING, Any, Protocol
 
+from mqt.core.mlir import sample
 from offline_service import CRN, serve
 from qiskit import qasm3, qpy
-from qiskit.circuit import ControlFlowOp
-from qiskit.providers.basic_provider import BasicSimulator
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -129,23 +128,13 @@ class Runtime:
         for source, parameters, shots in request["params"]["pubs"]:
             assert parameters is None
             circuit = submitted_circuit(source)
-            if any(isinstance(item.operation, ControlFlowOp) for item in circuit.data):
-                from qiskit_aer import AerSimulator  # ruff: ignore[import-outside-top-level]
-
-                simulator = AerSimulator()
-            else:
-                simulator = BasicSimulator()
-            memory = (
-                simulator
-                .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
-                .result()
-                .get_memory()
-            )
+            program = source if isinstance(source, str) else circuit
+            memory = [bits for bits, count in sample(program, shots=shots, seed=7).items() for _ in range(count)]
             data = {}
             for register in reversed(circuit.cregs):
                 samples = []
-                for sample in memory:
-                    integer = int(sample.replace(" ", ""), 2)
+                for bits in memory:
+                    integer = int(bits.replace(" ", ""), 2)
                     value = sum(
                         ((integer >> circuit.find_bit(bit).index) & 1) << index for index, bit in enumerate(register)
                     )
@@ -301,7 +290,7 @@ def open_backend(runtime: RuntimeProxy) -> IBMBackend:
     Returns:
         The public IBM backend.
     """
-    from ibm.qdmi.qiskit import IBMBackend  # ruff: ignore[import-outside-top-level] Keep LLVM out of the service.
+    from ibm.qdmi.qiskit import IBMBackend  # ruff: ignore[import-outside-top-level]
 
     return IBMBackend(
         api_key="synthetic-key",

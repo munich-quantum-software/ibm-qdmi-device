@@ -12,12 +12,17 @@ releases may include breaking changes.
 
 ### Added
 
-- ✨ Add binary QPY submission and retrieval, prefer QPY in Qiskit, and support
-  measurement-based conditional gates with offline examples and regression
-  tests. ([#71]) ([**@marcelwa**])
+- ✨ Support binary QPY 17 submission and retrieval. ([#71]) ([**@marcelwa**],
+  [**@burgholzer**])
+- ✨ Support measurement-based `if_else` conditions through QPY and OpenQASM 3.
+  ([#71]) ([**@marcelwa**], [**@burgholzer**])
 
 ### Changed
 
+- ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
+  [**@burgholzer**])
+- 🧪 Use MQT Core's decision-diagram simulator for offline execution tests.
+  ([#71]) ([**@burgholzer**])
 - ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
   ([#92]) ([**@burgholzer**])
 - 📝 Consolidate usage and development guidance and publish the native API

@@ -141,21 +141,16 @@ class IBMBackend(QDMIBackend):
         if circuit.num_qubits > self.num_qubits or not circuit.num_clbits:
             msg = "A circuit must fit the physical device and contain classical measurements."
             raise CircuitValidationError(msg)
+        self._validate_circuit(circuit, native=True)
         measured = False
-        pending = [(circuit, tuple(range(circuit.num_qubits)), False)]
+        pending = [(circuit, False)]
         while pending:
-            block, indices, conditional = pending.pop()
+            block, conditional = pending.pop()
             for instruction in block.data:
                 operation = instruction.operation
-                qargs = tuple(indices[block.find_bit(bit).index] for bit in instruction.qubits)
                 if isinstance(operation, ControlFlowOp):
-                    if (
-                        not isinstance(operation, IfElseOp)
-                        or conditional
-                        or "if_else" not in self.target.operation_names
-                        or ProgramFormat.QPY not in self.device.supported_program_formats()
-                    ):
-                        msg = "Only unnested if/else conditions on a QPY-capable backend are supported."
+                    if not isinstance(operation, IfElseOp) or conditional:
+                        msg = "Only unnested if/else conditions are supported."
                         raise UnsupportedOperationError(msg)
                     condition = operation.condition
                     if not isinstance(condition, tuple) or not isinstance(condition[0], (Clbit, ClassicalRegister)):
@@ -166,15 +161,10 @@ class IBMBackend(QDMIBackend):
                     if width > 32 or not isinstance(value, int) or not 0 <= value < 2**width:
                         msg = "Conditional operands must fit in at most 32 bits."
                         raise CircuitValidationError(msg)
-                    pending.extend((body, qargs, True) for body in operation.blocks)
+                    pending.extend((body, True) for body in operation.blocks)
                     continue
                 if conditional and operation.name in {"measure", "reset"}:
                     msg = "Measurements and resets inside conditional blocks are unsupported."
-                    raise UnsupportedOperationError(msg)
-                if not self.target.instruction_supported(
-                    operation_name=operation.name, qargs=qargs, parameters=operation.params
-                ):
-                    msg = "An instruction or physical site tuple is unsupported; transpile against this backend."
                     raise UnsupportedOperationError(msg)
                 if any(not math.isfinite(float(value)) for value in operation.params):
                     msg = "Gate parameters must be finite real numbers."
@@ -195,8 +185,14 @@ class IBMBackend(QDMIBackend):
         """
         formats = tuple(supported_program_formats)
         if ProgramFormat.QPY in formats:
-            translated = circuit.copy()
-            translated.add_bits([Qubit() for _ in range(self.num_qubits - circuit.num_qubits)])
+            translated = QuantumCircuit(
+                [Qubit() for _ in range(self.num_qubits)],
+                circuit.clbits,
+                *circuit.cregs,
+                name=circuit.name,
+                metadata=circuit.metadata,
+            )
+            translated.compose(circuit, inplace=True)
             return super()._serialize_circuit(translated, (ProgramFormat.QPY,))
         assert ProgramFormat.QASM3 in formats
         return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3

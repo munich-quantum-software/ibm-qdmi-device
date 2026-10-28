@@ -24,6 +24,7 @@
 #include <cctype>
 #include <charconv>
 #include <cstddef>
+#include <cstdint>
 #include <ibm_qdmi/constants.h>
 #include <limits>
 #include <map>
@@ -179,6 +180,42 @@ void gateDefinition(const std::vector<std::string>& tokens, std::size_t& cursor,
   }
   ++cursor;
 }
+
+void condition(const std::vector<std::string>& tokens, std::size_t& cursor,
+               const std::map<std::string, std::size_t>& classical) {
+  const auto next = [&]() -> const std::string& {
+    require(cursor < tokens.size());
+    return tokens[cursor++];
+  };
+  require(next() == "(");
+  const bool negated = cursor < tokens.size() && tokens[cursor] == "!";
+  if (negated) {
+    ++cursor;
+  }
+  const auto found = classical.find(next());
+  require(found != classical.end(), QDMI_ERROR_NOTSUPPORTED);
+  auto width = found->second;
+  auto token = next();
+  if (token == "[") {
+    require(number(next()) < width && next() == "]");
+    width = 1;
+    token = next();
+  }
+  require(width <= 32, QDMI_ERROR_NOTSUPPORTED);
+  if (token == ")") {
+    require(width == 1, QDMI_ERROR_NOTSUPPORTED);
+  } else {
+    require(!negated && token == "=" && next() == "=", QDMI_ERROR_NOTSUPPORTED);
+    const auto& value = next();
+    if (value == "true" || value == "false") {
+      require(width == 1, QDMI_ERROR_NOTSUPPORTED);
+    } else {
+      require(number(value) < (std::uint64_t{1} << width));
+    }
+    require(next() == ")");
+  }
+  require(next() == "{");
+}
 } // namespace
 
 std::vector<Register> outputRegisters(const std::string& program,
@@ -191,9 +228,32 @@ std::vector<Register> outputRegisters(const std::string& program,
   std::set<std::string> definitions;
   std::string quantumRegister;
   bool measured = false;
+  enum class Branch : std::uint8_t { None, Then, Else };
+  auto branch = Branch::None;
   std::size_t width = 0;
   for (std::size_t cursor = 3; cursor < tokens.size();) {
+    if (tokens[cursor] == "if") {
+      require(branch == Branch::None, QDMI_ERROR_NOTSUPPORTED);
+      ++cursor;
+      condition(tokens, cursor, classical);
+      branch = Branch::Then;
+      continue;
+    }
+    if (tokens[cursor] == "}") {
+      require(branch != Branch::None);
+      ++cursor;
+      if (cursor < tokens.size() && tokens[cursor] == "else") {
+        require(branch == Branch::Then && cursor + 1 < tokens.size() &&
+                tokens[cursor + 1] == "{");
+        cursor += 2;
+        branch = Branch::Else;
+      } else {
+        branch = Branch::None;
+      }
+      continue;
+    }
     if (tokens[cursor] == "gate") {
+      require(branch == Branch::None, QDMI_ERROR_NOTSUPPORTED);
       gateDefinition(tokens, cursor, definitions);
       continue;
     }
@@ -207,12 +267,14 @@ std::vector<Register> outputRegisters(const std::string& program,
     require(!statement.empty());
     const auto& first = statement.front();
     if (first == "include") {
-      require(statement.size() == 2 && statement[1] == "\"stdgates.inc\"",
+      require(branch == Branch::None && statement.size() == 2 &&
+                  statement[1] == "\"stdgates.inc\"",
               QDMI_ERROR_NOTSUPPORTED);
       continue;
     }
     if (first == "bit" || first == "creg" || first == "qubit" ||
         first == "qreg") {
+      require(branch == Branch::None, QDMI_ERROR_NOTSUPPORTED);
       const bool legacy = first == "creg" || first == "qreg";
       const bool quantum = first == "qubit" || first == "qreg";
       std::string registerName;
@@ -272,6 +334,7 @@ std::vector<Register> outputRegisters(const std::string& program,
       }
     };
     if (classical.contains(first)) {
+      require(branch == Branch::None, QDMI_ERROR_NOTSUPPORTED);
       reference(false);
       require(offset < statement.size() && statement[offset] == "=");
       ++offset;
@@ -286,6 +349,7 @@ std::vector<Register> outputRegisters(const std::string& program,
         ++offset;
       }
     } else if (first == "measure") {
+      require(branch == Branch::None, QDMI_ERROR_NOTSUPPORTED);
       ++offset;
       reference(true);
       require(offset + 1 < statement.size() && statement[offset] == "-" &&
@@ -294,6 +358,8 @@ std::vector<Register> outputRegisters(const std::string& program,
       reference(false);
       measured = true;
     } else {
+      require(branch == Branch::None || first != "reset",
+              QDMI_ERROR_NOTSUPPORTED);
       require(name(first));
       ++offset;
       if (offset < statement.size() && statement[offset] == "(") {
@@ -307,6 +373,7 @@ std::vector<Register> outputRegisters(const std::string& program,
     }
     require(offset == statement.size());
   }
+  require(branch == Branch::None);
   require(!registers.empty() && measured, QDMI_ERROR_NOTSUPPORTED);
   return registers;
 }

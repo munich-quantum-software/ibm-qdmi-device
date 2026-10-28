@@ -39,8 +39,6 @@ jobs:
           uv export --locked --only-group test --no-emit-project --output-file build/hardware/requirements.txt
           uv pip install --python build/hardware/venv/bin/python -r build/hardware/requirements.txt build/hardware/dist/*.whl
       - name: Test the installed candidate offline
-        env:
-          GLIBC_TUNABLES: glibc.rtld.optional_static_tls=16384
         run: |
           build/hardware/venv/bin/python -m pytest -m integration -n 0
           build/hardware/venv/bin/python -m pytest

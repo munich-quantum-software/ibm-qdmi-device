@@ -66,6 +66,20 @@ TEST(Program, PreservesDeclarationOrderAndPhysicalIndices) {
                 .width,
             2);
 }
+TEST(Program, PreservesLayoutAcrossClassicalConditions) {
+  const auto registers = ibm::outputRegisters(
+      "OPENQASM 3.0; include \"stdgates.inc\"; qubit[5] q; bit[2] c; bit a; "
+      "c[0] = measure q[4]; "
+      "if (c[0]) { x q[3]; } else { rz(pi/2) q[2]; } "
+      "if (!c[1]) { barrier q[0], q[4]; } "
+      "if (c == 1) { cx q[3], q[4]; } a = measure q[3];",
+      5);
+  ASSERT_EQ(registers.size(), 2);
+  EXPECT_EQ(registers[0].name, "c");
+  EXPECT_EQ(registers[0].width, 2);
+  EXPECT_EQ(registers[1].name, "a");
+  EXPECT_EQ(registers[1].width, 1);
+}
 TEST(Program, RejectsAmbiguousOrUnsupportedPrograms) {
   for (const auto* source : {
            "OPENQASM 2;",
@@ -84,6 +98,9 @@ TEST(Program, RejectsAmbiguousOrUnsupportedPrograms) {
            "OPENQASM 3; qubit[1] q;",
            "OPENQASM 3; input float theta;",
            "OPENQASM 3; bit c; if (true) { c = measure $0; }",
+           "OPENQASM 3; bit c; c = measure $0; if (c) { if (c) { x $1; } }",
+           "OPENQASM 3; bit c; c = measure $0; if (c) { c = measure $1; }",
+           "OPENQASM 3; bit c; c = measure $0; if (c) { reset $1; }",
            "OPENQASM 3; bit c; rz(theta) $0; c = measure $0;",
            "OPENQASM 3; bit c; c = true; c = measure $0;",
        }) {
@@ -122,28 +139,27 @@ TEST(Program, PreservesResultsAcrossStaticGateDefinitions) {
 }
 
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
-  for (int version = 13; version <= 17; ++version) {
-    std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/v" +
-                           std::to_string(version) + ".qpy",
-                       std::ios::binary);
-    const std::string program{std::istreambuf_iterator<char>(file), {}};
-    ASSERT_FALSE(program.empty());
-    const auto registers = ibm::qpyRegisters(program, 5);
-    ASSERT_EQ(registers.size(), 2);
-    EXPECT_EQ(registers[0].name, "z");
-    EXPECT_EQ(registers[0].width, 2);
-    EXPECT_EQ(registers[1].name, "a");
-    EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(program)), program);
-    fails([&] { ibm::qpyRegisters(program.substr(0, 40), 5); },
-          QDMI_ERROR_INVALIDARGUMENT);
-    fails([&] { ibm::qpyRegisters(program, 1); }, QDMI_ERROR_INVALIDARGUMENT);
-    auto invalid = program;
-    invalid[6] = 18;
-    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
-    invalid = program;
-    invalid[version >= 16 ? 49 : 41] = static_cast<char>(0xff);
-    fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
-  }
+  std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/v17.qpy",
+                     std::ios::binary);
+  const std::string program{std::istreambuf_iterator<char>(file), {}};
+  ASSERT_FALSE(program.empty());
+  const auto registers = ibm::qpyRegisters(program, 5);
+  ASSERT_EQ(registers.size(), 2);
+  EXPECT_EQ(registers[0].name, "z");
+  EXPECT_EQ(registers[0].width, 2);
+  EXPECT_EQ(registers[1].name, "a");
+  EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(program)), program);
+  const std::string compressible(16384, 'x');
+  EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(compressible)), compressible);
+  fails([&] { ibm::qpyRegisters(program.substr(0, 40), 5); },
+        QDMI_ERROR_INVALIDARGUMENT);
+  fails([&] { ibm::qpyRegisters(program, 1); }, QDMI_ERROR_INVALIDARGUMENT);
+  auto invalid = program;
+  invalid[6] = 16;
+  fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
+  invalid = program;
+  invalid[49] = static_cast<char>(0xff);
+  fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
   fails([] { ibm::decodeQpy("invalid!"); }, QDMI_ERROR_INVALIDARGUMENT);
   fails([] { ibm::decodeQpy("AAAA"); }, QDMI_ERROR_INVALIDARGUMENT);
   fails([] { ibm::decodeQpy("AB=="); }, QDMI_ERROR_INVALIDARGUMENT);

@@ -20,7 +20,7 @@
 #include "Http.hpp"
 #include "Job.hpp"
 
-#include <array>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <ibm_qdmi/constants.h>
@@ -69,16 +69,14 @@ std::vector<Register> qpyRegisters(const std::string& program,
   Reader reader(program);
   require(reader.take(6) == "QISKIT");
   const auto version = reader.integer(1);
-  require(version >= 13 && version <= 17, QDMI_ERROR_NOTSUPPORTED);
+  require(version == 17, QDMI_ERROR_NOTSUPPORTED);
   reader.take(3);
   require(reader.integer(8) == 1, QDMI_ERROR_NOTSUPPORTED);
   const auto symbolic = reader.take(1);
   require(symbolic == "p" || symbolic == "e");
   require(reader.take(1) == "q", QDMI_ERROR_NOTSUPPORTED);
-  if (version >= 16) {
-    // A single-circuit file has one table entry immediately before its payload.
-    require(reader.integer(8) == 28);
-  }
+  // A single-circuit file has one table entry immediately before its payload.
+  require(reader.integer(8) == 28);
   const auto nameSize = reader.integer(2);
   reader.take(1);
   const auto phaseSize = reader.integer(2);
@@ -103,9 +101,13 @@ std::vector<Register> qpyRegisters(const std::string& program,
     const auto length = reader.integer(2);
     const auto inCircuit = reader.integer(1);
     require(inCircuit <= 1);
-    // shortcut: Reject aliases until result decoding preserves overlapping
-    // registers.
-    require(type != "c" || inCircuit != 0, QDMI_ERROR_NOTSUPPORTED);
+    if (type == "q") {
+      reader.take(length);
+      reader.take(size * 8);
+      continue;
+    }
+    // Classified results require a partition of the circuit's classical bits.
+    require(inCircuit != 0, QDMI_ERROR_NOTSUPPORTED);
     const std::string name(reader.take(length));
     require(!name.empty() && name.find('\0') == std::string::npos);
     try {
@@ -113,26 +115,15 @@ std::vector<Register> qpyRegisters(const std::string& program,
     } catch (const nlohmann::json::type_error&) {
       throw Failure{QDMI_ERROR_INVALIDARGUMENT};
     }
-    if (type == "c") {
-      require(size > 0 && size <= bits - next && names.insert(name).second,
-              QDMI_ERROR_NOTSUPPORTED);
-      for (std::uint64_t bit = 0; bit < size; ++bit) {
-        require(reader.integer(8) == next++, QDMI_ERROR_NOTSUPPORTED);
-      }
-      registers.push_back(
-          {.name = name, .width = static_cast<std::size_t>(size)});
-    } else {
-      for (std::uint64_t bit = 0; bit < size; ++bit) {
-        const auto position = reader.integer(8);
-        require(position == UINT64_MAX ||
-                position < (type == "q" ? width : bits));
-      }
+    require(size > 0 && size <= bits - next && names.insert(name).second,
+            QDMI_ERROR_NOTSUPPORTED);
+    for (std::uint64_t bit = 0; bit < size; ++bit) {
+      require(reader.integer(8) == next++, QDMI_ERROR_NOTSUPPORTED);
     }
+    registers.push_back(
+        {.name = name, .width = static_cast<std::size_t>(size)});
   }
   require(next == bits && !registers.empty(), QDMI_ERROR_NOTSUPPORTED);
-  // Every supported circuit has at least a custom-definition header after
-  // registers.
-  reader.take(8);
   return registers;
 }
 
@@ -190,27 +181,20 @@ std::string decodeQpy(const std::string& encoded) {
       compressed.push_back(static_cast<unsigned char>(word));
     }
   }
-  z_stream stream{};
-  require(inflateInit(&stream) == Z_OK, QDMI_ERROR_FATAL);
-  struct Cleanup {
-    z_stream* stream;
-    ~Cleanup() { inflateEnd(stream); }
-  };
-  const Cleanup cleanup{.stream = &stream};
-  stream.next_in = compressed.data();
-  stream.avail_in = static_cast<uInt>(compressed.size());
-  std::array<char, 16384> buffer{};
-  std::string result;
-  int status = Z_OK;
-  while (status == Z_OK) {
-    stream.next_out = reinterpret_cast<Bytef*>(buffer.data());
-    stream.avail_out = static_cast<uInt>(buffer.size());
-    status = inflate(&stream, Z_NO_FLUSH);
-    const auto size = buffer.size() - stream.avail_out;
-    require(size <= MAX_QPY_SIZE - result.size());
-    result.append(buffer.data(), size);
+  std::string result(std::min(compressed.size(), MAX_QPY_SIZE / 4) * 4, '\0');
+  while (true) {
+    auto size = static_cast<uLongf>(result.size());
+    auto inputSize = static_cast<uLong>(compressed.size());
+    const auto status = uncompress2(reinterpret_cast<Bytef*>(result.data()),
+                                    &size, compressed.data(), &inputSize);
+    if (status == Z_OK) {
+      require(inputSize == compressed.size());
+      result.resize(size);
+      return result;
+    }
+    require(status != Z_MEM_ERROR, QDMI_ERROR_OUTOFMEM);
+    require(status == Z_BUF_ERROR && result.size() < MAX_QPY_SIZE);
+    result.resize(std::min(result.size() * 2, MAX_QPY_SIZE));
   }
-  require(status == Z_STREAM_END && stream.avail_in == 0);
-  return result;
 }
 } // namespace ibm
