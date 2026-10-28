@@ -20,7 +20,6 @@
 #include "Http.hpp"
 #include "Job.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <ibm_qdmi/constants.h>
@@ -64,7 +63,6 @@ private:
 
 std::vector<Register> qpyRegisters(const std::string& program,
                                    std::size_t qubits) {
-  require(program.size() <= MAX_QPY_SIZE);
   Reader reader(program);
   require(reader.take(6) == "QISKIT");
   const auto version = reader.integer(1);
@@ -127,7 +125,7 @@ std::vector<Register> qpyRegisters(const std::string& program,
 }
 
 std::string encodeQpy(const std::string& program) {
-  require(!program.empty() && program.size() <= MAX_QPY_SIZE);
+  require(!program.empty());
   auto size = zng_compressBound(program.size());
   std::vector<unsigned char> compressed(size);
   const auto status = zng_compress(
@@ -153,8 +151,7 @@ std::string encodeQpy(const std::string& program) {
 }
 
 std::string decodeQpy(const std::string& encoded) {
-  require(!encoded.empty() && encoded.size() % 4 == 0 &&
-          encoded.size() <= 2 * MAX_QPY_SIZE);
+  require(!encoded.empty() && encoded.size() % 4 == 0);
   std::vector<unsigned char> compressed;
   compressed.reserve(encoded.size() / 4 * 3);
   auto padding = encoded.ends_with('=') ? 1U : 0U;
@@ -175,7 +172,7 @@ std::string decodeQpy(const std::string& encoded) {
     }
   }
   require((word & ((1U << bits) - 1)) == 0);
-  std::string result(std::min(compressed.size(), MAX_QPY_SIZE / 4) * 4, '\0');
+  std::string result(compressed.size(), '\0');
   while (true) {
     auto size = result.size();
     auto inputSize = compressed.size();
@@ -188,8 +185,9 @@ std::string decodeQpy(const std::string& encoded) {
       return result;
     }
     require(status != Z_MEM_ERROR, QDMI_ERROR_OUTOFMEM);
-    require(status == Z_BUF_ERROR && result.size() < MAX_QPY_SIZE);
-    result.resize(std::min(result.size() * 2, MAX_QPY_SIZE));
+    require(status == Z_BUF_ERROR);
+    require(result.size() <= result.max_size() / 2, QDMI_ERROR_OUTOFMEM);
+    result.resize(result.size() * 2);
   }
 }
 } // namespace ibm

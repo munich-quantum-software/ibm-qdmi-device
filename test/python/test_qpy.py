@@ -25,11 +25,9 @@ from typing import TYPE_CHECKING
 import pytest
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
 from mqt.core.qdmi import ProgramFormat
-from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qpy
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qasm3, qpy
 from qiskit.circuit.classical import expr
 from qiskit_service import open_backend, submitted_circuit
-
-from ibm.qdmi.serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
     from qiskit_service import RuntimeProxy
@@ -106,7 +104,7 @@ def test_dynamic_feedforward(
         job = backend.run(circuit, shots=9, memory=True)
         assert job.result().get_counts() == {f"{expected[:2]} {expected[2:]}": 9}
     else:
-        program = qiskit_to_qasm3(circuit, backend.num_qubits)
+        program = qasm3.dumps(circuit)
         native_job = backend.device.submit_job(program, program_format, num_shots=9)
         assert native_job.wait(10)
         assert native_job.get_shots() == [expected] * 9

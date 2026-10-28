@@ -36,16 +36,14 @@ struct Register {
   std::string name;
   std::size_t width;
 };
-/// Extract the output layout of a bound OpenQASM 3 program.
-std::vector<Register> outputRegisters(const std::string& program,
-                                      std::size_t qubits);
-inline constexpr std::size_t MAX_QPY_SIZE = std::size_t{64} * 1024 * 1024;
+/// Extract top-level classical declarations in source order.
+std::vector<Register> outputRegisters(const std::string& program);
 /// Read the output layout of one QPY 17 circuit without interpreting gates.
 std::vector<Register> qpyRegisters(const std::string& program,
                                    std::size_t qubits);
 /// Encode QPY using IBM's zlib-compressed, base64 transport.
 std::string encodeQpy(const std::string& program);
-/// Decode IBM's transport, limiting inflated programs to 64 MiB.
+/// Decode IBM's transport back to the original QPY bytes.
 std::string decodeQpy(const std::string& encoded);
 struct Results {
   std::string shots;

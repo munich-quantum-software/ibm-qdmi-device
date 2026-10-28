@@ -21,6 +21,8 @@ releases may include breaking changes.
 
 - ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
   [**@burgholzer**])
+- ♻️ Limit native OpenQASM parsing to classical result layout extraction.
+  ([#71]) ([**@burgholzer**])
 - 🧪 Use MQT Core's decision-diagram simulator for offline execution tests.
   ([#71]) ([**@burgholzer**])
 - ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.

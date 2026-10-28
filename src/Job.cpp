@@ -214,7 +214,7 @@ void Job::setPrograms(QDMI_Program_Format value,
     for (const auto& source : sources) {
       layouts.push_back(value == QDMI_PROGRAM_FORMAT_QPY
                             ? qpyRegisters(source, qubits)
-                            : outputRegisters(source, qubits));
+                            : outputRegisters(source));
     }
   }
   programs = std::move(sources);

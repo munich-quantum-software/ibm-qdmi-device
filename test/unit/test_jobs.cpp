@@ -134,7 +134,7 @@ void configure(ibm::Job& job) {
 
 TEST(Results, PreservesShotsAndClassicalBitOrder) {
   const auto decoded = ibm::decodeResults(results()["results"][0],
-                                          ibm::outputRegisters(PROGRAM, 2), 3);
+                                          ibm::outputRegisters(PROGRAM), 3);
   EXPECT_EQ(decoded.shots, "101,000,101");
   EXPECT_EQ(decoded.keys, "000,101");
   EXPECT_EQ(decoded.counts, (std::vector<std::size_t>{1, 2}));
@@ -167,7 +167,7 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
     fails(
         [&] {
           (void)ibm::decodeResults(data["results"][0],
-                                   ibm::outputRegisters(PROGRAM, 2), 3);
+                                   ibm::outputRegisters(PROGRAM), 3);
         },
         QDMI_ERROR_FATAL);
   }
@@ -176,13 +176,13 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   fails(
       [&] {
         (void)ibm::decodeResults(data["results"][0],
-                                 ibm::outputRegisters(PROGRAM, 2), 3);
+                                 ibm::outputRegisters(PROGRAM), 3);
       },
       QDMI_ERROR_FATAL);
   fails(
       [&] {
         (void)ibm::decodeResults(results()["results"][0],
-                                 ibm::outputRegisters(PROGRAM, 2), 4);
+                                 ibm::outputRegisters(PROGRAM), 4);
       },
       QDMI_ERROR_FATAL);
 }

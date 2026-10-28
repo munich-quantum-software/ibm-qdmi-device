@@ -516,7 +516,7 @@ int IBM_QDMI_device_job_set_programs(IBM_QDMI_Device_Job handle,
     for (std::size_t index = 0; index < count; ++index) {
       require(programs[index] != nullptr);
       if (format == QDMI_PROGRAM_FORMAT_QPY) {
-        require(sizes[index] != 0 && sizes[index] <= ibm::MAX_QPY_SIZE);
+        require(sizes[index] != 0);
         sources.emplace_back(static_cast<const char*>(programs[index]),
                              sizes[index]);
       } else {
