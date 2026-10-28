@@ -212,10 +212,12 @@ IBM validates instructions; the device reads classical declarations to
 reconstruct results in declaration order.
 
 Declare all classical output bits at the top level with fixed, positive sizes:
-`bit[n] name;`, `bit name;`, or `creg name[n];`. The `output` qualifier is
-accepted. Register names must be distinct. Scoped classical declarations,
-parameter inputs, annotations, pragmas, and includes other than `stdgates.inc`
-are unsupported because they can hide or change the output layout.
+`bit[n] name;`, `bit name;`, or `creg name[n];`. Register names must be
+distinct. Every declared classical register contributes to the result. Explicit
+`output` qualifiers are unsupported, as in Qiskit's OpenQASM importer. Scoped
+classical declarations, parameter inputs, annotations, pragmas, and includes
+other than `stdgates.inc` are unsupported because they can hide or change the
+output layout.
 
 (qpy-programs)=
 

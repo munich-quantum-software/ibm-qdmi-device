@@ -59,6 +59,8 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Reject explicit OpenQASM output qualifiers that the Runtime importer does
+  not support. ([#94]) ([**@burgholzer**])
 - 🐛 Build Windows Debug binaries with embedded debug information. ([#92])
   ([**@burgholzer**])
 - 🐛 Use the PennyLane adapter without requiring Qiskit. ([#92])

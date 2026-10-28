@@ -61,7 +61,7 @@ def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
 
 
 def test_native_compiler_qasm_import(runtime: Runtime) -> None:
-    """Native submission declares bare gates without changing physical/readout semantics."""
+    """Native submission adds missing gate definitions and preserves physical/readout semantics."""
     config = runtime.snapshot()["configuration"]
     runtime.set_configuration("basis_gates", [*config["basis_gates"], "ecr", "rzz"])
     runtime.set_configuration(
@@ -80,7 +80,7 @@ def test_native_compiler_qasm_import(runtime: Runtime) -> None:
     circuit.measure([3, 4, 3], [0, 2, 3])
     program = serialize_program(circuit, target=backend.device, terminal_readout=TerminalReadout.MEASURED)
     assert isinstance(program.payload, str)
-    assert "include" not in program.payload
+    assert 'include "stdgates.inc";' in program.payload
     assert "gate ecr" not in program.payload
     assert "$3" in program.payload
     assert "$4" in program.payload
