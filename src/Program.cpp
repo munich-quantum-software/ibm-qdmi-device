@@ -29,7 +29,9 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -40,22 +42,22 @@ void require(bool condition, int code = QDMI_ERROR_INVALIDARGUMENT) {
     throw Failure{code};
   }
 }
-std::vector<std::string> tokenize(const std::string& source) {
-  std::vector<std::string> tokens;
+std::vector<std::string_view> tokenize(std::string_view source) {
+  std::vector<std::string_view> tokens;
   for (std::size_t index = 0; index < source.size();) {
     const auto character = static_cast<unsigned char>(source[index]);
     if (std::isspace(character) != 0) {
       ++index;
     } else if (source.compare(index, 2, "//") == 0) {
       const auto end = source.find('\n', index + 2);
-      index = end == std::string::npos ? source.size() : end;
+      index = end == std::string_view::npos ? source.size() : end;
     } else if (source.compare(index, 2, "/*") == 0) {
       const auto end = source.find("*/", index + 2);
-      require(end != std::string::npos);
+      require(end != std::string_view::npos);
       index = end + 2;
     } else if (character == '"') {
       const auto end = source.find('"', index + 1);
-      require(end != std::string::npos);
+      require(end != std::string_view::npos);
       tokens.push_back(source.substr(index, end - index + 1));
       index = end + 1;
     } else if (std::isalnum(character) != 0 || character == '_') {
@@ -68,13 +70,12 @@ std::vector<std::string> tokenize(const std::string& source) {
       tokens.push_back(source.substr(start, index - start));
     } else {
       require(character != '@', QDMI_ERROR_NOTSUPPORTED);
-      tokens.emplace_back(1, static_cast<char>(character));
-      ++index;
+      tokens.push_back(source.substr(index++, 1));
     }
   }
   return tokens;
 }
-std::size_t number(const std::string& token) {
+std::size_t number(std::string_view token) {
   std::size_t result = 0;
   const auto parsed =
       std::from_chars(token.data(), token.data() + token.size(), result);
@@ -82,7 +83,7 @@ std::size_t number(const std::string& token) {
           parsed.ptr == token.data() + token.size());
   return result;
 }
-bool name(const std::string& token) {
+bool name(std::string_view token) {
   return !token.empty() &&
          (std::isalpha(static_cast<unsigned char>(token.front())) != 0 ||
           token.front() == '_') &&
@@ -91,9 +92,9 @@ bool name(const std::string& token) {
          });
 }
 
-void expression(const std::vector<std::string>& tokens, std::size_t& cursor,
-                const std::set<std::string>& parameters = {}) {
-  const std::set<std::string> constants{
+void expression(std::span<const std::string_view> tokens, std::size_t& cursor,
+                const std::set<std::string_view>& parameters = {}) {
+  static const std::set<std::string_view> CONSTANTS{
       "pi",  "tau", "euler", "sin",    "cos",    "tan",
       "exp", "ln",  "sqrt",  "arccos", "arcsin", "arctan",
   };
@@ -106,7 +107,7 @@ void expression(const std::vector<std::string>& tokens, std::size_t& cursor,
     } else if (token == ")") {
       --depth;
     } else if (name(token)) {
-      require(constants.contains(token) || parameters.contains(token),
+      require(CONSTANTS.contains(token) || parameters.contains(token),
               QDMI_ERROR_NOTSUPPORTED);
     } else {
       require(token != ";" && token != "{" && token != "}");
@@ -118,18 +119,19 @@ void expression(const std::vector<std::string>& tokens, std::size_t& cursor,
 // Self-contained Qiskit exports declare native gates absent from stdgates.inc.
 // Only static, unitary gate bodies are accepted; their local arguments cannot
 // introduce classical storage or alter the top-level result layout.
-void gateDefinition(const std::vector<std::string>& tokens, std::size_t& cursor,
-                    std::set<std::string>& definitions) {
-  const auto peek = [&]() -> const std::string& {
+void gateDefinition(std::span<const std::string_view> tokens,
+                    std::size_t& cursor,
+                    std::set<std::string_view>& definitions) {
+  const auto peek = [&]() -> std::string_view {
     require(cursor < tokens.size());
     return tokens[cursor];
   };
   ++cursor;
   require(name(peek()) && definitions.insert(peek()).second);
   ++cursor;
-  std::set<std::string> parameters;
-  const auto identifiers = [&](std::set<std::string>& values,
-                               const std::string& end) {
+  std::set<std::string_view> parameters;
+  const auto identifiers = [&](std::set<std::string_view>& values,
+                               std::string_view end) {
     while (true) {
       require(name(peek()) && values.insert(peek()).second);
       ++cursor;
@@ -149,11 +151,11 @@ void gateDefinition(const std::vector<std::string>& tokens, std::size_t& cursor,
       identifiers(parameters, ")");
     }
   }
-  std::set<std::string> qubits;
+  std::set<std::string_view> qubits;
   identifiers(qubits, "{");
   require(std::ranges::none_of(
       qubits, [&](const auto& qubit) { return parameters.contains(qubit); }));
-  const std::set<std::string> forbidden{
+  static const std::set<std::string_view> FORBIDDEN{
       "measure", "reset",  "bit",    "qubit",  "creg", "qreg",
       "input",   "output", "const",  "let",    "int",  "uint",
       "float",   "angle",  "bool",   "array",  "if",   "while",
@@ -161,7 +163,7 @@ void gateDefinition(const std::vector<std::string>& tokens, std::size_t& cursor,
       "delay",   "box",    "pragma", "return", "end",  "include",
   };
   while (peek() != "}") {
-    require(name(peek()) && !forbidden.contains(peek()),
+    require(name(peek()) && !FORBIDDEN.contains(peek()),
             QDMI_ERROR_NOTSUPPORTED);
     ++cursor;
     if (peek() == "(") {
@@ -181,9 +183,9 @@ void gateDefinition(const std::vector<std::string>& tokens, std::size_t& cursor,
   ++cursor;
 }
 
-void condition(const std::vector<std::string>& tokens, std::size_t& cursor,
-               const std::map<std::string, std::size_t>& classical) {
-  const auto next = [&]() -> const std::string& {
+void condition(std::span<const std::string_view> tokens, std::size_t& cursor,
+               const std::map<std::string_view, std::size_t>& classical) {
+  const auto next = [&]() -> std::string_view {
     require(cursor < tokens.size());
     return tokens[cursor++];
   };
@@ -223,10 +225,10 @@ std::vector<Register> outputRegisters(const std::string& program,
   const auto tokens = tokenize(program);
   require(tokens.size() >= 3 && tokens[0] == "OPENQASM" &&
           (tokens[1] == "3" || tokens[1] == "3.0") && tokens[2] == ";");
-  std::map<std::string, std::size_t> classical;
+  std::map<std::string_view, std::size_t> classical;
   std::vector<Register> registers;
-  std::set<std::string> definitions;
-  std::string quantumRegister;
+  std::set<std::string_view> definitions;
+  std::string_view quantumRegister;
   bool measured = false;
   enum class Branch : std::uint8_t { None, Then, Else };
   auto branch = Branch::None;
@@ -261,7 +263,7 @@ std::vector<Register> outputRegisters(const std::string& program,
         std::find(tokens.begin() + static_cast<std::ptrdiff_t>(cursor),
                   tokens.end(), ";");
     require(end != tokens.end());
-    const std::vector<std::string> statement(
+    const std::span<const std::string_view> statement(
         tokens.begin() + static_cast<std::ptrdiff_t>(cursor), end);
     cursor += statement.size() + 1;
     require(!statement.empty());
@@ -277,7 +279,7 @@ std::vector<Register> outputRegisters(const std::string& program,
       require(branch == Branch::None, QDMI_ERROR_NOTSUPPORTED);
       const bool legacy = first == "creg" || first == "qreg";
       const bool quantum = first == "qubit" || first == "qreg";
-      std::string registerName;
+      std::string_view registerName;
       std::size_t count = 1;
       if (!legacy && statement.size() == 2) {
         registerName = statement[1];
@@ -300,17 +302,18 @@ std::vector<Register> outputRegisters(const std::string& program,
         require(count <= std::numeric_limits<std::size_t>::max() - width);
         width += count;
         classical.emplace(registerName, count);
-        registers.push_back({.name = registerName, .width = count});
+        registers.push_back(
+            {.name = std::string(registerName), .width = count});
       }
       continue;
     }
-    const std::set<std::string> unsupported{
+    static const std::set<std::string_view> UNSUPPORTED{
         "input", "output", "const",  "let",    "int",  "uint",
         "float", "angle",  "bool",   "array",  "if",   "while",
         "for",   "switch", "def",    "extern", "gate", "defcal",
         "delay", "box",    "pragma", "return", "end",
     };
-    require(!unsupported.contains(first), QDMI_ERROR_NOTSUPPORTED);
+    require(!UNSUPPORTED.contains(first), QDMI_ERROR_NOTSUPPORTED);
     std::size_t offset = 0;
     const auto reference = [&](bool quantum) {
       require(offset < statement.size());

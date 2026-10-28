@@ -162,5 +162,7 @@ TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
   fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
   fails([] { ibm::decodeQpy("invalid!"); }, QDMI_ERROR_INVALIDARGUMENT);
   fails([] { ibm::decodeQpy("AAAA"); }, QDMI_ERROR_INVALIDARGUMENT);
-  fails([] { ibm::decodeQpy("AB=="); }, QDMI_ERROR_INVALIDARGUMENT);
+  // Nonzero padding bits must not alias a valid compressed payload.
+  EXPECT_EQ(ibm::decodeQpy("eJyrqAAAAWoA8Q=="), "xx");
+  fails([] { ibm::decodeQpy("eJyrqAAAAWoA8R=="); }, QDMI_ERROR_INVALIDARGUMENT);
 }

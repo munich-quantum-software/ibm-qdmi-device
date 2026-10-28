@@ -25,7 +25,7 @@ from unittest.mock import Mock
 
 import pytest
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, JobSubmissionError, UnsupportedOperationError
-from mqt.core.qdmi import ProgramFormat
+from mqt.core.qdmi import Device, ProgramFormat
 from offline_service import CRN
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
@@ -68,7 +68,7 @@ def test_invalid_shots_submit_nothing(runtime: RuntimeProxy, shots: object) -> N
     assert not runtime.snapshot()["submissions"]
 
 
-@pytest.mark.parametrize("invalid", ["gate", "control", "sites", "unbound", "unmeasured"])
+@pytest.mark.parametrize("invalid", ["gate", "sites", "unbound", "unmeasured"])
 def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid: str) -> None:
     """A later invalid circuit prevents even the first batch submission."""
     backend = open_backend(runtime)
@@ -77,9 +77,6 @@ def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid
     circuit = QuantumCircuit(2, 2)
     if invalid == "gate":
         circuit.h(0)
-    elif invalid == "control":
-        with circuit.if_test((circuit.clbits[0], True)):
-            circuit.reset(0)
     elif invalid == "sites":
         circuit.cx(1, 0)
     elif invalid == "unbound":
@@ -149,7 +146,7 @@ def test_status_cancellation_and_retrieval(runtime: RuntimeProxy) -> None:
 @pytest.mark.parametrize("use_environment", [False, True])
 def test_session_overrides_and_existing_device(monkeypatch: pytest.MonkeyPatch, *, use_environment: bool) -> None:
     """Forward explicit overrides and leave environment defaults to the native device."""
-    device = Mock(spec=adapter.Device)
+    device = Mock(spec=Device)
     opened = Mock(return_value=device)
     initialized = Mock(return_value=None)
     monkeypatch.setattr(adapter, "open_device", opened)

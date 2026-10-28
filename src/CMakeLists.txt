@@ -49,7 +49,7 @@ target_compile_definitions(
   INTERFACE $<$<PLATFORM_ID:Windows>:IBM_QDMI_STATIC_DEFINE>)
 target_link_libraries(
   ibm-qdmi-core
-  PUBLIC cpr::cpr nlohmann_json::nlohmann_json zlib
+  PUBLIC cpr::cpr nlohmann_json::nlohmann_json zlib-ng::zlib
   PRIVATE qdmi::qdmi_project_warnings)
 set_target_properties(ibm-qdmi-core PROPERTIES CXX_VISIBILITY_PRESET hidden
                                                VISIBILITY_INLINES_HIDDEN ON)

@@ -25,24 +25,23 @@ from typing import TYPE_CHECKING, Any
 try:
     from mqt.core.plugins.qiskit.backend import QDMIBackend
     from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
-    from mqt.core.qdmi import Device, ProgramFormat
     from mqt.core.qdmi.builtin_driver import open_device
 except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import Barrier, ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit, Qubit
+from qiskit.circuit import Barrier, ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
-from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, MutableSet, Sequence
+    from collections.abc import MutableSet, Sequence
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
+    from mqt.core.qdmi import Device
     from qiskit.transpiler import Target
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
 
@@ -127,7 +126,8 @@ class IBMBackend(QDMIBackend):
             target.add_instruction(IfElseOp, name="if_else")
         return target
 
-    def _preprocess_circuit(self, circuit: QuantumCircuit) -> QuantumCircuit:
+    @staticmethod
+    def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
         """Validate bound instructions before any circuit in a batch is submitted.
 
         Returns:
@@ -136,12 +136,8 @@ class IBMBackend(QDMIBackend):
         Raises:
             mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
                 Measurements or finite parameters are missing.
-            UnsupportedOperationError: An instruction or site tuple is unsupported.
+            UnsupportedOperationError: A control-flow form is unsupported.
         """
-        if circuit.num_qubits > self.num_qubits or not circuit.num_clbits:
-            msg = "A circuit must fit the physical device and contain classical measurements."
-            raise CircuitValidationError(msg)
-        self._validate_circuit(circuit, native=True)
         measured = False
         pending = [(circuit, False)]
         while pending:
@@ -174,28 +170,6 @@ class IBMBackend(QDMIBackend):
             msg = "At least one measurement is required."
             raise CircuitValidationError(msg)
         return circuit
-
-    def _serialize_circuit(
-        self, circuit: QuantumCircuit, supported_program_formats: Iterable[ProgramFormat]
-    ) -> tuple[str | bytes, ProgramFormat]:
-        """Serialize with a full physical register and the original classical order.
-
-        Returns:
-            QPY when supported, otherwise IBM-compatible OpenQASM 3.
-        """
-        formats = tuple(supported_program_formats)
-        if ProgramFormat.QPY in formats:
-            translated = QuantumCircuit(
-                [Qubit() for _ in range(self.num_qubits)],
-                circuit.clbits,
-                *circuit.cregs,
-                name=circuit.name,
-                metadata=circuit.metadata,
-            )
-            translated.compose(circuit, inplace=True)
-            return super()._serialize_circuit(translated, (ProgramFormat.QPY,))
-        assert ProgramFormat.QASM3 in formats
-        return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
 
     def executor(self, *, options: ExecutorOptions | None = None) -> Executor:
         """Create the optional Executor primitive using this QDMI session.

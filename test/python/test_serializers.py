@@ -71,12 +71,14 @@ def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
     assert job.result().get_counts(0) == {"1": 7}
     assert job.result().get_counts(1) == {"0": 7}
     pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
-    assert all(submitted_circuit(pub[0]).num_clbits == 1 for pub in pubs)
+    for pub in pubs:
+        emitted = submitted_circuit(pub[0])
+        assert emitted.num_qubits == emitted.num_clbits == 1
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str) -> None:
-    """Native nonstandard gates remain named operations with importable declarations."""
+def test_native_gates_preserve_physical_sites(runtime: RuntimeProxy, name: str) -> None:
+    """QPY preserves named ECR/RZZ gates and their physical sites."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[3, 4]]})
     runtime.set_configuration("gates", config["gates"])

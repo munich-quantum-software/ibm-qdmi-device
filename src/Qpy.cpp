@@ -29,8 +29,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <zconf.h>
-#include <zlib.h>
+#include <zlib-ng.h>
 
 namespace ibm {
 namespace {
@@ -129,12 +128,13 @@ std::vector<Register> qpyRegisters(const std::string& program,
 
 std::string encodeQpy(const std::string& program) {
   require(!program.empty() && program.size() <= MAX_QPY_SIZE);
-  auto size = compressBound(static_cast<uLong>(program.size()));
+  auto size = zng_compressBound(program.size());
   std::vector<unsigned char> compressed(size);
-  require(compress(compressed.data(), &size,
-                   reinterpret_cast<const Bytef*>(program.data()),
-                   static_cast<uLong>(program.size())) == Z_OK,
-          QDMI_ERROR_FATAL);
+  const auto status = zng_compress(
+      compressed.data(), &size,
+      reinterpret_cast<const std::uint8_t*>(program.data()), program.size());
+  require(status != Z_MEM_ERROR, QDMI_ERROR_OUTOFMEM);
+  require(status == Z_OK, QDMI_ERROR_FATAL);
   std::string encoded;
   encoded.reserve((size + 2) / 3 * 4);
   for (std::size_t index = 0; index < size; index += 3) {
@@ -157,36 +157,31 @@ std::string decodeQpy(const std::string& encoded) {
           encoded.size() <= 2 * MAX_QPY_SIZE);
   std::vector<unsigned char> compressed;
   compressed.reserve(encoded.size() / 4 * 3);
-  for (std::size_t index = 0; index < encoded.size(); index += 4) {
-    std::uint32_t word = 0;
-    std::size_t padding = 0;
-    for (std::size_t digit = 0; digit < 4; ++digit) {
-      const auto character = encoded[index + digit];
-      if (character == '=') {
-        require(index + 4 == encoded.size() && digit >= 2);
-        ++padding;
-        word <<= 6U;
-      } else {
-        const auto value = BASE64.find(character);
-        require(value != std::string_view::npos && padding == 0);
-        word = (word << 6U) | static_cast<std::uint32_t>(value);
-      }
-    }
-    require(padding == 0 || (word & (padding == 1 ? 255U : 65535U)) == 0);
-    compressed.push_back(static_cast<unsigned char>(word >> 16U));
-    if (padding < 2) {
-      compressed.push_back(static_cast<unsigned char>(word >> 8U));
-    }
-    if (padding == 0) {
-      compressed.push_back(static_cast<unsigned char>(word));
+  auto padding = encoded.ends_with('=') ? 1U : 0U;
+  if (encoded.ends_with("==")) {
+    ++padding;
+  }
+  std::uint32_t word = 0;
+  unsigned bits = 0;
+  for (const auto character :
+       std::string_view(encoded).substr(0, encoded.size() - padding)) {
+    const auto value = BASE64.find(character);
+    require(value != std::string_view::npos);
+    word = (word << 6U) | static_cast<std::uint32_t>(value);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      compressed.push_back(static_cast<unsigned char>(word >> bits));
     }
   }
+  require((word & ((1U << bits) - 1)) == 0);
   std::string result(std::min(compressed.size(), MAX_QPY_SIZE / 4) * 4, '\0');
   while (true) {
-    auto size = static_cast<uLongf>(result.size());
-    auto inputSize = static_cast<uLong>(compressed.size());
-    const auto status = uncompress2(reinterpret_cast<Bytef*>(result.data()),
-                                    &size, compressed.data(), &inputSize);
+    auto size = result.size();
+    auto inputSize = compressed.size();
+    const auto status =
+        zng_uncompress2(reinterpret_cast<std::uint8_t*>(result.data()), &size,
+                        compressed.data(), &inputSize);
     if (status == Z_OK) {
       require(inputSize == compressed.size());
       result.resize(size);
