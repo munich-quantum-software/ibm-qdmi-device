@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
+  property consumed by MQT Core. ([**@burgholzer**])
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
   access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
   ([#72]) ([**@marcelwa**], [**@burgholzer**])

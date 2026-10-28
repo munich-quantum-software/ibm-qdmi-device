@@ -36,6 +36,7 @@
 #include <new>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -487,6 +488,42 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
                 session, operations[0], 0, nullptr, 0, nullptr,
                 QDMI_OPERATION_PROPERTY_CUSTOM1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
+}
+
+TEST_F(DeviceTest, FractionalRzzReportsInclusiveParameterBounds) {
+  for (const std::string name : {"rx", "rzz"}) {
+    data.at("configuration").at("basis_gates").push_back(name);
+    data.at("configuration")
+        .at("gates")
+        .push_back({{"name", name},
+                    {"parameters", {"theta"}},
+                    {"coupling_map", name == "rx" ? nlohmann::json{{0}, {1}}
+                                                  : nlohmann::json{{0, 1}}}});
+  }
+  initialize();
+  const auto operations =
+      handles<IBM_QDMI_Operation>(QDMI_DEVICE_PROPERTY_OPERATIONS);
+  const auto property = IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS;
+  EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(3), 0, nullptr, 0, nullptr, property, 0,
+                nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+  std::size_t required = 0;
+  ASSERT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(4), 0, nullptr, 0, nullptr, property, 0,
+                nullptr, &required),
+            QDMI_SUCCESS);
+  std::vector<char> buffer(required, 'x');
+  ASSERT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(4), 0, nullptr, 0, nullptr, property,
+                buffer.size(), buffer.data(), nullptr),
+            QDMI_SUCCESS);
+  EXPECT_EQ(buffer.back(), '\0');
+  const auto domains = nlohmann::json::parse(buffer.data());
+  EXPECT_EQ(domains.at("schema"), "mqt.operation-parameters.v1");
+  EXPECT_EQ(
+      domains.at("alternatives"),
+      nlohmann::json::array({{{"bounds", {{0.0, std::numbers::pi / 2}}}}}));
 }
 
 int setProgram(IBM_QDMI_Device_Job job, QDMI_Program_Format format,

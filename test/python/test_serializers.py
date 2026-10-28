@@ -24,6 +24,7 @@ from collections import Counter
 from typing import TYPE_CHECKING
 
 import pytest
+from mqt.core.mlir import CompilerTarget
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit import Parameter
 from qiskit_service import open_backend, submitted_circuit
@@ -80,7 +81,11 @@ def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
 def test_native_gates_preserve_physical_sites(runtime: Runtime, name: str) -> None:
     """QPY preserves named ECR/RZZ gates and their physical sites."""
     config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[3, 4]]})
+    config["gates"].append({
+        "name": name,
+        "parameters": ["theta"] if name == "rzz" else [],
+        "coupling_map": config["coupling_map"] if name == "rzz" else [[3, 4]],
+    })
     runtime.set_configuration("gates", config["gates"])
     runtime.set_configuration("basis_gates", [*config["basis_gates"], name])
     backend = open_backend(runtime)
@@ -89,6 +94,10 @@ def test_native_gates_preserve_physical_sites(runtime: Runtime, name: str) -> No
         circuit.ecr(3, 4)
     else:
         circuit.rzz(math.pi / 4, 3, 4)
+        target = CompilerTarget.from_device(backend.device)
+        for angle, supported in [(0.0, True), (math.pi / 2, True), (-math.pi / 4, False), (math.pi, False)]:
+            assert target.supports_operation("rzz", 2, 1, [3, 4], parameters=[angle]) is supported
+            assert backend.target.instruction_supported("rzz", (3, 4), parameters=[angle]) is supported
     circuit.measure([3, 4], [0, 1])
     result = backend.run(circuit, shots=32, memory=True).result()
     assert sum(result.get_counts().values()) == 32

@@ -726,6 +726,13 @@ int IBM_QDMI_device_session_query_operation_property(
       return copyOptional(data.arity, size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_PARAMETERSNUM:
       return copyOptional(data.parameters, size, value, sizeRet);
+    case IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS:
+      require(data.name == "rzz" && data.parameters == 1,
+              QDMI_ERROR_NOTSUPPORTED);
+      return copyString(
+          R"({"schema":"mqt.operation-parameters.v1","alternatives":)"
+          R"([{"bounds":[[0,1.5707963267948966]]}]})",
+          size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_SITES: {
       require(!data.sites.empty(), QDMI_ERROR_NOTSUPPORTED);
       std::vector<IBM_QDMI_Site> supported;

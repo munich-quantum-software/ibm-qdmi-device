@@ -103,6 +103,22 @@ never fabricated zero values. A missing calibration endpoint (HTTP 404) permits
 initialization without those optional values. Malformed structural metadata
 fails initialization.
 
+Advertised `rzz` operations expose their inclusive angle interval `[0, pi/2]` in
+radians through `IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS`
+(`QDMI_OPERATION_PROPERTY_CUSTOM2`). The null-terminated UTF-8 JSON is:
+
+```json
+{
+  "schema": "mqt.operation-parameters.v1",
+  "alternatives": [{"bounds": [[0, 1.5707963267948966]]}]
+}
+```
+
+This experimental contract is shared with MQT Core and is not a standard QDMI
+property. Other operations, including unrestricted `rx`, return
+`QDMI_ERROR_NOTSUPPORTED`. The inclusive interval follows the
+[IBM Runtime SDK's angle bounds](https://github.com/Qiskit/qiskit-ibm-runtime/blob/0.50.0/qiskit_ibm_runtime/utils/backend_converter.py).
+
 Queries honor the QDMI size-query contract. Insufficient output buffers and
 invalid arguments return `QDMI_ERROR_INVALIDARGUMENT`. Uninitialized-session
 queries return `QDMI_ERROR_BADSTATE`. HTTP authentication failures map to
