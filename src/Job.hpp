@@ -38,7 +38,7 @@ struct Register {
 };
 /// Extract top-level classical declarations in source order.
 std::vector<Register> outputRegisters(const std::string& program);
-/// Add missing standard and IBM-native gate declarations for Runtime import.
+/// Complete bare native programs for Runtime; preserve self-declared programs.
 std::string declareNativeGates(std::string program);
 /// Read the output layout of one QPY 17 circuit without interpreting gates.
 std::vector<Register> qpyRegisters(const std::string& program,

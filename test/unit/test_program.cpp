@@ -105,6 +105,9 @@ TEST(Program, DeclaresBareNativeGatesWithoutRewritingSource) {
   EXPECT_TRUE(prepared.ends_with(program.substr(program.find("bit[2]"))));
   EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
   EXPECT_EQ(ibm::declareNativeGates(PROGRAM), PROGRAM);
+  const std::string selfDeclared =
+      "OPENQASM 3; gate x a { U(pi,0,pi) a; } bit c; x $0; c = measure $0;";
+  EXPECT_EQ(ibm::declareNativeGates(selfDeclared), selfDeclared);
 }
 
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {

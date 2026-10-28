@@ -101,7 +101,6 @@ std::string declareNativeGates(std::string program) {
   auto insertion =
       static_cast<std::size_t>(tokens[2].data() - program.data()) + 1;
   bool standardGates = false;
-  std::set<std::string_view> definitions;
   std::set<std::string_view> calls;
   for (std::size_t index = 3; index < tokens.size(); ++index) {
     if (tokens[index] == "include" && index + 2 < tokens.size()) {
@@ -109,8 +108,8 @@ std::string declareNativeGates(std::string program) {
       insertion =
           static_cast<std::size_t>(tokens[index + 2].data() - program.data()) +
           1;
-    } else if (tokens[index] == "gate" && index + 1 < tokens.size()) {
-      definitions.insert(tokens[++index]);
+    } else if (tokens[index] == "gate") {
+      return program;
     } else if (index + 1 < tokens.size() &&
                (tokens[index - 1] == ";" || tokens[index - 1] == "{" ||
                 tokens[index - 1] == "}") &&
@@ -121,10 +120,10 @@ std::string declareNativeGates(std::string program) {
     }
   }
   std::string declarations = standardGates ? "" : "\ninclude \"stdgates.inc\";";
-  if (calls.contains("ecr") && !definitions.contains("ecr")) {
+  if (calls.contains("ecr")) {
     declarations += "\ngate ecr a,b { gphase(-pi/4); s a; sx b; cx a,b; x a; }";
   }
-  if (calls.contains("rzz") && !definitions.contains("rzz")) {
+  if (calls.contains("rzz")) {
     declarations += "\ngate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; }";
   }
   if (!declarations.empty()) {

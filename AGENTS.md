@@ -57,8 +57,10 @@ checks. Jobs retain their session resources until freed. Never retry a job
 submission automatically or treat local handle cleanup as remote cancellation.
 Preserve physical qubit indices and classical-bit ordering through execution.
 Keep framework imports and package information commands free of live access.
-Keep native program readers limited to result layout extraction. Compilation,
-routing, and instruction validation belong in Core and the IBM service.
+Keep native program readers limited to result layout extraction and required
+gate declarations for bare OpenQASM. Preserve programs with their own gate
+definitions and stored source bytes. Compilation, routing, and instruction
+validation belong in Core and the IBM service.
 
 ## Build and Validation
 
