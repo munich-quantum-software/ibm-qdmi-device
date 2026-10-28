@@ -182,7 +182,8 @@ std::vector<Register> outputRegisters(const std::string& program) {
       width += count;
       registers.push_back({.name = std::string(registerName), .width = count});
     } else {
-      require(token != "input" && token != "pragma", QDMI_ERROR_NOTSUPPORTED);
+      require(token != "input" && token != "output" && token != "pragma",
+              QDMI_ERROR_NOTSUPPORTED);
     }
   }
   require(depth == 0);

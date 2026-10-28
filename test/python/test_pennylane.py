@@ -428,17 +428,28 @@ def test_native_rzz_parameter_shift_gradient(runtime: Runtime) -> None:
         assert all(0 < angle <= math.pi / 2 for angle in angles)
 
 
-def test_heterogeneous_metadata_rejected_before_submission(runtime: Runtime) -> None:
-    """Core's current compiler target requires a homogeneous native basis."""
+def test_partial_gate_support(runtime: Runtime) -> None:
+    """Compile with partial gate support while preserving its physical placements."""
     configure_entangler(runtime, "rzz")
     config = runtime.snapshot()["configuration"]
     for gate in config["gates"]:
         if gate["name"] == "x":
             gate["coupling_map"] = [[i] for i in range(1, 5)]
     runtime.set_configuration("gates", config["gates"])
-    with pytest.raises(PennyLaneConfigurationError, match="not homogeneous"):
-        open_device(runtime)
+    device = open_device(runtime)
     assert not runtime.snapshot()["submissions"]
+
+    @qml.qnode(device, shots=7)
+    def circuit() -> qml.measurements.SampleMP:
+        qml.X(0)
+        return qml.sample(wires=[0])
+
+    np.testing.assert_array_equal(circuit(), [[1]] * 7)
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = qasm3.loads(source)
+    for instruction in emitted.data:
+        if instruction.operation.name == "x":
+            assert emitted.find_bit(instruction.qubits[0]).index in range(1, 5)
 
 
 def test_noncommuting_observables(runtime: Runtime) -> None:

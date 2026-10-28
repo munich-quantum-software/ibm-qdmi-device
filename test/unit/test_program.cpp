@@ -55,7 +55,7 @@ TEST(Program, PreservesDeclarationOrderAcrossNativeInstructions) {
       "OPENQASM 3.1; include \"stdgates.inc\"; "
       "// bit[9] ignored;\n /* bit[8] ignored; */ "
       "gate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; } "
-      "qreg q[5]; output bit[2] z; creg a[1]; gphase(pi/2); "
+      "qreg q[5]; bit[2] z; creg a[1]; gphase(pi/2); "
       "z[0] = measure q[4]; if (z[0]) { rzz(pi/4) q[3],q[4]; } "
       "else { x q[2]; } z = bit[2](uint[2](z)); measure q[3] -> a[0];");
   ASSERT_EQ(registers.size(), 2);
@@ -91,6 +91,16 @@ TEST(Program, RejectsAmbiguousOutputLayouts) {
        }) {
     fails([&] { (void)ibm::outputRegisters(source); }, QDMI_ERROR_NOTSUPPORTED);
   }
+}
+
+TEST(Program, RejectsExplicitOutputs) {
+  fails(
+      [] {
+        (void)ibm::outputRegisters(
+            "OPENQASM 3; output bit result; bit internal; "
+            "result = measure $0; internal = measure $1;");
+      },
+      QDMI_ERROR_NOTSUPPORTED);
 }
 
 TEST(Program, DeclaresBareNativeGatesWithoutRewritingSource) {
