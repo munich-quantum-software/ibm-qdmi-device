@@ -95,6 +95,44 @@ bool name(std::string_view token) {
 }
 } // namespace
 
+std::string declareNativeGates(std::string program) {
+  const auto tokens = tokenize(program);
+  require(tokens.size() >= 3);
+  auto insertion =
+      static_cast<std::size_t>(tokens[2].data() - program.data()) + 1;
+  bool standardGates = false;
+  std::set<std::string_view> definitions;
+  std::set<std::string_view> calls;
+  for (std::size_t index = 3; index < tokens.size(); ++index) {
+    if (tokens[index] == "include" && index + 2 < tokens.size()) {
+      standardGates |= tokens[index + 1] == "\"stdgates.inc\"";
+      insertion =
+          static_cast<std::size_t>(tokens[index + 2].data() - program.data()) +
+          1;
+    } else if (tokens[index] == "gate" && index + 1 < tokens.size()) {
+      definitions.insert(tokens[++index]);
+    } else if (index + 1 < tokens.size() &&
+               (tokens[index - 1] == ";" || tokens[index - 1] == "{" ||
+                tokens[index - 1] == "}") &&
+               ((tokens[index] == "ecr" &&
+                 (tokens[index + 1] == "$" || name(tokens[index + 1]))) ||
+                (tokens[index] == "rzz" && tokens[index + 1] == "("))) {
+      calls.insert(tokens[index]);
+    }
+  }
+  std::string declarations = standardGates ? "" : "\ninclude \"stdgates.inc\";";
+  if (calls.contains("ecr") && !definitions.contains("ecr")) {
+    declarations += "\ngate ecr a,b { gphase(-pi/4); s a; sx b; cx a,b; x a; }";
+  }
+  if (calls.contains("rzz") && !definitions.contains("rzz")) {
+    declarations += "\ngate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; }";
+  }
+  if (!declarations.empty()) {
+    program.insert(insertion, declarations + '\n');
+  }
+  return program;
+}
+
 std::vector<Register> outputRegisters(const std::string& program) {
   const auto tokens = tokenize(program);
   require(tokens.size() >= 3 && tokens[0] == "OPENQASM" &&

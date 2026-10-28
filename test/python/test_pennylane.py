@@ -82,7 +82,7 @@ def configure_entangler(runtime: Runtime, name: str) -> None:
 
 @pytest.mark.parametrize("wires", [2, ["control", "target"], [4, 2]])
 def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[str] | list[int]) -> None:
-    """Logical wire order survives compilation while QASM declares the backend width."""
+    """Logical wire order survives compilation to physical qubit indices."""
     device = open_device(runtime, wires)
     first, second = device.wires
 
@@ -93,12 +93,12 @@ def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[
 
     np.testing.assert_array_equal(circuit(), [[0, 1]] * 7)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert "qubit[5] q;" in source
+    assert "qubit[" not in source
     assert "bit[2] c;" in source
-    assert "x q[0];" in source
-    assert "c[0] = measure q[0];" in source
-    assert "c[1] = measure q[1];" in source
-    assert "measure q[2]" not in source
+    assert "x $0;" in source
+    assert "c[0] = measure $0;" in source
+    assert "c[1] = measure $1;" in source
+    assert "measure $2" not in source
     assert device.submitted_jobs == 1
 
 
@@ -225,7 +225,7 @@ def test_native_gate_declarations(runtime: Runtime, name: str) -> None:
     assert sum(circuit().values()) == 32
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     assert f"gate {name}" in source
-    assert "q[0], q[1]" in source
+    assert "$0, $1" in source
 
 
 def test_invalid_batch_submits_nothing(runtime: Runtime) -> None:
@@ -320,8 +320,8 @@ def test_qaoa_decomposition(runtime: Runtime, entangler: str) -> None:
     np.testing.assert_allclose(observed, expected, atol=0.04)
     assert qml.decomposition.enabled_graph() == graph_before
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert "sx q[0];" in source
-    assert f"{entangler} q[0], q[1];" in source
+    assert "sx $0;" in source
+    assert f"{entangler} $0, $1;" in source
 
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr"])
@@ -398,7 +398,7 @@ def test_native_rzz_angle_folding(runtime: Runtime, angle: float) -> None:
     for instruction in emitted.data:
         if instruction.operation.name == "rzz":
             assert 0 <= float(instruction.operation.params[0]) <= math.pi / 2
-    expected = QuantumCircuit(5)
+    expected = QuantumCircuit(emitted.num_qubits)
     expected.rzz(angle, 0, 1)
     assert QiskitOperator(emitted.remove_final_measurements(inplace=False)).equiv(QiskitOperator(expected))
 

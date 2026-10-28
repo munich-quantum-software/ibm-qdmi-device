@@ -93,6 +93,20 @@ TEST(Program, RejectsAmbiguousOutputLayouts) {
   }
 }
 
+TEST(Program, DeclaresBareNativeGatesWithoutRewritingSource) {
+  const std::string program =
+      "// ignored;\nOPENQASM /* ignored; */ 3;\nbit[2] c; "
+      "ecr $3,$4; rzz(2.5e-1) $3,$4; "
+      "c[1] = measure $3; c[0] = measure $4;";
+  const auto prepared = ibm::declareNativeGates(program);
+  EXPECT_NE(prepared.find("include \"stdgates.inc\";"), std::string::npos);
+  EXPECT_NE(prepared.find("gate ecr"), std::string::npos);
+  EXPECT_NE(prepared.find("gate rzz"), std::string::npos);
+  EXPECT_TRUE(prepared.ends_with(program.substr(program.find("bit[2]"))));
+  EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
+  EXPECT_EQ(ibm::declareNativeGates(PROGRAM), PROGRAM);
+}
+
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
   std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/v17.qpy",
                      std::ios::binary);

@@ -44,8 +44,9 @@
 #include <vector>
 
 namespace {
-constexpr auto* PROGRAM = "OPENQASM 3; qubit[2] q; bit[2] z; bit a; "
-                          "z[0] = measure q[1]; a = measure q[0];";
+constexpr auto* PROGRAM =
+    "OPENQASM 3; include \"stdgates.inc\"; qubit[2] q; bit[2] z; bit a; "
+    "z[0] = measure q[1]; a = measure q[0];";
 constexpr auto PROGRAM_SIZE = std::char_traits<char>::length(PROGRAM);
 class DeviceTest : public testing::Test {
 protected:

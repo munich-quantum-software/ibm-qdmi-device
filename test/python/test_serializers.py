@@ -25,33 +25,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 from mqt.core.mlir import CompilerTarget
-from mqt.core.qdmi import ProgramFormat
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit import Parameter
 from qiskit_service import open_backend, submitted_circuit
 
-from ibm.qdmi.qiskit import IBMBackend
-
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from mqt.core.mlir import CompiledProgram
     from qiskit_service import Runtime
-
-pytestmark = pytest.mark.usefixtures("serialization_format")
-
-
-@pytest.fixture(params=[ProgramFormat.QPY, ProgramFormat.QASM3])
-def serialization_format(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Exercise each advertised transport through the real provider and shared job."""
-    serialize = IBMBackend._serialize_circuit  # ruff: ignore[private-member-access] Select the transport under test.
-
-    def selected_format(
-        backend: IBMBackend, circuit: QuantumCircuit, _formats: Iterable[ProgramFormat]
-    ) -> tuple[CompiledProgram | str | bytes, ProgramFormat]:
-        return serialize(backend, circuit, (request.param,))
-
-    monkeypatch.setattr(IBMBackend, "_serialize_circuit", selected_format)
 
 
 def test_classical_registers_batch_and_ordered_memory(runtime: Runtime) -> None:
@@ -79,8 +58,6 @@ def test_classical_registers_batch_and_ordered_memory(runtime: Runtime) -> None:
     pubs = submissions[0]["params"]["pubs"]
     assert len(pubs) == 2
     assert [pub[2] for pub in pubs] == [9, 9]
-    if isinstance(pubs[0][0], str):
-        assert submitted_circuit(pubs[0][0]).num_clbits == 2
 
 
 def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
@@ -96,12 +73,14 @@ def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
     assert job.result().get_counts(0) == {"1": 7}
     assert job.result().get_counts(1) == {"0": 7}
     pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
-    assert all(submitted_circuit(pub[0]).num_clbits == 1 for pub in pubs)
+    for pub in pubs:
+        emitted = submitted_circuit(pub[0])
+        assert emitted.num_qubits == emitted.num_clbits == 1
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gates_outside_standard_include(runtime: Runtime, name: str) -> None:
-    """Native nonstandard gates remain named operations with importable declarations."""
+def test_native_gates_preserve_physical_sites(runtime: Runtime, name: str) -> None:
+    """QPY preserves named ECR/RZZ gates and their physical sites."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({
         "name": name,
@@ -125,8 +104,6 @@ def test_native_gates_outside_standard_include(runtime: Runtime, name: str) -> N
     assert sum(result.get_counts().values()) == 32
     assert Counter(result.get_memory()) == result.get_counts()
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    if isinstance(source, str):
-        assert f"gate {name}" in source
     emitted = submitted_circuit(source)
     assert emitted.count_ops()[name] == 1
     instruction = next(item for item in emitted.data if item.operation.name == name)

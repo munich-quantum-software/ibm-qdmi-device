@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Accept bare native OpenQASM 3 by adding missing standard and ECR/RZZ gate
+  declarations for Runtime import. ([#94]) ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
   property consumed by MQT Core. ([#94]) ([**@burgholzer**])
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud

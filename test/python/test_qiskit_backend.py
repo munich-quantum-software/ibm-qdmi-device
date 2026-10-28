@@ -23,14 +23,17 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
+from mqt.core.mlir import TerminalReadout, serialize_program
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, JobSubmissionError, UnsupportedOperationError
 from mqt.core.qdmi import Device, ProgramFormat
 from offline_service import CRN
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
 from qiskit.providers import JobStatus
-from qiskit_service import open_backend
+from qiskit.quantum_info import Operator
+from qiskit_service import open_backend, submitted_circuit
 
 from ibm.qdmi import qiskit as adapter
 from ibm.qdmi.qiskit import IBMBackend
@@ -55,6 +58,51 @@ def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
     assert len(submitted) == 1
     assert submitted[0]["params"]["options"]["dynamical_decoupling"]["enable"] is True
     assert submitted[0]["params"]["options"]["dynamical_decoupling"]["sequence_type"] == "XpXm"
+
+
+def test_native_compiler_qasm_import(runtime: Runtime) -> None:
+    """Native submission declares bare gates without changing physical/readout semantics."""
+    config = runtime.snapshot()["configuration"]
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "ecr", "rzz"])
+    runtime.set_configuration(
+        "gates",
+        [
+            *config["gates"],
+            {"name": "ecr", "parameters": [], "coupling_map": [[3, 4]]},
+            {"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]},
+        ],
+    )
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 4)
+    circuit.x(4)
+    circuit.ecr(3, 4)
+    circuit.rzz(0.25, 3, 4)
+    circuit.measure([3, 4, 3], [0, 2, 3])
+    program = serialize_program(circuit, target=backend.device, terminal_readout=TerminalReadout.MEASURED)
+    assert isinstance(program.payload, str)
+    assert "include" not in program.payload
+    assert "gate ecr" not in program.payload
+    assert "$3" in program.payload
+    assert "$4" in program.payload
+    job = backend.device.submit_job(program.payload, program.program_format, num_shots=16)
+    assert job.wait(10)
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = submitted_circuit(source)
+    emitted.remove_final_measurements()
+    circuit.remove_final_measurements()
+    np.testing.assert_allclose(
+        Operator(emitted).data,
+        Operator(circuit).data,
+        atol=1e-12,
+    )
+    assert program.result_layout is not None
+    shots = job.get_shots()
+    assert len(shots) == 16
+    for raw in shots:
+        decoded = program.result_layout.decode_bits(raw)
+        assert len(decoded) == 4
+        assert decoded[2] == "0"
+        assert decoded[0] == decoded[3]
 
 
 @pytest.mark.parametrize("shots", [0, -1, True, 1.5])

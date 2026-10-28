@@ -66,19 +66,20 @@ service per fake stays alive until process exit, so another backend object can
 retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;
 include that address in `no_proxy` if an HTTP proxy is configured.
 
-## Transpile and execute
+## Compile and execute
 
-Transpile against the backend's target, which describes its native gates,
-physical connectivity, and available calibrations:
+Compile against the backend's target, which describes its native gates, physical
+connectivity, and available calibrations:
 
 ```python
+from mqt.core.mlir import compile_program
 from qiskit import QuantumCircuit, transpile
 
 circuit = QuantumCircuit(2, 2, name="bell", metadata={"experiment": "example"})
 circuit.h(0)
 circuit.cx(0, 1)
 circuit.measure([0, 1], [0, 1])
-compiled = transpile(circuit, backend, optimization_level=1, seed_transpiler=7)
+compiled = compile_program(circuit, target=backend)
 job = backend.run(compiled, shots=128, memory=True)
 result = job.result()
 counts = result.get_counts()
@@ -91,6 +92,9 @@ physical indices and conditional operations. Results preserve circuit names,
 metadata, classical register boundaries, and bit order. Unsupported
 instructions, unbound parameters, invalid site tuples, and scheduled delays fail
 before submission.
+
+`run()` validates and serializes native instructions; it does not compile or
+route them. Qiskit's `transpile(circuit, backend)` is also supported.
 
 Backends advertising `if_else` support conditional execution through QPY and
 OpenQASM 3. Conditions compare one classical bit or a register of at most 32
