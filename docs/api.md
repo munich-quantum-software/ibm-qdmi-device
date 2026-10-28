@@ -239,8 +239,7 @@ counts = job.get_counts()
 original = job.get_program(bytes)
 ```
 
-See [Qiskit execution](qiskit.md#transpile-and-execute) for conditional
-circuits.
+See [Qiskit execution](qiskit.md#compile-and-execute) for conditional circuits.
 
 Each OpenQASM or QPY submission creates one Sampler V2 job with an ordered
 circuit list and classified measurements. Twirling is disabled; dynamical

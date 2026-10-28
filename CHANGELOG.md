@@ -24,6 +24,8 @@ releases may include breaking changes.
 
 ### Changed
 
+- ♻️ Compile PennyLane programs through MQT Core, replacing provider-specific
+  gate synthesis and serialization. ([#94]) ([**@burgholzer**])
 - ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
   [**@burgholzer**])
 - ♻️ Limit native OpenQASM parsing to classical result layout extraction.
