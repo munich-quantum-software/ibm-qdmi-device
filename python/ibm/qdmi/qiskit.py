@@ -103,7 +103,9 @@ class IBMBackend(QDMIBackend):
         )
         super().__init__(device=device, provider=provider, device_id=resolved_id)
 
-    def _add_operation_to_target(self, target: Target, op: Device.Operation, seen_gate_names: MutableSet[str]) -> None:
+    def _add_operation_to_target(
+        self, target: Target, op: Device.Operation, seen_gate_names: MutableSet[str], *, native: bool = False
+    ) -> None:
         """Keep unsupported or incomplete operation signatures out of the target."""
         gate = self._map_operation_to_gate(op.name())
         arity = op.qubits_num()
@@ -113,7 +115,7 @@ class IBMBackend(QDMIBackend):
             return
         if gate.num_qubits != arity or len(gate.params) != op.parameters_num():
             return
-        super()._add_operation_to_target(target, op, seen_gate_names)
+        super()._add_operation_to_target(target, op, seen_gate_names, native=native)
 
     def _build_target(self) -> Target:
         """Build the metadata target and add the barrier directive.

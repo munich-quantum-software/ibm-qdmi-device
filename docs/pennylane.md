@@ -43,8 +43,9 @@ session. A configured authentication file takes precedence over
 [session configuration](api.md#session-configuration).
 
 Wire labels identify logical wires. MQT Core compiles and routes them for the
-selected backend; the IBM serialization profile declares the full backend width
-and reconstructs samples in the requested logical measurement order. The
+selected backend and reconstructs samples in the requested logical measurement
+order. Compiled OpenQASM uses physical qubit indices; the native provider adds
+standard-gate imports and any missing ECR/RZZ declarations for Runtime. The
 compiler consumes the provider's gate placements and parameter domains,
 including fractional RZZ bounds. Its current QDMI target requires the same
 native one-qubit basis on every site and two-qubit basis on every topology edge.
