@@ -25,24 +25,23 @@ from typing import TYPE_CHECKING, Any
 try:
     from mqt.core.plugins.qiskit.backend import QDMIBackend
     from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
-    from mqt.core.qdmi import Device, ProgramFormat
     from mqt.core.qdmi.builtin_driver import open_device
 except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import Barrier, ControlFlowOp, QuantumCircuit
+from qiskit.circuit import Barrier, ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
-from .serializers import qiskit_to_qasm3
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, MutableSet, Sequence
+    from collections.abc import MutableSet, Sequence
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
+    from mqt.core.qdmi import Device
     from qiskit.transpiler import Target
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
 
@@ -123,9 +122,12 @@ class IBMBackend(QDMIBackend):
         """
         target = super()._build_target()
         target.add_instruction(Barrier, name="barrier")
+        if any(operation.name() == "if_else" for operation in self.device.operations()):
+            target.add_instruction(IfElseOp, name="if_else")
         return target
 
-    def _preprocess_circuit(self, circuit: QuantumCircuit) -> QuantumCircuit:
+    @staticmethod
+    def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
         """Validate bound instructions before any circuit in a batch is submitted.
 
         Returns:
@@ -134,39 +136,40 @@ class IBMBackend(QDMIBackend):
         Raises:
             mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
                 Measurements or finite parameters are missing.
-            UnsupportedOperationError: An instruction or site tuple is unsupported.
+            UnsupportedOperationError: A control-flow form is unsupported.
         """
-        if circuit.num_qubits > self.num_qubits or not circuit.num_clbits:
-            msg = "A circuit must fit the physical device and contain classical measurements."
-            raise CircuitValidationError(msg)
         measured = False
-        for instruction in circuit.data:
-            operation = instruction.operation
-            qargs = tuple(circuit.find_bit(bit).index for bit in instruction.qubits)
-            if isinstance(operation, ControlFlowOp) or not self.target.instruction_supported(
-                operation_name=operation.name, qargs=qargs, parameters=operation.params
-            ):
-                msg = "An instruction or physical site tuple is unsupported; transpile against this backend."
-                raise UnsupportedOperationError(msg)
-            if any(not math.isfinite(float(value)) for value in operation.params):
-                msg = "Gate parameters must be finite real numbers."
-                raise CircuitValidationError(msg)
-            measured |= operation.name == "measure"
+        pending = [(circuit, False)]
+        while pending:
+            block, conditional = pending.pop()
+            for instruction in block.data:
+                operation = instruction.operation
+                if isinstance(operation, ControlFlowOp):
+                    if not isinstance(operation, IfElseOp) or conditional:
+                        msg = "Only unnested if/else conditions are supported."
+                        raise UnsupportedOperationError(msg)
+                    condition = operation.condition
+                    if not isinstance(condition, tuple) or not isinstance(condition[0], (Clbit, ClassicalRegister)):
+                        msg = "Conditions must compare a classical bit or register to an integer."
+                        raise UnsupportedOperationError(msg)
+                    operand, value = condition
+                    width = len(operand) if isinstance(operand, ClassicalRegister) else 1
+                    if width > 32 or not isinstance(value, int) or not 0 <= value < 2**width:
+                        msg = "Conditional operands must fit in at most 32 bits."
+                        raise CircuitValidationError(msg)
+                    pending.extend((body, True) for body in operation.blocks)
+                    continue
+                if conditional and operation.name in {"measure", "reset"}:
+                    msg = "Measurements and resets inside conditional blocks are unsupported."
+                    raise UnsupportedOperationError(msg)
+                if any(not math.isfinite(float(value)) for value in operation.params):
+                    msg = "Gate parameters must be finite real numbers."
+                    raise CircuitValidationError(msg)
+                measured |= operation.name == "measure"
         if not measured:
             msg = "At least one measurement is required."
             raise CircuitValidationError(msg)
         return circuit
-
-    def _serialize_circuit(
-        self, circuit: QuantumCircuit, supported_program_formats: Iterable[ProgramFormat]
-    ) -> tuple[str, ProgramFormat]:
-        """Serialize with a full physical register and the original classical order.
-
-        Returns:
-            IBM-compatible OpenQASM 3 and its QDMI format.
-        """
-        assert ProgramFormat.QASM3 in supported_program_formats
-        return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
 
     def executor(self, *, options: ExecutorOptions | None = None) -> Executor:
         """Create the optional Executor primitive using this QDMI session.

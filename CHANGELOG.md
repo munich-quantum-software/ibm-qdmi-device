@@ -10,8 +10,21 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Support binary QPY 17 submission and retrieval. ([#71]) ([**@marcelwa**],
+  [**@burgholzer**])
+- ✨ Support measurement-based `if_else` conditions through QPY and OpenQASM 3.
+  ([#71]) ([**@marcelwa**], [**@burgholzer**])
+
 ### Changed
 
+- ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
+  [**@burgholzer**])
+- ♻️ Limit native OpenQASM parsing to classical result layout extraction.
+  ([#71]) ([**@burgholzer**])
+- 🧪 Use MQT Core's decision-diagram simulator for offline execution tests.
+  ([#71]) ([**@burgholzer**])
 - ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
   ([#92]) ([**@burgholzer**])
 - 📝 Consolidate usage and development guidance and publish the native API
@@ -100,6 +113,7 @@ _This is the initial release of the IBM QDMI Device._
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
+[#71]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/71
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
 [#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62

@@ -7,8 +7,8 @@
 
 The library implements the IBM-prefixed QDMI 1.4.0 device interface: device
 lifecycle, sessions, metadata queries, and jobs. Supported program formats are
-OpenQASM 3 and the [Executor extension](api.md#executor-extension). Child-device
-enumeration is unsupported.
+OpenQASM 3, QPY, and the [Executor extension](api.md#executor-extension).
+Child-device enumeration is unsupported.
 
 The [generated QDMI declaration reference](native_api.md) describes the
 implemented device functions, types, and IBM-specific constants.
@@ -176,8 +176,8 @@ byte. The setter validates and copies the complete list atomically; rejection
 preserves the previous programs and format. Pass a nonzero count and a null
 program pointer to probe support with the current job parameters.
 
-OpenQASM shots default to 1,024 and must be positive. The number of programs
-times the shot count must not exceed
+OpenQASM and QPY shots default to 1,024 and must be positive. The number of
+programs times the shot count must not exceed
 [IBM's 10-million-execution limit](https://quantum.cloud.ibm.com/docs/en/guides/job-limits).
 Setting programs or changing shots beyond this limit returns
 `QDMI_ERROR_NOTSUPPORTED` without changing the configuration.
@@ -187,22 +187,52 @@ The custom `IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME` parameter takes a
 bounds QPU execution time, not queue or wall-clock time. A null parameter value
 probes support without changing configuration.
 
-OpenQASM programs must be static and bound, with explicit classical declarations
-and indexed measurements. A quantum register must span the backend's physical
-qubits; physical `$n` references are also accepted. Use backend-native
-operations and route circuits before submitting them. Classical control flow,
-parameter inputs, register broadcasting, and scheduled delays are unsupported.
-Static unitary gate declarations support native instructions absent from
-`stdgates.inc`, such as ECR and RZZ. Their local arguments cannot introduce
-classical storage or control flow. The service validates native gate semantics.
+Submit valid, bound OpenQASM 3 compiled for the backend's native operations and
+physical qubit indices. MQT Core's compiler and Qiskit adapter prepare programs;
+IBM validates their instructions. The device forwards the source unchanged and
+reads only its classical declarations to reconstruct results in declaration
+order.
 
-Each OpenQASM submission creates one Sampler V2 job with an ordered circuit list
-and classified measurements. Twirling is disabled; dynamical decoupling is
-disabled by default and can be configured [per job](#dynamical-decoupling).
-Submission is never automatically retried, including after an authentication
-failure or a lost response. A failed submission freezes that handle. An
-ambiguous response may mean IBM accepted the job; inspect the platform before
-creating a replacement.
+Declare all classical output bits at the top level with fixed, positive sizes:
+`bit[n] name;`, `bit name;`, or `creg name[n];`. The `output` qualifier is
+accepted. Register names must be distinct. Scoped classical declarations,
+parameter inputs, annotations, pragmas, and includes other than `stdgates.inc`
+are unsupported because they can hide or change the output layout.
+
+(qpy-programs)=
+
+For `QDMI_PROGRAM_FORMAT_QPY`, pass raw QPY 17 bytes with exact sizes and no
+null terminator. Each program contains one bound circuit compiled for the
+backend's physical qubits. Classical registers must partition its bits in
+declaration order; loose bits, overlapping registers, and standalone classical
+variables are unsupported. IBM returns samples by register name, so the device
+reads their order and widths to assemble QDMI bitstrings. Qiskit and IBM
+validate instructions and the remaining file contents.
+
+The device handles compression and base64 encoding. Retrieval restores the raw
+QPY bytes; `job_get_program` reports their exact size. For an open `device`:
+
+```python
+from pathlib import Path
+from mqt.core.qdmi import ProgramFormat
+
+program = Path("compiled.qpy").read_bytes()
+job = device.submit_job(program, ProgramFormat.QPY, num_shots=128)
+job.wait(60)
+counts = job.get_counts()
+original = job.get_program(bytes)
+```
+
+See [Qiskit execution](qiskit.md#transpile-and-execute) for conditional
+circuits.
+
+Each OpenQASM or QPY submission creates one Sampler V2 job with an ordered
+circuit list and classified measurements. Twirling is disabled; dynamical
+decoupling is disabled by default and can be configured
+[per job](#dynamical-decoupling). Submission is never automatically retried,
+including after an authentication failure or a lost response. A failed
+submission freezes that handle. An ambiguous response may mean IBM accepted the
+job; inspect the platform before creating a replacement.
 
 Job ID, format, shots, and program count
 (`QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM`) are queryable.

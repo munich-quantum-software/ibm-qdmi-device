@@ -364,6 +364,7 @@ int IBM_QDMI_device_session_query_device_property(
       return copyList(
           std::vector{
               QDMI_PROGRAM_FORMAT_QASM3,
+              QDMI_PROGRAM_FORMAT_QPY,
               IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           },
           size, value, sizeRet);
@@ -514,7 +515,13 @@ int IBM_QDMI_device_job_set_programs(IBM_QDMI_Device_Job handle,
     sources.reserve(count);
     for (std::size_t index = 0; index < count; ++index) {
       require(programs[index] != nullptr);
-      sources.push_back(readString(sizes[index], programs[index]));
+      if (format == QDMI_PROGRAM_FORMAT_QPY) {
+        require(sizes[index] != 0);
+        sources.emplace_back(static_cast<const char*>(programs[index]),
+                             sizes[index]);
+      } else {
+        sources.push_back(readString(sizes[index], programs[index]));
+      }
     }
     owned->job.setPrograms(format, std::move(sources));
     return QDMI_SUCCESS;
@@ -528,7 +535,11 @@ int IBM_QDMI_device_job_get_program(IBM_QDMI_Device_Job handle,
     const std::scoped_lock lock(owned->mutex);
     require(!owned->job.programs.empty(), QDMI_ERROR_BADSTATE);
     require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
-    return copyString(owned->job.programs[index], size, data, sizeRet);
+    const auto& program = owned->job.programs[index];
+    if (owned->job.format == QDMI_PROGRAM_FORMAT_QPY) {
+      return copyBytes(program.data(), program.size(), size, data, sizeRet);
+    }
+    return copyString(program, size, data, sizeRet);
   });
 }
 int IBM_QDMI_device_job_get_program_status(IBM_QDMI_Device_Job handle,

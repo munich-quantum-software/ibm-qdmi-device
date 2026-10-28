@@ -19,23 +19,40 @@
 
 from __future__ import annotations
 
+import base64
+import io
 import json
+import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from multiprocessing import get_context
 from multiprocessing.managers import BaseManager
 from typing import TYPE_CHECKING, Any, Protocol
 
+from mqt.core.mlir import sample
 from offline_service import CRN, serve
-from qiskit import qasm3
-from qiskit.providers.basic_provider import BasicSimulator
-
-from ibm.qdmi.qiskit import IBMBackend
+from qiskit import qasm3, qpy
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from offline_service import Service
+    from qiskit import QuantumCircuit
+
+    from ibm.qdmi.qiskit import IBMBackend
+
+
+def submitted_circuit(source: str | dict[str, Any]) -> QuantumCircuit:
+    """Decode either circuit transport using Qiskit's reference readers.
+
+    Returns:
+        A circuit parsed independently of the native implementation.
+    """
+    if isinstance(source, dict):
+        assert source["__type__"] == "QuantumCircuit"
+        (circuit,) = qpy.load(io.BytesIO(zlib.decompress(base64.b64decode(source["__value__"]))))
+        return circuit
+    return qasm3.loads(source)
 
 
 @dataclass
@@ -102,7 +119,7 @@ class Runtime:
 
     @staticmethod
     def simulate(request: dict[str, Any]) -> dict[str, Any]:
-        """Simulate the actual submitted OpenQASM and encode IBM-shaped results.
+        """Simulate the submitted circuit and encode IBM-shaped results.
 
         Returns:
             Classified per-register samples in deliberately reversed key order.
@@ -110,18 +127,14 @@ class Runtime:
         outputs = []
         for source, parameters, shots in request["params"]["pubs"]:
             assert parameters is None
-            circuit = qasm3.loads(source)
-            memory = (
-                BasicSimulator()
-                .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
-                .result()
-                .get_memory()
-            )
+            circuit = submitted_circuit(source)
+            program = source if isinstance(source, str) else circuit
+            memory = [bits for bits, count in sample(program, shots=shots, seed=7).items() for _ in range(count)]
             data = {}
             for register in reversed(circuit.cregs):
                 samples = []
-                for sample in memory:
-                    integer = int(sample.replace(" ", ""), 2)
+                for bits in memory:
+                    integer = int(bits.replace(" ", ""), 2)
                     value = sum(
                         ((integer >> circuit.find_bit(bit).index) & 1) << index for index, bit in enumerate(register)
                     )
@@ -277,6 +290,8 @@ def open_backend(runtime: RuntimeProxy) -> IBMBackend:
     Returns:
         The public IBM backend.
     """
+    from ibm.qdmi.qiskit import IBMBackend  # ruff: ignore[import-outside-top-level]
+
     return IBMBackend(
         api_key="synthetic-key",
         instance_crn=CRN,

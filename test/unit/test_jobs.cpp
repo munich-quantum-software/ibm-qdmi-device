@@ -134,10 +134,31 @@ void configure(ibm::Job& job) {
 
 TEST(Results, PreservesShotsAndClassicalBitOrder) {
   const auto decoded = ibm::decodeResults(results()["results"][0],
-                                          ibm::outputRegisters(PROGRAM, 2), 3);
+                                          ibm::outputRegisters(PROGRAM), 3);
   EXPECT_EQ(decoded.shots, "101,000,101");
   EXPECT_EQ(decoded.keys, "000,101");
   EXPECT_EQ(decoded.counts, (std::vector<std::size_t>{1, 2}));
+}
+
+TEST(Job, RejectsExcessiveRetrievedExecutionsBeforeDecodingQpy) {
+  Service service;
+  ibm::Auth auth(configuration(),
+                 [&](const auto& request) { return service(request); });
+  const nlohmann::json circuit = {
+      {"__type__", "QuantumCircuit"},
+      {"__value__", "invalid!"},
+  };
+  const auto pub = nlohmann::json::array({circuit, nullptr, 6'000'000});
+  service.submitted = {
+      {
+          "params",
+          {{"version", 2}, {"support_qiskit", false}, {"pubs", {pub, pub}}},
+      },
+  };
+  ibm::Job job(auth, "ibm_test", 2);
+  fails([&] { job.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_TRUE(job.programs.empty());
+  EXPECT_TRUE(job.id.empty());
 }
 TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   for (const auto* sample : {"0x4", "0xg", "0x", "10", "-1"}) {
@@ -146,7 +167,7 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
     fails(
         [&] {
           (void)ibm::decodeResults(data["results"][0],
-                                   ibm::outputRegisters(PROGRAM, 2), 3);
+                                   ibm::outputRegisters(PROGRAM), 3);
         },
         QDMI_ERROR_FATAL);
   }
@@ -155,13 +176,13 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   fails(
       [&] {
         (void)ibm::decodeResults(data["results"][0],
-                                 ibm::outputRegisters(PROGRAM, 2), 3);
+                                 ibm::outputRegisters(PROGRAM), 3);
       },
       QDMI_ERROR_FATAL);
   fails(
       [&] {
         (void)ibm::decodeResults(results()["results"][0],
-                                 ibm::outputRegisters(PROGRAM, 2), 4);
+                                 ibm::outputRegisters(PROGRAM), 4);
       },
       QDMI_ERROR_FATAL);
 }
@@ -414,7 +435,7 @@ TEST(Job, BatchResultsRejectWrongCardinality) {
   service.status = "Completed";
   fails([&] { (void)job.results(0); }, QDMI_ERROR_FATAL);
 }
-TEST(Job, RetrievalRejectsDifferentShotsInBatch) {
+TEST(Job, RetrievalRejectsInconsistentBatch) {
   Service service;
   ibm::Auth auth(configuration(),
                  [&](const auto& request) { return service(request); });
@@ -424,6 +445,9 @@ TEST(Job, RetrievalRejectsDifferentShotsInBatch) {
   service.submitted["params"]["pubs"].push_back(
       nlohmann::json::array({PROGRAM, nullptr, 4}));
   ibm::Job restored(auth, "ibm_test", 2);
+  fails([&] { restored.retrieve(job.id); }, QDMI_ERROR_NOTSUPPORTED);
+  service.submitted["params"]["pubs"][1] = nlohmann::json::array(
+      {{{"__type__", "QuantumCircuit"}, {"__value__", ""}}, nullptr, 3});
   fails([&] { restored.retrieve(job.id); }, QDMI_ERROR_NOTSUPPORTED);
 }
 

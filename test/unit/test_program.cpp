@@ -20,8 +20,11 @@
 #include "Http.hpp"
 #include "Job.hpp"
 
+#include <fstream>
 #include <gtest/gtest.h>
 #include <ibm_qdmi/constants.h>
+#include <ios>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,80 +43,81 @@ template <class Function> void fails(Function&& function, int expected) {
 }
 } // namespace
 
-TEST(Program, PreservesDeclarationOrderAndPhysicalIndices) {
-  const auto named = ibm::outputRegisters(
-      "OPENQASM 3; bit[1] q; qubit[5] physical; q[0] = measure physical[4];",
-      5);
-  ASSERT_EQ(named.size(), 1);
-  EXPECT_EQ(named[0].name, "q");
-  const auto layout = ibm::outputRegisters(PROGRAM, 2);
+TEST(Program, PreservesDeclarationOrderAcrossNativeInstructions) {
+  const auto layout = ibm::outputRegisters(PROGRAM);
   ASSERT_EQ(layout.size(), 2);
   EXPECT_EQ(layout[0].name, "z");
   EXPECT_EQ(layout[0].width, 2);
   EXPECT_EQ(layout[1].name, "a");
-  EXPECT_EQ(ibm::outputRegisters("OPENQASM 3; // bit[9] ignored;\n bit[1] c; "
-                                 "/* ignored */ x $119; c[0] = measure $119;",
-                                 120)
-                .size(),
-            1);
-  EXPECT_EQ(ibm::outputRegisters("OPENQASM 3; qreg q[2]; creg c[2]; rz(-pi/2) "
-                                 "q[0]; measure q[0] -> c[1];",
-                                 2)
-                .at(0)
-                .width,
-            2);
+  EXPECT_EQ(layout[1].width, 1);
+
+  const auto registers = ibm::outputRegisters(
+      "OPENQASM 3.1; include \"stdgates.inc\"; "
+      "// bit[9] ignored;\n /* bit[8] ignored; */ "
+      "gate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; } "
+      "qreg q[5]; output bit[2] z; creg a[1]; gphase(pi/2); "
+      "z[0] = measure q[4]; if (z[0]) { rzz(pi/4) q[3],q[4]; } "
+      "else { x q[2]; } z = bit[2](uint[2](z)); measure q[3] -> a[0];");
+  ASSERT_EQ(registers.size(), 2);
+  EXPECT_EQ(registers[0].name, "z");
+  EXPECT_EQ(registers[0].width, 2);
+  EXPECT_EQ(registers[1].name, "a");
+  EXPECT_EQ(registers[1].width, 1);
 }
-TEST(Program, RejectsAmbiguousOrUnsupportedPrograms) {
+
+TEST(Program, RejectsAmbiguousOutputLayouts) {
   for (const auto* source : {
-           "OPENQASM 2;",
+           "OPENQASM 2; bit c;",
            "OPENQASM 3; bit[0] c;",
            "OPENQASM 3; bit[2] c; bit c;",
-           "OPENQASM 3; bit c; c = measure $2;",
+           "OPENQASM 3; bit[18446744073709551616] c;",
+           "OPENQASM 3; bit[18446744073709551615] c; bit d;",
+           "OPENQASM 3; bit[2] c",
+           "OPENQASM 3; bit[2 c;",
            "OPENQASM 3; /* unterminated",
-           "OPENQASM 3; bit c; c = measure $0",
-           "OPENQASM 3; qubit[2] physical; bit physical;",
-           "OPENQASM 3; bit physical; qubit[2] physical;",
+           "OPENQASM 3; include \"unterminated",
+           "OPENQASM 3; bit c; if (c) { x $0;",
        }) {
-    fails([&] { (void)ibm::outputRegisters(source, 2); },
+    fails([&] { (void)ibm::outputRegisters(source); },
           QDMI_ERROR_INVALIDARGUMENT);
   }
   for (const auto* source : {
            "OPENQASM 3; qubit[1] q;",
-           "OPENQASM 3; input float theta;",
-           "OPENQASM 3; bit c; if (true) { c = measure $0; }",
-           "OPENQASM 3; bit c; rz(theta) $0; c = measure $0;",
-           "OPENQASM 3; bit c; c = true; c = measure $0;",
+           "OPENQASM 3; input bit c;",
+           "OPENQASM 3; bit c; if (c) { bit hidden; }",
+           "OPENQASM 3; include \"registers.inc\"; bit c;",
+           "OPENQASM 3; bit c; @annotation bit[2] hidden;\nc = measure $0;",
+           "OPENQASM 3; bit c; pragma bit[2] hidden;\nc = measure $0;",
        }) {
-    fails([&] { (void)ibm::outputRegisters(source, 2); },
-          QDMI_ERROR_NOTSUPPORTED);
+    fails([&] { (void)ibm::outputRegisters(source); }, QDMI_ERROR_NOTSUPPORTED);
   }
 }
-TEST(Program, PreservesResultsAcrossStaticGateDefinitions) {
-  const auto registers = ibm::outputRegisters(
-      "OPENQASM 3; include \"stdgates.inc\"; "
-      "gate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; } "
-      "qubit[5] q; bit[2] c; rzz(pi/4) q[3],q[4]; c[1] = measure q[4];",
-      5);
-  ASSERT_EQ(registers.size(), 1);
-  EXPECT_EQ(registers[0].name, "c");
+
+TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
+  std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/v17.qpy",
+                     std::ios::binary);
+  const std::string program{std::istreambuf_iterator<char>(file), {}};
+  ASSERT_FALSE(program.empty());
+  const auto registers = ibm::qpyRegisters(program, 5);
+  ASSERT_EQ(registers.size(), 2);
+  EXPECT_EQ(registers[0].name, "z");
   EXPECT_EQ(registers[0].width, 2);
-  for (const auto* program : {
-           "OPENQASM 3; gate g a{bit c;c=measure a;} bit c;c=measure $0;",
-           "OPENQASM 3; gate g a { rz(unbound) a; } bit c; c = measure $0;",
-           "OPENQASM 3; gate g a { x outside; } bit c; c = measure $0;",
-           "OPENQASM 3; gate g a { reset a; } bit c; c = measure $0;",
-           "OPENQASM 3; gate g a { if (true) { x a; } } bit c; c = measure $0;",
-       }) {
-    fails([&] { (void)ibm::outputRegisters(program, 5); },
-          QDMI_ERROR_NOTSUPPORTED);
-  }
-  for (const auto* program : {
-           "OPENQASM 3; gate g a { x a;",
-           "OPENQASM 3; gate g(p,p) a { rz(p) a; } bit c; c = measure $0;",
-           "OPENQASM 3; gate g a { x a; } gate g a { x a; } bit c; c = measure "
-           "$0;",
-       }) {
-    fails([&] { (void)ibm::outputRegisters(program, 5); },
-          QDMI_ERROR_INVALIDARGUMENT);
-  }
+  EXPECT_EQ(registers[1].name, "a");
+  EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(program)), program);
+  const std::string compressible(16384, 'x');
+  EXPECT_EQ(ibm::decodeQpy(ibm::encodeQpy(compressible)), compressible);
+  fails([&] { ibm::qpyRegisters(program.substr(0, 40), 5); },
+        QDMI_ERROR_INVALIDARGUMENT);
+  fails([&] { ibm::qpyRegisters(program, 1); }, QDMI_ERROR_INVALIDARGUMENT);
+  auto invalid = program;
+  invalid[6] = 16;
+  fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_NOTSUPPORTED);
+  invalid = program;
+  invalid[49] = static_cast<char>(0xff);
+  fails([&] { ibm::qpyRegisters(invalid, 5); }, QDMI_ERROR_INVALIDARGUMENT);
+  fails([] { ibm::decodeQpy("invalid!"); }, QDMI_ERROR_INVALIDARGUMENT);
+  fails([] { ibm::decodeQpy("AAAA"); }, QDMI_ERROR_INVALIDARGUMENT);
+  // Nonzero padding bits must not alias a valid compressed payload.
+  EXPECT_EQ(ibm::decodeQpy("eJyrqAAAAWoA8Q=="), "xx");
+  fails([] { ibm::decodeQpy("eJyrqAAAAWoA8R=="); }, QDMI_ERROR_INVALIDARGUMENT);
 }

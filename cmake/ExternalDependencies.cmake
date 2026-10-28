@@ -71,7 +71,6 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
       find_package(OpenSSL 3 REQUIRED)
     endif()
     set(BUILD_CURL_EXE OFF)
-    set(BUILD_TESTING OFF)
     set(CURL_DISABLE_INSTALL ON)
     foreach(
       PROTOCOL
@@ -97,6 +96,7 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     set(CURL_USE_LIBSSH2 OFF)
     set(USE_LIBIDN2 OFF)
     set(CURL_USE_LIBPSL OFF)
+    set(CURL_ZLIB OFF)
     FetchContent_Declare(
       curl
       URL https://github.com/curl/curl/releases/download/curl-8_23_0/curl-8.23.0.tar.xz
@@ -107,14 +107,20 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(CPR_FORCE_OPENSSL_BACKEND OFF)
   set(CPR_CURL_NOSIGNAL ON)
   set(BUILD_SHARED_LIBS OFF)
+  set(ZLIB_COMPAT OFF)
+  set(BUILD_TESTING OFF)
+  FetchContent_Declare(
+    zlib
+    URL https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz
+    URL_HASH SHA256=f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1)
   FetchContent_Declare(
     cpr
     GIT_REPOSITORY https://github.com/libcpr/cpr.git
     GIT_TAG 1.15.1)
   if(APPLE)
-    FetchContent_MakeAvailable(nlohmann_json cpr)
+    FetchContent_MakeAvailable(nlohmann_json zlib cpr)
   else()
-    FetchContent_MakeAvailable(nlohmann_json curl cpr)
+    FetchContent_MakeAvailable(nlohmann_json zlib curl cpr)
   endif()
 endif()
 

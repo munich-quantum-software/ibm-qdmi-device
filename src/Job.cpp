@@ -170,12 +170,13 @@ void Job::checkProgramSupport(QDMI_Program_Format value,
                               std::size_t count) const {
   require(count != 0, QDMI_ERROR_INVALIDARGUMENT);
   require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
+              value == QDMI_PROGRAM_FORMAT_QPY ||
               value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           QDMI_ERROR_NOTSUPPORTED);
   require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR ||
               (count == 1 && !samplerOptionsSet),
           QDMI_ERROR_NOTSUPPORTED);
-  if (value == QDMI_PROGRAM_FORMAT_QASM3) {
+  if (value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     checkSamplerExecutions(count, shots);
   }
 }
@@ -211,7 +212,9 @@ void Job::setPrograms(QDMI_Program_Format value,
   } else {
     layouts.reserve(sources.size());
     for (const auto& source : sources) {
-      layouts.push_back(outputRegisters(source, qubits));
+      layouts.push_back(value == QDMI_PROGRAM_FORMAT_QPY
+                            ? qpyRegisters(source, qubits)
+                            : outputRegisters(source));
     }
   }
   programs = std::move(sources);
@@ -281,11 +284,17 @@ void Job::submit() {
   if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     payload["program_id"] = "executor";
     payload["params"] = nlohmann::json::parse(programs.front());
-  }
-  if (format == QDMI_PROGRAM_FORMAT_QASM3) {
+  } else {
     for (const auto& source : programs) {
+      nlohmann::json circuit =
+          format == QDMI_PROGRAM_FORMAT_QPY
+              ? nlohmann::json{
+                    {"__type__", "QuantumCircuit"},
+                    {"__value__", encodeQpy(source)},
+                }
+              : nlohmann::json(source);
       payload["params"]["pubs"].push_back(
-          nlohmann::json::array({source, nullptr, shots}));
+          nlohmann::json::array({std::move(circuit), nullptr, shots}));
     }
   }
   const auto body = payload.dump();
@@ -303,16 +312,17 @@ void Job::submit() {
 }
 void Job::retrieve(const std::string& remoteId) {
   require(identifier(remoteId), QDMI_ERROR_INVALIDARGUMENT);
-  const auto data = nlohmann::json::parse(auth->get("/v1/jobs/" + remoteId));
+  auto data = nlohmann::json::parse(auth->get("/v1/jobs/" + remoteId));
   require(data.at("id") == remoteId && data.at("backend") == backend,
           QDMI_ERROR_INVALIDARGUMENT);
   const auto programId = data.at("program").at("id");
   require((programId == "sampler" || programId == "executor") &&
               !data.value("private", false),
           QDMI_ERROR_NOTSUPPORTED);
-  auto parameters = data.at("params");
+  auto parameters = std::move(data.at("params"));
   if (parameters.is_string()) {
-    parameters = nlohmann::json::parse(parameters.get<std::string>());
+    parameters =
+        nlohmann::json::parse(parameters.get_ref<const std::string&>());
   }
   if (programId == "executor") {
     setPrograms(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, {parameters.dump()});
@@ -327,20 +337,36 @@ void Job::retrieve(const std::string& remoteId) {
   const auto& pubs = parameters.at("pubs");
   require(pubs.is_array() && !pubs.empty(), QDMI_ERROR_NOTSUPPORTED);
   std::vector<std::string> sources;
-  std::size_t commonShots = 0;
+  const auto& first = pubs.front();
+  require(first.is_array() && first.size() == 3, QDMI_ERROR_NOTSUPPORTED);
+  const auto retrievedFormat = first.at(0).is_string()
+                                   ? QDMI_PROGRAM_FORMAT_QASM3
+                                   : QDMI_PROGRAM_FORMAT_QPY;
+  const auto commonShots = positiveInteger(first.at(2));
+  checkSamplerExecutions(pubs.size(), commonShots);
   for (const auto& pub : pubs) {
-    require(pub.is_array() && pub.size() == 3 && pub.at(0).is_string() &&
+    require(pub.is_array() && pub.size() == 3 &&
+                (pub.at(0).is_string() || pub.at(0).is_object()) &&
                 (pub.at(1).is_null() || pub.at(1).empty()),
             QDMI_ERROR_NOTSUPPORTED);
-    const auto pubShots = positiveInteger(pub.at(2));
-    if (sources.empty()) {
-      commonShots = pubShots;
+    require(positiveInteger(pub.at(2)) == commonShots, QDMI_ERROR_NOTSUPPORTED);
+    const auto& circuit = pub.at(0);
+    const auto sourceFormat = circuit.is_string() ? QDMI_PROGRAM_FORMAT_QASM3
+                                                  : QDMI_PROGRAM_FORMAT_QPY;
+    require(retrievedFormat == sourceFormat, QDMI_ERROR_NOTSUPPORTED);
+    if (circuit.is_object()) {
+      require(circuit.value("__type__", "") == "QuantumCircuit" &&
+                  circuit.contains("__value__") &&
+                  circuit["__value__"].is_string(),
+              QDMI_ERROR_NOTSUPPORTED);
+      sources.push_back(
+          decodeQpy(circuit["__value__"].get_ref<const std::string&>()));
+    } else {
+      sources.push_back(circuit.get<std::string>());
     }
-    require(pubShots == commonShots, QDMI_ERROR_NOTSUPPORTED);
-    sources.push_back(pub.at(0).get<std::string>());
   }
   setShots(commonShots);
-  setPrograms(QDMI_PROGRAM_FORMAT_QASM3, std::move(sources));
+  setPrograms(retrievedFormat, std::move(sources));
   id = remoteId;
   attempted = true;
   status = parseJobStatus(data);
