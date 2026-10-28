@@ -43,6 +43,13 @@
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_REQUEST_TIMEOUT                      \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM3
 
+/// Null-terminated UTF-8 JSON with schema mqt.operation-parameters.v1.
+/// Advertised RZZ gates report alternatives: [{bounds: [[0, pi/2]]}] in
+/// radians, with inclusive bounds. Other operations return NOTSUPPORTED.
+/// This experimental custom-property contract is not part of standard QDMI.
+#define IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS                          \
+  QDMI_OPERATION_PROPERTY_CUSTOM2
+
 /// Maximum QPU execution time in seconds (uint64_t, 1..10800); default: 60.
 #define IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME                       \
   QDMI_DEVICE_JOB_PARAMETER_CUSTOM1
