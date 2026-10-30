@@ -73,7 +73,11 @@ def _run_tests(
     install_args: Sequence[str] = (),
     pytest_run_args: Sequence[str] = (),
 ) -> None:
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
+    env = {
+        "UV_PROJECT_ENVIRONMENT": session.virtualenv.location,
+        "IBM_QUANTUM_API_KEY": "",
+        "IBM_QUANTUM_INSTANCE_CRN": "",
+    }
     run_args = [
         "uv",
         "run",

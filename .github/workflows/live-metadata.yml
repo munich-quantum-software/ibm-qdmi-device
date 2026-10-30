@@ -1,41 +1,15 @@
-name: Live IBM metadata
+name: ☁️ Live metadata · IBM
 on:
   workflow_dispatch:
-  workflow_call:
-    secrets:
-      IBM_QUANTUM_API_KEY:
-        required: true
-      IBM_QUANTUM_INSTANCE_CRN:
-        required: true
 permissions:
   contents: read
 jobs:
-  metadata:
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-26.04
-    timeout-minutes: 15
-    environment: ibm-quantum
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          python-version: "3.14"
-          enable-cache: false
-      - name: Build and install the wheel
-        env:
-          SKBUILD_BUILD_DIR: build/live/wheel/{wheel_tag}/{build_type}
-        run: |
-          uv build --wheel --out-dir build/live/dist
-          uv venv build/live/venv
-          uv pip install --python build/live/venv/bin/python --group test build/live/dist/*.whl
-      - name: Validate backend metadata
-        env:
-          IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
-          IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
-        run: >-
-          build/live/venv/bin/python -m pytest test/python/test_live_metadata.py
-          --run-live --ibm-backend both
-          -n 0 --tb=line --show-capture=no
+  live-tests:
+    name: ☁️ Live metadata · IBM
+    if: github.ref == 'refs/heads/main'
+    uses: $/.github/workflows/reusable-live-tests.yml
+    with:
+      suite: metadata
+    secrets:
+      IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+      IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}

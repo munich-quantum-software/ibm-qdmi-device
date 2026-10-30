@@ -31,15 +31,14 @@ runs separately from framework tests because MQT Core retains its driver library
 while ABI tests own initialization and finalization. `test/install.cmake` checks
 installation, relocation, and a CMake consumer.
 
-Use the `debug` preset for a debug build. On Linux, add
-`-DIBM_QDMI_SANITIZERS="address;undefined"` when configuring for sanitizer
+Use the `debug` preset for a debug build and `sanitizers` for Linux ASan/UBSan
 checks. For coverage, select the instrumented library explicitly in the ABI
 tests:
 
 ```console
-cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_ENABLE_COVERAGE=ON
-cmake --build build/coverage --config Debug
-ctest --test-dir build/coverage -C Debug --output-on-failure
+cmake --preset coverage
+cmake --build --preset coverage
+ctest --preset coverage
 uvx nox -s native_tests -- --native-library="$PWD/build/coverage/src/libibm-qdmi-device.so"
 uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
 ```
@@ -70,10 +69,10 @@ in-memory jobs disappear.
 Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
 direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
-Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
-minimum-version sessions. Hardware requests test a fresh candidate wheel offline
-before submitting jobs. The synthetic service uses MQT Core's decision-diagram
-simulator for static and conditional circuits.
+Draft PRs run `tests-3.14`, `minimums-3.14` and `native_tests`; review-ready PRs
+run all test and minimum-version sessions. Hardware requests test a fresh
+candidate wheel offline before submitting jobs. The synthetic service uses MQT
+Core's decision-diagram simulator for static and conditional circuits.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 
@@ -230,3 +229,18 @@ permits `v*` tags; manual CD runs only build artifacts. Coverage uploads to
 Codecov use OpenID Connect. Native coverage combines CTest and the offline
 transport tests; Python coverage reuses the reports from the Python test
 sessions.
+
+## Workflow organization
+
+CI keeps native tests, Python tests/minimums, installation, coverage,
+documentation and packaging in separate jobs. Presets use separate build
+directories. Python checks use one shared workflow call per runner so its normal
+and minimum-version sessions share coverage without colliding on artifacts or
+concurrency groups. Test and minimum-version environments clear IBM credentials;
+live tests retain their explicit opt-in flags.
+
+`reusable-live-tests.yml` owns metadata and quantum validation. CI selects only
+metadata. `hardware.yml` preserves the independent manual/label request gate,
+fixed budget, candidate-wheel checks and refusal of reruns. `live-metadata.yml`
+remains the manual metadata entry point. Publishing retains its local protected
+PyPI job.
