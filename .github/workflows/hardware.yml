@@ -1,4 +1,4 @@
-name: IBM quantum execution
+name: 💸 Live tests · IBM QPU
 on:
   workflow_dispatch:
   pull_request:
@@ -6,46 +6,14 @@ on:
 permissions:
   contents: read
 jobs:
-  hardware:
-    name: IBM quantum execution
-    if: >-
-      github.run_attempt == 1 &&
-      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-       (github.event_name == 'pull_request' && github.event.label.name == 'live-qpu-tests' &&
-        github.event.pull_request.head.repo.full_name == github.repository))
-    runs-on: ubuntu-26.04
-    timeout-minutes: 130
-    environment: ibm-quantum
-    concurrency:
-      group: ibm-quantum-execution
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          python-version: "3.14"
-          enable-cache: false
-      - name: Build and test the native device
-        run: |
-          cmake --preset release
-          cmake --build --preset release --parallel 4
-          ctest --preset release --parallel 4
-      - name: Build and install the candidate wheel
-        run: |
-          uv build --wheel --out-dir build/hardware/dist
-          uv venv build/hardware/venv
-          uv export --locked --only-group test --no-emit-project --output-file build/hardware/requirements.txt
-          uv pip install --python build/hardware/venv/bin/python -r build/hardware/requirements.txt build/hardware/dist/*.whl
-      - name: Test the installed candidate offline
-        run: |
-          build/hardware/venv/bin/python -m pytest -m integration -n 0
-          build/hardware/venv/bin/python -m pytest
-      - name: Validate quantum execution
-        env:
-          IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
-          IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
-        run: >-
-          build/hardware/venv/bin/python -m pytest test/python/test_quantum.py
-          --run-quantum --ibm-backend both -n 0 --tb=line --show-capture=no
+  live-tests:
+    name: 💸 Live tests · IBM QPU
+    if:
+      "github.run_attempt == 1 && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||\n (github.event_name == 'pull_request'
+      && github.event.label.name == 'live-qpu-tests' &&\n  github.event.pull_request.head.repo.full_name == github.repository))"
+    uses: $/.github/workflows/reusable-live-tests.yml
+    with:
+      suite: quantum
+    secrets:
+      IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+      IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}

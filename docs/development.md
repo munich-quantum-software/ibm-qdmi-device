@@ -31,15 +31,14 @@ runs separately from framework tests because MQT Core retains its driver library
 while ABI tests own initialization and finalization. `test/install.cmake` checks
 installation, relocation, and a CMake consumer.
 
-Use the `debug` preset for a debug build. On Linux, add
-`-DIBM_QDMI_SANITIZERS="address;undefined"` when configuring for sanitizer
+Use the `debug` preset for a debug build and `sanitizers` for Linux ASan/UBSan
 checks. For coverage, select the instrumented library explicitly in the ABI
 tests:
 
 ```console
-cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_ENABLE_COVERAGE=ON
-cmake --build build/coverage --config Debug
-ctest --test-dir build/coverage -C Debug --output-on-failure
+cmake --preset coverage
+cmake --build --preset coverage
+ctest --preset coverage
 uvx nox -s native_tests -- --native-library="$PWD/build/coverage/src/libibm-qdmi-device.so"
 uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
 ```
@@ -70,10 +69,10 @@ in-memory jobs disappear.
 Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
 direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
-Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
-minimum-version sessions. Hardware requests test a fresh candidate wheel offline
-before submitting jobs. The synthetic service uses MQT Core's decision-diagram
-simulator for static and conditional circuits.
+Draft PRs run `tests-3.14`, `minimums-3.14` and `native_tests`; review-ready PRs
+run all test and minimum-version sessions. Hardware requests test a fresh
+candidate wheel offline before submitting jobs. The synthetic service uses MQT
+Core's decision-diagram simulator for static and conditional circuits.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 
@@ -219,9 +218,16 @@ the build. Edit public header comments and Python docstrings for API references.
 CI covers native and Python tests, installation, sanitizers, coverage, lint, and
 source and wheel distributions. The `🚦 Check` aggregate rejects failed or
 cancelled prerequisites. PRs use change detection; `main` runs the full offline
-suite. Metadata checks run on every trusted CI run. Hardware validation runs
-independently. The main ruleset also requires `pre-commit.ci - pr` and the Read
-the Docs preview before merging.
+suite. Metadata checks run for trusted changes after the selected offline
+native, Python and wheel checks. Hardware validation runs independently. The
+main ruleset also requires `pre-commit.ci - pr` and the Read the Docs preview
+before merging.
+
+Python checks use one shared workflow per runner for normal and minimum-version
+sessions. Both clear IBM credentials. `reusable-live-tests.yml` owns metadata
+and quantum validation; ordinary CI selects only metadata. `hardware.yml`
+accepts explicit hardware requests, and `live-metadata.yml` is the manual
+metadata entry point.
 
 Read the Docs publishes PR previews and `latest` from `main` using the strict
 documentation session. Release workflows attest and publish distributions to
