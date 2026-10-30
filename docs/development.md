@@ -218,9 +218,16 @@ the build. Edit public header comments and Python docstrings for API references.
 CI covers native and Python tests, installation, sanitizers, coverage, lint, and
 source and wheel distributions. The `🚦 Check` aggregate rejects failed or
 cancelled prerequisites. PRs use change detection; `main` runs the full offline
-suite. Metadata checks run on every trusted CI run. Hardware validation runs
-independently. The main ruleset also requires `pre-commit.ci - pr` and the Read
-the Docs preview before merging.
+suite. Metadata checks run for trusted changes after the selected offline
+native, Python and wheel checks. Hardware validation runs independently. The
+main ruleset also requires `pre-commit.ci - pr` and the Read the Docs preview
+before merging.
+
+Python checks use one shared workflow per runner for normal and minimum-version
+sessions. Both clear IBM credentials. `reusable-live-tests.yml` owns metadata
+and quantum validation; ordinary CI selects only metadata. `hardware.yml`
+accepts explicit hardware requests, and `live-metadata.yml` is the manual
+metadata entry point.
 
 Read the Docs publishes PR previews and `latest` from `main` using the strict
 documentation session. Release workflows attest and publish distributions to
@@ -229,18 +236,3 @@ permits `v*` tags; manual CD runs only build artifacts. Coverage uploads to
 Codecov use OpenID Connect. Native coverage combines CTest and the offline
 transport tests; Python coverage reuses the reports from the Python test
 sessions.
-
-## Workflow organization
-
-CI keeps native tests, Python tests/minimums, installation, coverage,
-documentation and packaging in separate jobs. Presets use separate build
-directories. Python checks use one shared workflow call per runner so its normal
-and minimum-version sessions share coverage without colliding on artifacts or
-concurrency groups. Test and minimum-version environments clear IBM credentials;
-live tests retain their explicit opt-in flags.
-
-`reusable-live-tests.yml` owns metadata and quantum validation. CI selects only
-metadata. `hardware.yml` preserves the independent manual/label request gate,
-fixed budget, candidate-wheel checks and refusal of reruns. `live-metadata.yml`
-remains the manual metadata entry point. Publishing retains its local protected
-PyPI job.

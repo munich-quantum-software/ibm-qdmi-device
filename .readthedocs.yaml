@@ -17,7 +17,7 @@ build:
       - asdf plugin add uv
       - asdf install uv latest
       - asdf global uv latest
-      # Match the documentation workflow; Ubuntu's Doxygen cannot parse the QDMI headers.
+      # QDMI headers require Doxygen 1.16.1.
       - mkdir -p build/tools/doxygen
       - curl --fail --location --output build/tools/doxygen.tar.gz https://github.com/doxygen/doxygen/releases/download/Release_1_16_1/doxygen-1.16.1.linux.bin.tar.gz
       - echo "a56f885d37e3aae08a99f638d17bbb381224c03a878d9e2dda4f9fa4baf1d8bd  build/tools/doxygen.tar.gz" | sha256sum --check
