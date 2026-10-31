@@ -292,7 +292,7 @@ void Job::submit() {
                     {"__type__", "QuantumCircuit"},
                     {"__value__", encodeQpy(source)},
                 }
-              : nlohmann::json(source);
+                           : nlohmann::json(declareNativeGates(source));
       payload["params"]["pubs"].push_back(
           nlohmann::json::array({std::move(circuit), nullptr, shots}));
     }

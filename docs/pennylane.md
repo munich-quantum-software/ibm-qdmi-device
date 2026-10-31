@@ -39,31 +39,26 @@ session. A configured authentication file takes precedence over
 `IBM_QUANTUM_API_KEY`; see
 [session configuration](api.md#session-configuration).
 
-Wire labels map in their declared order to physical qubits starting at zero. For
-example, `wires=["control", "target"]` maps those labels to physical qubits 0
-and 1. Integer labels are labels, not a physical layout override. The emitted
-OpenQASM always declares the full backend width, and measures only the exposed
-wires using indexed assignments. Sample columns follow the requested measurement
-order. The adapter validates each gate's parameters and physical placement
-against backend metadata. It does not route circuits or reverse directed
-couplings.
+Wire labels identify logical wires. MQT Core compiles and routes them for the
+selected backend and reconstructs samples in the requested logical measurement
+order. Compiled OpenQASM uses physical qubit indices; the native provider adds
+standard-gate imports and any missing ECR/RZZ declarations for Runtime. The
+compiler consumes the provider's gate placements and parameter domains,
+including fractional RZZ bounds. Its current QDMI target requires the same
+native one-qubit basis on every site and two-qubit basis on every topology edge.
+Heterogeneous metadata fails during device construction.
 
 ## IBM gate support
 
-PennyLane decomposes operations into the advertised native basis. The IBM
-adapter emits native `id`, `x`, `sx`, `rz`, `cx`, `cz`, `ecr`, and `rzz` gates;
-other native spellings fail before submission. It expresses single-qubit
-rotations using SX and RZ while preserving parameters for differentiation; this
-includes Hadamard, RX, and RY gates. Native ECR and RZZ remain native when the
-backend advertises their signatures and placements. CNOT decomposes into CZ or
-ECR when CX is unavailable. Bound RZZ angles, including parameter-shift
-circuits, are folded into IBM's calibrated range with equivalent single-qubit
-corrections. Incompatible operations or placements fail before submission. The
-adapter retains MQT Core's error and cancellation handling; unknown submission
-outcomes are never retried.
+PennyLane applies measurement and differentiation transforms before Core
+compiles the resulting tapes into the advertised native basis. Core owns gate
+synthesis, physical placement, parameter constraints, and receiver-compatible
+serialization. Invalid input fails before any job in a prepared batch is
+submitted. A submission or result failure raises `PennyLaneExecutionError` with
+a retained `job` handle. Use that handle to inspect the batch or explicitly
+cancel earlier jobs; cancellation can race with completion. Automatic retries
+are disabled. Unknown submission outcomes are never automatically replaced.
 
 The adapter forwards compatible custom job settings through `job_parameters`;
-the native parameter contracts are documented in {doc}`api`. MQT Core 4's Python
-custom-parameter interface cannot encode the `uint64_t` execution-time cap.
-PennyLane therefore retains the native default of 60 seconds; use the native C
-interface to change that cap.
+the native parameter contracts and default execution-time cap are documented in
+{doc}`api`.

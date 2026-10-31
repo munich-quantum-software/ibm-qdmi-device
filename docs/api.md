@@ -103,6 +103,22 @@ never fabricated zero values. A missing calibration endpoint (HTTP 404) permits
 initialization without those optional values. Malformed structural metadata
 fails initialization.
 
+Advertised `rzz` operations expose their inclusive angle interval `[0, pi/2]` in
+radians through `IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS`
+(`QDMI_OPERATION_PROPERTY_CUSTOM2`). The null-terminated UTF-8 JSON is:
+
+```json
+{
+  "schema": "mqt.operation-parameters.v1",
+  "alternatives": [{"bounds": [[0, 1.5707963267948966]]}]
+}
+```
+
+This experimental contract is shared with MQT Core and is not a standard QDMI
+property. Other operations, including unrestricted `rx`, return
+`QDMI_ERROR_NOTSUPPORTED`. The inclusive interval follows the
+[IBM Runtime SDK's angle bounds](https://github.com/Qiskit/qiskit-ibm-runtime/blob/0.50.0/qiskit_ibm_runtime/utils/backend_converter.py).
+
 Queries honor the QDMI size-query contract. Insufficient output buffers and
 invalid arguments return `QDMI_ERROR_INVALIDARGUMENT`. Uninitialized-session
 queries return `QDMI_ERROR_BADSTATE`. HTTP authentication failures map to
@@ -188,16 +204,20 @@ bounds QPU execution time, not queue or wall-clock time. A null parameter value
 probes support without changing configuration.
 
 Submit valid, bound OpenQASM 3 compiled for the backend's native operations and
-physical qubit indices. MQT Core's compiler and Qiskit adapter prepare programs;
-IBM validates their instructions. The device forwards the source unchanged and
-reads only its classical declarations to reconstruct results in declaration
-order.
+physical qubit indices. MQT Core's compiler and Qiskit adapter prepare programs.
+For bare programs without gate definitions, the device adds `stdgates.inc` and
+any required ECR/RZZ definitions before transport. Programs with their own gate
+definitions must supply all required declarations and are forwarded unchanged.
+IBM validates instructions; the device reads classical declarations to
+reconstruct results in declaration order.
 
 Declare all classical output bits at the top level with fixed, positive sizes:
-`bit[n] name;`, `bit name;`, or `creg name[n];`. The `output` qualifier is
-accepted. Register names must be distinct. Scoped classical declarations,
-parameter inputs, annotations, pragmas, and includes other than `stdgates.inc`
-are unsupported because they can hide or change the output layout.
+`bit[n] name;`, `bit name;`, or `creg name[n];`. Register names must be
+distinct. Every declared classical register contributes to the result. Explicit
+`output` qualifiers are unsupported, as in Qiskit's OpenQASM importer. Scoped
+classical declarations, parameter inputs, annotations, pragmas, and includes
+other than `stdgates.inc` are unsupported because they can hide or change the
+output layout.
 
 (qpy-programs)=
 
@@ -223,8 +243,7 @@ counts = job.get_counts()
 original = job.get_program(bytes)
 ```
 
-See [Qiskit execution](qiskit.md#transpile-and-execute) for conditional
-circuits.
+See [Qiskit execution](qiskit.md#compile-and-execute) for conditional circuits.
 
 Each OpenQASM or QPY submission creates one Sampler V2 job with an ordered
 circuit list and classified measurements. Twirling is disabled; dynamical
@@ -237,7 +256,8 @@ job; inspect the platform before creating a replacement.
 Job ID, format, shots, and program count
 (`QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM`) are queryable.
 `IBM_QDMI_device_job_get_program` retrieves the original bytes at a zero-based
-program index. Size queries use a null output buffer. An unset supported
+program index. For a retrieved remote job, OpenQASM includes any declarations
+added for transport. Size queries use a null output buffer. An unset supported
 property returns `QDMI_ERROR_BADSTATE`; queue position returns
 `QDMI_ERROR_NOTSUPPORTED`. A job retains its session resources; freeing a
 session or job handle does not cancel a remote job. Free every job and session
