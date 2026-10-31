@@ -58,7 +58,7 @@ name = "Lukas Burgholzer"
 email = "lukas@mq.sc"
 
 [project.optional-dependencies]
-executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
+executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.51.0" ]
 mock = [ "ibm-qdmi[executor]" ]
 pennylane = [
   """\
@@ -92,7 +92,7 @@ dev = [
   { include-group = "build" },
   { include-group = "test" },
   "nox>=2026.8.10",
-  "qiskit-ibm-runtime~=0.50.0",
+  "qiskit-ibm-runtime~=0.51.0",
 ]
 test = [
   """\
