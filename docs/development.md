@@ -69,7 +69,7 @@ in-memory jobs disappear.
 Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
 direct dependencies and restore `uv.lock` afterward. Framework tests use the
 installed device with a synthetic IBM service and local circuit simulation.
-Draft PRs run `tests-3.14`, `minimums-3.14` and `native_tests`; review-ready PRs
+Draft PRs run `tests-3.15`, `minimums-3.15` and `native_tests`; review-ready PRs
 run all test and minimum-version sessions. Hardware requests test a fresh
 candidate wheel offline before submitting jobs. The synthetic service uses MQT
 Core's decision-diagram simulator for static and conditional circuits.
