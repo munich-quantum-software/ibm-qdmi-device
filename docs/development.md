@@ -40,12 +40,15 @@ cmake --preset coverage
 cmake --build --preset coverage
 ctest --preset coverage
 uvx nox -s native_tests -- --native-library="$PWD/build/coverage/src/libibm-qdmi-device.so"
-uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
+uvx nox -s tests-3.14 -- --cov --cov-report=xml:coverage.xml
 ```
 
 Coverage runs receive no IBM credentials. Never submit hardware jobs to increase
-coverage. Python coverage measures Python code; native coverage requires the
-instrumented library.
+coverage. The ABI tests load the selected instrumented library through `ctypes`;
+their native calls add gcov counters to the CTest results. CI uploads that data
+under Codecov's `cpp` flag. Python coverage measures `ibm.qdmi` separately under
+the `python` flag, using the source selection in `pyproject.toml` and reporting
+rules in `.github/codecov.yml`.
 
 ## Python checks
 

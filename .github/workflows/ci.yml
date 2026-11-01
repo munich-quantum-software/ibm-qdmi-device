@@ -96,7 +96,7 @@ jobs:
   cpp-coverage:
     name: 🇨 Coverage
     needs: change-detection
-    if: fromJSON(needs.change-detection.outputs.run-cpp-tests)
+    if: fromJSON(needs.change-detection.outputs.run-cpp-tests) || fromJSON(needs.change-detection.outputs.run-python-tests)
     uses: $/.github/workflows/cpp-coverage.yml
     permissions:
       contents: read
@@ -226,11 +226,16 @@ jobs:
           allowed-skips: >-
             ${{
               !fromJSON(needs.change-detection.outputs.run-cpp-tests)
-              && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-sanitizers,cpp-coverage,cpp-install-tests,' || ''
+              && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-sanitizers,cpp-install-tests,' || ''
             }}
             ${{
               !fromJSON(needs.change-detection.outputs.run-cpp-linter)
               && 'cpp-linter,' || ''
+            }}
+            ${{
+              !fromJSON(needs.change-detection.outputs.run-cpp-tests)
+              && !fromJSON(needs.change-detection.outputs.run-python-tests)
+              && 'cpp-coverage,' || ''
             }}
             ${{
               !fromJSON(needs.change-detection.outputs.run-python-tests)
