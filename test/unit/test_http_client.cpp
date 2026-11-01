@@ -17,7 +17,12 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/constants.h"
+
 #include "Http.hpp"
+
+#include "gtest/gtest.h"
 
 #include <array>
 #include <chrono>
@@ -25,9 +30,6 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <gtest/gtest.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/constants.h>
 #include <optional>
 #include <string>
 #include <tuple>

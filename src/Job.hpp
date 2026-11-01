@@ -19,14 +19,16 @@
 
 #pragma once
 
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
+
+// The stored JSON member requires the complete type, not just the json alias.
+#include "nlohmann/json.hpp" // IWYU pragma: keep
+#include "nlohmann/json_fwd.hpp"
 
 #include <cstddef>
 #include <cstdint>
-#include <ibm_qdmi/constants.h>
-// The stored JSON member requires the complete type, not just the json alias.
-#include <nlohmann/json.hpp> // IWYU pragma: keep
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <vector>
