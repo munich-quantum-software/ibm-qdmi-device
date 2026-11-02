@@ -109,7 +109,8 @@ jobs:
     with:
       clang-version: 23
       files-changed-only: true
-      cpp-linter-extra-args: "-std=c++20 -Wunused-template"
+      # Preserve C mode for the integration test; C++ uses the compilation database.
+      cpp-linter-extra-args: "-Wunused-template"
     permissions:
       contents: read
       pull-requests: write
