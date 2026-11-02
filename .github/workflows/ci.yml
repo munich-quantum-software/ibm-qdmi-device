@@ -1,13 +1,15 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
   merge_group:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -17,12 +19,11 @@ jobs:
     name: 🔍 Change
     with:
       additional-cpp-files: |
-        .github/workflows/cpp-coverage.yml
-        .github/workflows/cpp-install-tests.yml
+        .github/workflows/cpp-*.yml
         .github/workflows/reusable-live-tests.yml
       additional-python-files: |
-        test/fixtures/**
         .github/workflows/reusable-live-tests.yml
+        test/fixtures/**
 
   cpp-tests-ubuntu:
     name: 🇨 Test 🐧
@@ -72,7 +73,6 @@ jobs:
       matrix:
         runs-on:
           - windows-2025
-          - windows-11-arm
         preset:
           - release
         include:
@@ -148,7 +148,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-26.04, ubuntu-26.04-arm, macos-26, windows-2025]
+        runs-on:
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
+          - macos-26
+          - windows-2025
     uses: $/.github/workflows/cpp-install-tests.yml
     with:
       runs-on: ${{ matrix.runs-on }}
@@ -172,12 +176,11 @@ jobs:
           - ubuntu-26.04-arm
           - macos-26
           - windows-2025
-          - windows-11-arm
     with:
       runs-on: ${{ matrix.runs-on }}
 
   live-tests:
-    name: ☁️ Live metadata
+    name: ☁️ Live tests
     needs:
       - cpp-tests-ubuntu
       - cpp-tests-macos
@@ -188,6 +191,10 @@ jobs:
       !cancelled()
       && !contains(needs.*.result, 'failure')
       && contains(needs.*.result, 'success')
+      && (
+        github.event_name != 'workflow_dispatch'
+        || github.ref == 'refs/heads/main'
+      )
       && (
         github.event_name != 'pull_request'
         || github.event.pull_request.head.repo.full_name == github.repository
@@ -227,13 +234,13 @@ jobs:
               && 'cpp-tests-ubuntu,cpp-tests-macos,cpp-tests-windows,cpp-sanitizers,cpp-install-tests,' || ''
             }}
             ${{
-              !fromJSON(needs.change-detection.outputs.run-cpp-linter)
-              && 'cpp-linter,' || ''
-            }}
-            ${{
               !fromJSON(needs.change-detection.outputs.run-cpp-tests)
               && !fromJSON(needs.change-detection.outputs.run-python-tests)
               && 'cpp-coverage,' || ''
+            }}
+            ${{
+              !fromJSON(needs.change-detection.outputs.run-cpp-linter)
+              && 'cpp-linter,' || ''
             }}
             ${{
               !fromJSON(needs.change-detection.outputs.run-python-tests)
@@ -252,6 +259,8 @@ jobs:
               (
                 github.event_name == 'pull_request'
                 && github.event.pull_request.head.repo.full_name != github.repository
+                || github.event_name == 'workflow_dispatch'
+                && github.ref != 'refs/heads/main'
                 || !fromJSON(needs.change-detection.outputs.run-cpp-tests)
                 && !fromJSON(needs.change-detection.outputs.run-python-tests)
                 && !fromJSON(needs.change-detection.outputs.run-cd)

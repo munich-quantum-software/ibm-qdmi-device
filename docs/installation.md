@@ -28,7 +28,7 @@ extra also installs Qiskit for circuit serialization. See the
 [dependency overview](dependencies.md) for native libraries and Python extras.
 
 Prebuilt wheels are available for Linux (x86_64, aarch64; glibc 2.28 or newer),
-macOS (arm64, 13 or newer), and Windows (x86_64, ARM64). On other platforms, the
+macOS (arm64, 13 or newer), and Windows (x86_64). On other platforms, the
 installer builds the source distribution, which requires the
 [build tools](#building-from-source).
 

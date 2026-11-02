@@ -100,8 +100,8 @@ package version comes from `project()` in `CMakeLists.txt`.
 CI builds and tests wheels with Python 3.11–3.15 through cibuildwheel, excluding
 free-threaded interpreters. Wheel tests use the Qiskit and PennyLane adapters;
 the Nox `tests` and `minimums` sessions also exercise the optional Executor SDK.
-Windows ARM wheels are built and repaired, but optional framework dependencies
-prevent Python wheel tests there; native Windows ARM tests run separately.
+Windows builds and tests run on x86_64 with MSVC in Release and Debug
+configurations.
 
 ## Live IBM metadata
 
