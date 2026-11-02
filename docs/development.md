@@ -105,8 +105,9 @@ configurations.
 
 ## Live IBM metadata
 
-CI checks `ibm_berlin` and `ibm_aachen` metadata on same-repository PRs, merge
-queues, and `main`. These read-only requests submit no jobs and consume no
+CI checks `ibm_berlin` and `ibm_aachen` metadata on every non-fork PR, including
+release preparation, as well as merge queues and `main`. Change detection does
+not skip these checks. These read-only requests submit no jobs and consume no
 [QPU time](https://quantum.cloud.ibm.com/docs/en/guides/estimate-job-run-time).
 Fork PRs receive no credentials. The workflow can also be dispatched on `main`:
 
@@ -221,10 +222,10 @@ the build. Edit public header comments and Python docstrings for API references.
 CI covers native and Python tests, installation, sanitizers, coverage, lint, and
 source and wheel distributions. The `🚦 Check` aggregate rejects failed or
 cancelled prerequisites. PRs use change detection; `main` runs the full offline
-suite. Metadata checks run for trusted changes after the selected offline
-native, Python and wheel checks. Hardware validation runs independently. The
-main ruleset also requires `pre-commit.ci - pr` and the Read the Docs preview
-before merging.
+suite. Metadata checks run after the selected offline native, Python and wheel
+checks pass, including when all are intentionally skipped. Hardware validation
+runs independently. The main ruleset also requires `pre-commit.ci - pr` and the
+Read the Docs preview before merging.
 
 Python checks use one shared workflow per runner for normal and minimum-version
 sessions. Both clear IBM credentials. `reusable-live-tests.yml` owns metadata
