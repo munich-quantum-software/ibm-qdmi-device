@@ -62,11 +62,11 @@ executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
 mock = [ "ibm-qdmi[executor]" ]
 pennylane = [
   """\
-  mqt-core[pennylane] @ git+https://github.com/munich-quantum-toolkit/core.git@68616a9d763ef4d208d93c72b75a5df80f58598d\
+  mqt-core[pennylane] @ git+https://github.com/munich-quantum-toolkit/core.git@5023c8c0996b313e5f551fd2630376439ac34e2c\
   """,
 ]
 qiskit = [
-  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@68616a9d763ef4d208d93c72b75a5df80f58598d",
+  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@5023c8c0996b313e5f551fd2630376439ac34e2c",
   "qiskit>=2.5"
 ]
 
@@ -97,7 +97,7 @@ dev = [
 test = [
   """\
   mqt-core[pennylane,qiskit] @ \
-  git+https://github.com/munich-quantum-toolkit/core.git@68616a9d763ef4d208d93c72b75a5df80f58598d\
+  git+https://github.com/munich-quantum-toolkit/core.git@5023c8c0996b313e5f551fd2630376439ac34e2c\
   """,
   "pytest>=9.1.1",
   "pytest-cov>=7.1",

@@ -22,7 +22,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 try:
-    from mqt.core.mlir import TerminalReadout
     from mqt.core.plugins.pennylane import PennyLaneConfigurationError
     from mqt.core.plugins.pennylane.device import QDMIDevice
     from mqt.core.qdmi import ProgramFormat
@@ -87,7 +86,6 @@ class IBMDevice(QDMIDevice):
                 wires=wires,
                 job_parameters=job_parameters,
                 program_format=ProgramFormat.QASM3,
-                terminal_readout=TerminalReadout.MEASURED,
             )
         else:
             selected_id = self.qdmi_device_id if device_id is None else device_id
@@ -105,7 +103,6 @@ class IBMDevice(QDMIDevice):
                 session_parameters=session,
                 job_parameters=job_parameters,
                 program_format=ProgramFormat.QASM3,
-                terminal_readout=TerminalReadout.MEASURED,
             )
 
 

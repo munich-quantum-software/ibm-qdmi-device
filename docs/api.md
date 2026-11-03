@@ -89,6 +89,9 @@ calibration snapshot. Status and queue queries fetch current backend status.
 | Device status                | `OFFLINE` when unavailable; otherwise `BUSY` for a nonempty queue and `IDLE` for an empty queue. Missing availability is unsupported.                           |
 | Queue length                 | Nonnegative number of queued jobs.                                                                                                                              |
 
+`QDMI_DEVICE_PROPERTY_CUSTOM3` advertises Core's temporary readout contract as
+the NUL-terminated string `mqt.readout.v1:measured:physical`.
+
 Measurement calibration uses `readout_length` and `1 - readout_error` from qubit
 properties. Site-dependent duration and fidelity require a supported ordered
 site tuple. Configuration tuples take precedence over calibration tuples;
