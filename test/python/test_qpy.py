@@ -23,6 +23,7 @@ import io
 from typing import TYPE_CHECKING
 
 import pytest
+from mqt.core.mlir import TargetEnvironment, serialize_program
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
 from mqt.core.qdmi import ProgramFormat
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qasm3, qpy
@@ -79,10 +80,8 @@ def test_overlapping_registers_reject_before_submission(runtime: Runtime) -> Non
 
 @pytest.mark.parametrize("initial", [0, 1])
 @pytest.mark.parametrize("register_condition", [False, True])
-@pytest.mark.parametrize("program_format", [ProgramFormat.QPY, ProgramFormat.QASM3])
-def test_dynamic_feedforward(
-    runtime: Runtime, initial: int, program_format: ProgramFormat, *, register_condition: bool
-) -> None:
+@pytest.mark.parametrize("transport", ["qpy", "qiskit-qasm", "core-qasm"])
+def test_dynamic_feedforward(runtime: Runtime, initial: int, transport: str, *, register_condition: bool) -> None:
     """Native transports preserve conditional bit indices and physical branch sites."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(
@@ -100,12 +99,19 @@ def test_dynamic_feedforward(
     circuit.measure(4, 2)
     circuit.measure(2, 3)
     expected = "0110" if initial else "1000"
-    if program_format == ProgramFormat.QPY:
+    if transport == "qpy":
         job = backend.run(circuit, shots=9, memory=True)
         assert job.result().get_counts() == {f"{expected[:2]} {expected[2:]}": 9}
     else:
-        program = qasm3.dumps(circuit)
-        native_job = backend.device.submit_job(program, program_format, num_shots=9)
+        if transport == "core-qasm":
+            environment = TargetEnvironment.from_device(backend.device, program_format=ProgramFormat.QASM3)
+            program = serialize_program(circuit, target=environment).payload
+            assert isinstance(program, str)
+            assert "output " not in program
+            assert "if (true)" not in program
+        else:
+            program = qasm3.dumps(circuit)
+        native_job = backend.device.submit_job(program, ProgramFormat.QASM3, num_shots=9)
         assert native_job.wait(10)
         assert native_job.get_shots() == [expected] * 9
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
@@ -143,3 +149,27 @@ def test_dynamic_validation_prevents_batch_submission(runtime: Runtime, invalid:
     with pytest.raises((CircuitValidationError, UnsupportedOperationError)):
         backend.run([valid, circuit])
     assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("custom", [False, True])
+def test_self_defined_standard_gate_transport(runtime: Runtime, *, custom: bool) -> None:
+    """Adding standard declarations preserves Qiskit exports and custom gate bodies."""
+    backend = open_backend(runtime)
+    if custom:
+        program = "OPENQASM 3; gate x a { U(0,0,0) a; } bit[1] c; x $0; c[0] = measure $0;"
+        expected = "0"
+    else:
+        circuit = QuantumCircuit(5, 2)
+        circuit.x(3)
+        circuit.cx(3, 4)
+        circuit.measure([3, 4], [0, 1])
+        program = qasm3.dumps(circuit, includes=())
+        expected = "11"
+    job = backend.device.submit_job(program, ProgramFormat.QASM3, num_shots=9)
+    assert job.wait(10)
+    assert job.get_shots() == [expected] * 9
+    assert job.get_program() == program
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    assert 'include "stdgates.inc";' in source
+    assert "gate x " not in source
+    assert "gate mqt_x " in source

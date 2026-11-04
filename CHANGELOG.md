@@ -12,8 +12,9 @@ releases may include breaking changes.
 
 ### Added
 
-- ✨ Accept bare native OpenQASM 3 by adding missing standard and ECR/RZZ gate
-  declarations for Runtime import. ([#94]) ([**@burgholzer**])
+- ✨ Complete native OpenQASM 3 declarations for Runtime import while preserving
+  self-defined gate bodies under collision-free names. ([#94])
+  ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
   property consumed by MQT Core. ([#94]) ([**@burgholzer**])
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
@@ -26,8 +27,6 @@ releases may include breaking changes.
 
 ### Changed
 
-- Preserve measured-site readout through Core's shared serializer. ([#94])
-  ([**@burgholzer**]).
 - ♻️ Compile PennyLane programs through MQT Core, replacing provider-specific
   gate synthesis and serialization. ([#94]) ([**@burgholzer**])
 - ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],

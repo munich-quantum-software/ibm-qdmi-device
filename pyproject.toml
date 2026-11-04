@@ -59,7 +59,7 @@ email = "lukas@mq.sc"
 
 [project.optional-dependencies]
 executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
-mock = [ "ibm-qdmi[executor]" ]
+mock = [ "ibm-qdmi[executor]", "qiskit[qasm3-import]" ]
 pennylane = [
   "mqt-core[pennylane]>=4.1.2.dev0",
 ]
@@ -169,7 +169,7 @@ cache-keys = [
 ]
 
 [tool.uv.sources]
-mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "6a7b9c99799e3a5d447f0760071c160cffeed35b" }
+mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "d08a421a086f744eacfc677f873695298d8bcba6" }
 
 
 [tool.cibuildwheel]
@@ -178,11 +178,7 @@ skip = [ "*-musllinux_*", "cp3??t-*" ]
 test-skip = [ "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
-# Export the locked group so wheel tests honor tool.uv.sources.
-before-test = """\
-  uv export --frozen --only-group test --no-hashes --no-emit-project --project \"{project}\" -o test-requirements.txt \
-  && uv pip install -r test-requirements.txt\
-  """
+before-test = 'uv pip install --group "{project}/pyproject.toml:test"'
 test-command = "pytest"
 test-sources = [ "pyproject.toml", "test" ]
 
@@ -279,6 +275,7 @@ addopts = [
 ]
 filterwarnings = [
   "error",
+  "default::mqt.core.UntestedVersionWarning",
   # PennyLane pins Autograd <1.9; its wraps helper returns in finally.
   "ignore:'return' in a 'finally' block:SyntaxWarning:.*autograd[./\\\\]wrap_util",
 ]

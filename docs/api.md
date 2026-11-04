@@ -205,11 +205,12 @@ probes support without changing configuration.
 
 Submit valid, bound OpenQASM 3 compiled for the backend's native operations and
 physical qubit indices. MQT Core's compiler and Qiskit adapter prepare programs.
-For bare programs without gate definitions, the device adds `stdgates.inc` and
-any required ECR/RZZ definitions before transport. Programs with their own gate
-definitions must supply all required declarations and are forwarded unchanged.
-IBM validates instructions; the device reads classical declarations to
-reconstruct results in declaration order.
+The device adds missing `stdgates.inc` and ECR/RZZ declarations before
+transport. When adding the standard include, it gives conflicting user-defined
+names fresh identifiers throughout the source, preserving gate bodies and their
+calls. Locally stored source bytes remain unchanged. IBM validates instructions;
+the device reads classical declarations to reconstruct results in declaration
+order.
 
 Declare all classical output bits at the top level with fixed, positive sizes:
 `bit[n] name;`, `bit name;`, or `creg name[n];`. Register names must be

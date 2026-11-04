@@ -27,10 +27,12 @@
 #include <charconv>
 #include <cstddef>
 #include <limits>
+#include <map>
 #include <set>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace ibm {
@@ -72,7 +74,6 @@ std::vector<std::string_view> tokenize(std::string_view source) {
       }
       tokens.push_back(source.substr(start, index - start));
     } else {
-      require(character != '@', QDMI_ERROR_NOTSUPPORTED);
       tokens.push_back(source.substr(index++, 1));
     }
   }
@@ -120,6 +121,45 @@ std::string declareNativeGates(std::string program) {
   if (!definitions.contains("rzz")) {
     declarations += "\ngate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; }";
   }
+  if (!standardGates) {
+    static const std::set<std::string_view> STANDARD_NAMES{
+        "p",   "x",   "y",     "z",      "h",  "s",    "sdg", "t",
+        "tdg", "sx",  "rx",    "ry",     "rz", "cx",   "cy",  "cz",
+        "cp",  "crx", "cry",   "crz",    "ch", "swap", "ccx", "cswap",
+        "cu",  "CX",  "phase", "cphase", "id", "u1",   "u2",  "u3",
+    };
+    std::map<std::string_view, std::string> renamed;
+    for (const auto definition : definitions) {
+      if (STANDARD_NAMES.contains(definition)) {
+        auto replacement = "mqt_" + std::string(definition);
+        while (std::ranges::find(tokens, replacement) != tokens.end()) {
+          replacement += '_';
+        }
+        renamed.emplace(definition, std::move(replacement));
+      }
+    }
+    // A custom standard-name gate need not have the standard unitary.
+    std::string rewritten;
+    std::size_t copied = 0;
+    auto rewrittenInsertion = insertion;
+    for (const auto token : tokens) {
+      const auto replacement = renamed.find(token);
+      if (replacement == renamed.end()) {
+        continue;
+      }
+      const auto offset =
+          static_cast<std::size_t>(token.data() - program.data());
+      rewritten.append(program, copied, offset - copied);
+      rewritten += replacement->second;
+      copied = offset + token.size();
+      if (offset < insertion) {
+        rewrittenInsertion += replacement->second.size() - token.size();
+      }
+    }
+    rewritten.append(program, copied);
+    program = std::move(rewritten);
+    insertion = rewrittenInsertion;
+  }
   if (!declarations.empty()) {
     program.insert(insertion, declarations + '\n');
   }
@@ -142,7 +182,20 @@ std::vector<Register> outputRegisters(const std::string& program) {
   };
   while (cursor < tokens.size()) {
     const auto token = next();
-    if (token == "{") {
+    if (token == "gate") {
+      require(depth == 0);
+      while (next() != "{") {
+      }
+      std::size_t gateDepth = 1;
+      while (gateDepth != 0) {
+        const auto gateToken = next();
+        if (gateToken == "{") {
+          ++gateDepth;
+        } else if (gateToken == "}") {
+          --gateDepth;
+        }
+      }
+    } else if (token == "{") {
       ++depth;
     } else if (token == "}") {
       require(depth != 0);
@@ -176,7 +229,8 @@ std::vector<Register> outputRegisters(const std::string& program) {
       width += count;
       registers.push_back({.name = std::string(registerName), .width = count});
     } else {
-      require(token != "input" && token != "output" && token != "pragma",
+      require(token != "input" && token != "output" && token != "pragma" &&
+                  token != "@",
               QDMI_ERROR_NOTSUPPORTED);
     }
   }
