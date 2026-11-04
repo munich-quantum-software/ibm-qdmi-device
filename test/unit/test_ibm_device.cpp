@@ -25,6 +25,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <ibm-qdmi-device/constants.h>
 #include <ibm-qdmi-device/diagnostics.h>
