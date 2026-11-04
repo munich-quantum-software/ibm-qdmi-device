@@ -247,3 +247,17 @@ def test_generic_selection_required(runtime: Runtime, monkeypatch: pytest.Monkey
     with pytest.raises(ValueError, match="Allocating QDMI session"):
         IBMBackend(api_key="synthetic-key", instance_crn=CRN, base_url=url, auth_url=url + "/auth")
     assert not runtime.snapshot()["requests"]
+
+
+def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime) -> None:
+    """A zero-output compiled artifact prevents submission of the entire batch."""
+    backend = open_backend(runtime)
+    unmeasured = QuantumCircuit(1)
+    unmeasured.x(0)
+    program = backend.compile(unmeasured)
+    assert not isinstance(program, list)
+    measured = QuantumCircuit(1, 1)
+    measured.measure(0, 0)
+    with pytest.raises(CircuitValidationError, match="measured output"):
+        backend.run([measured, program], shots=2)
+    assert not runtime.snapshot()["submissions"]
