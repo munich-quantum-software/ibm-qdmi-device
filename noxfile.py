@@ -104,8 +104,8 @@ def tests(session: nox.Session) -> None:
 
 
 @nox.session(python="3.14", reuse_venv=True)
-def native_tests(session: nox.Session) -> None:
-    """Test the native transport in a process independent of framework drivers."""
+def integration_tests(session: nox.Session) -> None:
+    """Test the C ABI and loopback transport independently of framework drivers."""
     _run_tests(session, pytest_run_args=("-m", "integration", "-n", "0"))
 
 

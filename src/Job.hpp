@@ -23,7 +23,6 @@
 
 #include "Auth.hpp"
 
-// The stored JSON member requires the complete type, not just the json alias.
 #include "nlohmann/json.hpp" // IWYU pragma: keep
 #include "nlohmann/json_fwd.hpp"
 
