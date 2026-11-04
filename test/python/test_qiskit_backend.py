@@ -249,10 +249,11 @@ def test_generic_selection_required(runtime: Runtime, monkeypatch: pytest.Monkey
     assert not runtime.snapshot()["requests"]
 
 
-def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime) -> None:
+@pytest.mark.parametrize("classical_width", [0, 2])
+def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime, classical_width: int) -> None:
     """A zero-output compiled artifact prevents submission of the entire batch."""
     backend = open_backend(runtime)
-    unmeasured = QuantumCircuit(1)
+    unmeasured = QuantumCircuit(1, classical_width)
     unmeasured.x(0)
     program = backend.compile(unmeasured)
     assert not isinstance(program, list)

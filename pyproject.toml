@@ -169,7 +169,7 @@ cache-keys = [
 ]
 
 [tool.uv.sources]
-mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "4d9e85752db7fe3bddb543bd41e15011e6014c8f" }
+mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "821e31969ab67accf878f09a45dd08c4abdbbd9f" }
 
 
 [tool.cibuildwheel]

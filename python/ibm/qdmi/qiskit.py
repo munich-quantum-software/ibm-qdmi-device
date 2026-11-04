@@ -151,7 +151,7 @@ class IBMBackend(QDMIBackend):
             isinstance(program, CompiledProgram)
             and (
                 program.result_width == 0
-                or (program.result_layout is not None and program.result_layout.raw_width == 0)
+                or (program.result_layout is not None and all(bit is None for bit in program.result_layout.bits))
             )
             for program in programs
         ):
