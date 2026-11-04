@@ -178,8 +178,12 @@ skip = [ "*-musllinux_*", "cp3??t-*" ]
 test-skip = [ "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
+# Export the locked group so wheel tests honor tool.uv.sources.
+before-test = """\
+  uv export --frozen --only-group test --no-hashes --no-emit-project --project \"{project}\" -o test-requirements.txt \
+  && uv pip install -r test-requirements.txt\
+  """
 test-command = "pytest"
-test-groups = [ "test" ]
 test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]

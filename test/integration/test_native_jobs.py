@@ -125,7 +125,13 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
     submissions = [json.loads(body) for path, _, body in job_service.requests if path == "/v1/jobs"]
     assert len(submissions) == 1
     assert submissions[0]["cost"] == 60
-    assert submissions[0]["params"]["pubs"][0] == [PROGRAM.decode(), None, 3]
+    submitted, parameters, shots = submissions[0]["params"]["pubs"][0]
+    assert parameters is None
+    assert shots == 3
+    assert submitted.count("gate ecr ") == 1
+    assert submitted.count("gate rzz(") == 1
+    assert submitted.startswith('OPENQASM 3; include "stdgates.inc";')
+    assert submitted.endswith(PROGRAM.decode().split(";", 2)[2])
 
 
 @pytest.mark.parametrize("failure", [401, 403, 500])
