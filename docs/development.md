@@ -191,17 +191,17 @@ clang-format and clang-tidy on every line of each changed file, including tests.
 
 ## Documentation
 
-Install Doxygen 1.16.1 on `PATH`, then run:
+Install Doxygen 1.15 or newer on `PATH`, then run:
 
 ```console
-uvx nox --non-interactive -s docs
-uvx nox --non-interactive -s docs -- -b linkcheck
+uvx nox -s docs
+uvx nox -s docs -- -b linkcheck
 ```
 
-The session builds the package in `build/docs/`, generates the native reference
-with Doxygen, and builds Sphinx pages in `docs/_build/html/`. The native
-reference lives under `cpp/`; Python API pages come from AutoAPI. Warnings fail
-the build. Edit public header comments and Python docstrings for API references.
+The session generates the native reference with Doxygen and builds Sphinx pages
+in `docs/_build/html/`. The native reference lives under `cpp/`; Python API
+pages come from AutoAPI. Warnings fail the build. Edit public header comments
+and Python docstrings for API references.
 
 ## Automation
 

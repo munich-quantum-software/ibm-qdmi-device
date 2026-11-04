@@ -5,34 +5,28 @@ formats:
 
 sphinx:
   configuration: docs/conf.py
+  fail_on_warning: true
 
 build:
   os: ubuntu-26.04
   apt_packages:
+    - doxygen
     - libssl-dev
   tools:
     python: "3.14"
   jobs:
+    install:
+      - >-
+        uv sync --locked --no-dev --group docs
+        --config-settings-package ibm-qdmi:wheel.cmake=false
     pre_build:
-      # QDMI headers require Doxygen 1.16.1.
-      - mkdir -p build/tools/doxygen
-      - curl --fail --location --output build/tools/doxygen.tar.gz https://github.com/doxygen/doxygen/releases/download/Release_1_16_1/doxygen-1.16.1.linux.bin.tar.gz
-      - echo "a56f885d37e3aae08a99f638d17bbb381224c03a878d9e2dda4f9fa4baf1d8bd  build/tools/doxygen.tar.gz" | sha256sum --check
-      - tar --extract --gzip --file build/tools/doxygen.tar.gz --directory build/tools/doxygen --strip-components=1
-      - build/tools/doxygen/bin/doxygen --version
-    build:
-      html:
-        - PATH="$PWD/build/tools/doxygen/bin:$PATH" uvx nox --non-interactive -s docs
-        - mkdir -p $READTHEDOCS_OUTPUT/html && cp -R docs/_build/html/. $READTHEDOCS_OUTPUT/html
-      htmlzip:
-        - |
-          mkdir -p $READTHEDOCS_OUTPUT/htmlzip
-          archive=$(realpath $READTHEDOCS_OUTPUT/htmlzip/html.zip)
-          (cd docs/_build/html && zip -r $archive .)
+      - >-
+        cmake -S . -B build/docs
+        -DBUILD_IBM_QDMI_TESTS=OFF -DBUILD_IBM_QDMI_DOCS=ON
+      - cmake --build build/docs --target ibm-qdmi-device-docs
 
+# Let Read the Docs provision uv for the custom install command above.
 python:
   install:
     - method: uv
       command: sync
-      groups:
-        - docs

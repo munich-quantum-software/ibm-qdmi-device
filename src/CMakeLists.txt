@@ -19,15 +19,6 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 generate_prefixed_qdmi_headers(${QDMI_PREFIX})
 
-if(BUILD_IBM_QDMI_DOCS)
-  if(QDMI_INCLUDE_BUILD_DIR)
-    set(IBM_QDMI_UPSTREAM_HEADERS "${QDMI_INCLUDE_BUILD_DIR}/qdmi")
-  else()
-    set(IBM_QDMI_UPSTREAM_HEADERS "${qdmi_INCLUDE_DIR}/qdmi")
-  endif()
-  configure_file("${PROJECT_SOURCE_DIR}/docs/Doxyfile.in" "${PROJECT_BINARY_DIR}/Doxyfile" @ONLY)
-endif()
-
 add_library(
   ibm-qdmi-core OBJECT
   Auth.cpp
