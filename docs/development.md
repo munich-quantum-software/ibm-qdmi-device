@@ -25,7 +25,8 @@ uvx nox -s native_tests
 cmake -P test/install.cmake
 ```
 
-The shared QDMI query suite uses the offline fixture and runs with `ctest --preset release -L qdmi-query`.
+The shared QDMI query suite uses the offline fixture and runs with
+`ctest --preset release -L qdmi-query`.
 
 GoogleTest exercises native components and the C API. The `native_tests` session
 checks the installed ABI and real HTTP transport against a loopback server. It

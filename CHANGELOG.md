@@ -24,7 +24,6 @@ releases may include breaking changes.
 
 - 🧪 Use QDMI shared query conformance tests with the offline IBM fixture.
   ([#84]) ([**@marcelwa**])
-
 - ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
   [**@burgholzer**])
 - ♻️ Limit native OpenQASM parsing to classical result layout extraction.
