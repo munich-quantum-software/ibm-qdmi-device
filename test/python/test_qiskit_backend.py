@@ -25,7 +25,7 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
-from mqt.core.mlir import TerminalReadout, serialize_program
+from mqt.core.mlir import serialize_program
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, JobSubmissionError, UnsupportedOperationError
 from mqt.core.qdmi import Device, ProgramFormat
 from offline_service import CRN
@@ -78,7 +78,7 @@ def test_native_compiler_qasm_import(runtime: Runtime) -> None:
     circuit.ecr(3, 4)
     circuit.rzz(0.25, 3, 4)
     circuit.measure([3, 4, 3], [0, 2, 3])
-    program = serialize_program(circuit, target=backend.device, terminal_readout=TerminalReadout.MEASURED)
+    program = serialize_program(circuit, target=backend.device)
     assert isinstance(program.payload, str)
     assert 'include "stdgates.inc";' in program.payload
     assert "gate ecr" not in program.payload

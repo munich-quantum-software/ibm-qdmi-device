@@ -357,9 +357,6 @@ int IBM_QDMI_device_session_query_device_property(
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
     const auto& metadata = session->metadata;
     switch (property) {
-    case QDMI_DEVICE_PROPERTY_CUSTOM3:
-      return copyString("mqt.readout.v1:measured:physical", size, value,
-                        sizeRet);
     case QDMI_DEVICE_PROPERTY_NAME:
       return copyString(metadata.name, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_VERSION:
@@ -732,7 +729,7 @@ int IBM_QDMI_device_session_query_operation_property(
       return copyOptional(data.arity, size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_PARAMETERSNUM:
       return copyOptional(data.parameters, size, value, sizeRet);
-    case IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS:
+    case IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS:
       require(data.name == "rzz" && data.parameters == 1,
               QDMI_ERROR_NOTSUPPORTED);
       return copyString(

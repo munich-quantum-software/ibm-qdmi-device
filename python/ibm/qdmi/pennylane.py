@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, ClassVar
 try:
     from mqt.core.plugins.pennylane import PennyLaneConfigurationError
     from mqt.core.plugins.pennylane.device import QDMIDevice
-    from mqt.core.qdmi import ProgramFormat
 except ImportError as error:
     msg = "Install 'ibm-qdmi[pennylane]' to use IBMDevice."
     raise ImportError(msg) from error
@@ -85,7 +84,6 @@ class IBMDevice(QDMIDevice):
                 device=device,
                 wires=wires,
                 job_parameters=job_parameters,
-                program_format=ProgramFormat.QASM3,
             )
         else:
             selected_id = self.qdmi_device_id if device_id is None else device_id
@@ -102,7 +100,6 @@ class IBMDevice(QDMIDevice):
                 wires=wires,
                 session_parameters=session,
                 job_parameters=job_parameters,
-                program_format=ProgramFormat.QASM3,
             )
 
 

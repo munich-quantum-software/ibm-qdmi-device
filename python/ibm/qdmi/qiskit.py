@@ -30,7 +30,7 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import Barrier, ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit
+from qiskit.circuit import ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
@@ -118,13 +118,12 @@ class IBMBackend(QDMIBackend):
         super()._add_operation_to_target(target, op, seen_gate_names, native=native)
 
     def _build_target(self) -> Target:
-        """Build the metadata target and add the barrier directive.
+        """Build the metadata target with advertised conditional execution.
 
         Returns:
             The device target, with durations in seconds.
         """
         target = super()._build_target()
-        target.add_instruction(Barrier, name="barrier")
         if any(operation.name() == "if_else" for operation in self.device.operations()):
             target.add_instruction(IfElseOp, name="if_else")
         return target

@@ -248,7 +248,8 @@ TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
   EXPECT_EQ(service.requests.size(), requestCount);
   ibm::Job retrieved(auth, "ibm_test", 2);
   retrieved.retrieve(job.id);
-  EXPECT_EQ(retrieved.programs, job.programs);
+  EXPECT_EQ(retrieved.programs,
+            (std::vector<std::string>{ibm::declareNativeGates(PROGRAM)}));
   EXPECT_EQ(retrieved.shots, job.shots);
   EXPECT_FALSE(retrieved.configurable());
   EXPECT_EQ(retrieved.results(0).shots, job.results(0).shots);
@@ -412,7 +413,8 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   const auto transported = ibm::declareNativeGates(second);
   EXPECT_EQ(service.submitted["params"]["pubs"],
             nlohmann::json::array(
-                {nlohmann::json::array({PROGRAM, nullptr, 3}),
+                {nlohmann::json::array(
+                     {ibm::declareNativeGates(PROGRAM), nullptr, 3}),
                  nlohmann::json::array({transported, nullptr, 3})}));
   service.status = "Completed";
   service.output["results"].push_back(nlohmann::json::parse(
@@ -425,7 +427,8 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   ibm::Job restored(auth, "ibm_test", 2);
   restored.retrieve(job.id);
   EXPECT_EQ(restored.programs,
-            (std::vector<std::string>{PROGRAM, transported}));
+            (std::vector<std::string>{ibm::declareNativeGates(PROGRAM),
+                                      transported}));
   EXPECT_EQ(restored.shots, 3);
   EXPECT_EQ(restored.results(1).shots, "0,1,0");
 }

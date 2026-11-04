@@ -94,10 +94,10 @@ def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[
     np.testing.assert_array_equal(circuit(), [[0, 1]] * 7)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     assert "qubit[" not in source
-    assert "bit[2] c;" in source
+    assert "bit[1] c;" in source
     assert "x $0;" in source
     assert "c[0] = measure $0;" in source
-    assert "c[1] = measure $1;" in source
+    assert "measure $1" not in source
     assert "measure $2" not in source
     assert device.submitted_jobs == 1
 

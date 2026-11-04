@@ -61,14 +61,9 @@ email = "lukas@mq.sc"
 executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
 mock = [ "ibm-qdmi[executor]" ]
 pennylane = [
-  """\
-  mqt-core[pennylane] @ git+https://github.com/munich-quantum-toolkit/core.git@5023c8c0996b313e5f551fd2630376439ac34e2c\
-  """,
+  "mqt-core[pennylane]>=4.1.2.dev0",
 ]
-qiskit = [
-  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@5023c8c0996b313e5f551fd2630376439ac34e2c",
-  "qiskit>=2.5"
-]
+qiskit = [ "mqt-core[qiskit]>=4.1.2.dev0", "qiskit>=2.5" ]
 
 [project.urls]
 Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
@@ -95,10 +90,7 @@ dev = [
   "qiskit-ibm-runtime~=0.50.0",
 ]
 test = [
-  """\
-  mqt-core[pennylane,qiskit] @ \
-  git+https://github.com/munich-quantum-toolkit/core.git@5023c8c0996b313e5f551fd2630376439ac34e2c\
-  """,
+  "mqt-core[pennylane,qiskit]>=4.1.2.dev0",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
@@ -175,6 +167,9 @@ cache-keys = [
   { file = "CMakeLists.txt" },
   { file = "cmake/**/*" },
 ]
+
+[tool.uv.sources]
+mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "6a7b9c99799e3a5d447f0760071c160cffeed35b" }
 
 
 [tool.cibuildwheel]

@@ -22,6 +22,7 @@
 #include "ibm_qdmi/device.h"
 
 #include "Http.hpp"
+#include "Job.hpp"
 #include "http_stub.hpp"
 
 #include "gtest/gtest.h"
@@ -509,7 +510,7 @@ TEST_F(DeviceTest, FractionalRzzReportsInclusiveParameterBounds) {
   initialize();
   const auto operations =
       handles<IBM_QDMI_Operation>(QDMI_DEVICE_PROPERTY_OPERATIONS);
-  const auto property = IBM_QDMI_OPERATION_PROPERTY_PARAMETER_DOMAINS;
+  const auto property = IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS;
   EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
                 session, operations.at(3), 0, nullptr, 0, nullptr, property, 0,
                 nullptr, nullptr),
@@ -677,8 +678,9 @@ TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
             1);
   const auto submitted = nlohmann::json::parse(http.requests()[3].body);
   EXPECT_EQ(submitted["cost"], 60);
-  EXPECT_EQ(submitted["params"]["pubs"][0],
-            nlohmann::json::array({PROGRAM, nullptr, 3}));
+  EXPECT_EQ(
+      submitted["params"]["pubs"][0],
+      nlohmann::json::array({ibm::declareNativeGates(PROGRAM), nullptr, 3}));
   queueStatus("Completed");
   IBM_QDMI_Device_Job retrieved = nullptr;
   ASSERT_EQ(IBM_QDMI_device_session_retrieve_device_job_by_id(

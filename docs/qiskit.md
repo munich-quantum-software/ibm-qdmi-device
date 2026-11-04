@@ -68,8 +68,9 @@ include that address in `no_proxy` if an HTTP proxy is configured.
 
 ## Compile and execute
 
-Compile against the backend's target, which describes its native gates, physical
-connectivity, and available calibrations:
+Follow MQT Core's
+[compile-and-run guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/qdmi_backend.html)
+with the selected IBM backend:
 
 ```python
 from mqt.core.mlir import compile_program

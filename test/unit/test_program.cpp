@@ -116,10 +116,16 @@ TEST(Program, DeclaresBareNativeGatesWithoutRewritingSource) {
   EXPECT_NE(prepared.find("gate rzz"), std::string::npos);
   EXPECT_TRUE(prepared.ends_with(program.substr(program.find("bit[2]"))));
   EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
-  EXPECT_EQ(ibm::declareNativeGates(PROGRAM), PROGRAM);
+  EXPECT_NE(ibm::declareNativeGates(PROGRAM).find("gate ecr"),
+            std::string::npos);
   const std::string selfDeclared =
       "OPENQASM 3; gate x a { U(pi,0,pi) a; } bit c; x $0; c = measure $0;";
-  EXPECT_EQ(ibm::declareNativeGates(selfDeclared), selfDeclared);
+  const auto withNative = ibm::declareNativeGates(selfDeclared);
+  EXPECT_NE(withNative.find("gate ecr"), std::string::npos);
+  EXPECT_NE(withNative.find("gate rzz"), std::string::npos);
+  EXPECT_TRUE(
+      withNative.ends_with(selfDeclared.substr(selfDeclared.find("gate x"))));
+  EXPECT_EQ(ibm::declareNativeGates(withNative), withNative);
 }
 
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
