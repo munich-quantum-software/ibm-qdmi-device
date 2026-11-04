@@ -32,16 +32,24 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(INSTALL_QDMI
       OFF
       CACHE BOOL "Install the upstream QDMI package")
-  set(QDMI_FIND_PACKAGE_ARGS FIND_PACKAGE_ARGS ${QDMI_VERSION})
   if(BUILD_IBM_QDMI_TESTS)
     # Released QDMI packages do not yet provide the shared query suite.
-    set(QDMI_FIND_PACKAGE_ARGS)
+    set(qdmi_find_package_mode "${FETCHCONTENT_TRY_FIND_PACKAGE_MODE}")
+    set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
   endif()
   FetchContent_Declare(
     qdmi
     GIT_REPOSITORY https://github.com/${QDMI_REPO_OWNER}/qdmi.git
     GIT_TAG ${QDMI_REV}
-    ${QDMI_FIND_PACKAGE_ARGS})
+    FIND_PACKAGE_ARGS ${QDMI_VERSION})
+  if(BUILD_IBM_QDMI_TESTS)
+    if(qdmi_find_package_mode STREQUAL "")
+      unset(FETCHCONTENT_TRY_FIND_PACKAGE_MODE)
+    else()
+      set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE "${qdmi_find_package_mode}")
+    endif()
+    unset(qdmi_find_package_mode)
+  endif()
   FetchContent_MakeAvailable(qdmi)
 
   FetchContent_Declare(
