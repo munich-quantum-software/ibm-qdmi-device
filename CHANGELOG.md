@@ -22,7 +22,6 @@ releases may include breaking changes.
 
 ### Changed
 
-- 📦 Stop publishing Windows ARM64 wheels ([#96]) ([**@denialhaag**]).
 - ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
   [**@burgholzer**])
 - ♻️ Limit native OpenQASM parsing to classical result layout extraction.
@@ -51,6 +50,10 @@ releases may include breaking changes.
   MQT Core for shared QDMI and Slurm workflows. ([#92]) ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
+
+### Removed
+
+- 📦 Stop publishing Windows ARM64 wheels ([#96]) ([**@denialhaag**]).
 
 ### Fixed
 
