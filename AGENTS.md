@@ -97,11 +97,11 @@ Keep live tests marked `live` and skipped before credential access unless
 categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
 before fixing them. Quantum checks require `--run-quantum` and a new explicit
-request: dispatch `live-tests.yml` on `main` with `suite=quantum` or add
-`live-qpu-tests` to a same-repository PR. The hardware job tests the C++ device
-and installed candidate wheel offline before running that wheel on hardware.
-Credentials are scoped to the final step. Ordinary CI, persistent labels, fork
-PRs, and workflow/job reruns must never authorize hardware execution.
+request: dispatch `live-tests.yml` on `main` with `suite=quantum`. The hardware
+job tests the C++ device and installed candidate wheel offline before running
+that wheel on hardware. Credentials are scoped to the final step. Ordinary CI,
+PR labels, fork PRs, and workflow/job reruns must never authorize hardware
+execution.
 
 The budget is one job each on Berlin and Aachen, two programs with 64 shots each
 per job, and at most 60 seconds of QPU execution per job. Never retry a

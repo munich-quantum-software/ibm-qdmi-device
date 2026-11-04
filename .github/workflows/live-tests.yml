@@ -20,8 +20,6 @@ on:
           - quantum
         default: metadata
         required: true
-  pull_request:
-    types: [labeled]
 permissions:
   contents: read
 
@@ -64,12 +62,7 @@ jobs:
 
   quantum:
     name: 💸 Live tests · IBM QPU
-    if: >-
-      github.run_attempt == 1 && (
-        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.suite == 'quantum') ||
-        (github.event_name == 'pull_request' && github.event.label.name == 'live-qpu-tests' &&
-         github.event.pull_request.head.repo.full_name == github.repository)
-      )
+    if: inputs.suite == 'quantum' && (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.run_attempt == 1)
     runs-on: ubuntu-26.04
     timeout-minutes: 130
     environment: ibm-quantum

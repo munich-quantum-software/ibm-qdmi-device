@@ -132,9 +132,7 @@ Reproduce compatibility failures with synthetic fixtures before fixing them.
 
 ## Gated quantum execution
 
-Hardware checks require an explicit, authorized request. Dispatch the hardware
-workflow on merged `main`, or add `live-qpu-tests` to a same-repository PR. Fork
-PRs remain offline. Main pushes and ordinary PR updates never run hardware.
+Hardware checks require an explicit, authorized dispatch on merged `main`:
 
 ```console
 gh workflow run live-tests.yml --ref main -f suite=quantum
@@ -146,11 +144,8 @@ native CTest, then builds and installs a candidate wheel. Its offline package
 and ABI tests must pass before hardware validation uses that same installation.
 Secrets are available only during the final test step.
 
-Adding the label starts one fresh validation of the PR merge commit. Keeping the
-label does not opt later commits into hardware checks. To request another run,
-remove and add the label again after authorizing another budget. Workflow and
-individual-job reruns reject hardware execution; they cannot repeat a
-submission. Removing the label does not cancel jobs already submitted.
+Workflow and individual-job reruns reject hardware execution. Request a fresh
+dispatch after authorizing another budget.
 
 Each eligible run uses this budget:
 
