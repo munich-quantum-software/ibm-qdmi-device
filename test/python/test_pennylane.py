@@ -38,8 +38,9 @@ from mqt.core.plugins.pennylane import (
 from mqt.core.plugins.pennylane.device import QDMIDevice
 from offline_service import CRN
 from pennylane import numpy as pnp
-from qiskit import QuantumCircuit, qasm3
+from qiskit import QuantumCircuit
 from qiskit.quantum_info import Operator as QiskitOperator
+from qiskit_service import submitted_circuit
 
 from ibm.qdmi import mock
 from ibm.qdmi.pennylane import IBMBerlinDevice, IBMDevice
@@ -93,12 +94,10 @@ def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[
 
     np.testing.assert_array_equal(circuit(), [[0, 1]] * 7)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert "qubit[" not in source
-    assert "bit[1] c;" in source
-    assert "x $0;" in source
-    assert "c[0] = measure $0;" in source
-    assert "measure $1" not in source
-    assert "measure $2" not in source
+    emitted = submitted_circuit(source)
+    assert emitted.num_clbits == 1
+    assert emitted.count_ops() == {"x": 1, "measure": 1}
+    assert all(emitted.find_bit(item.qubits[0]).index == 0 for item in emitted.data)
     assert device.submitted_jobs == 1
 
 
@@ -202,8 +201,8 @@ def test_parameter_shift_gradient(runtime: Runtime) -> None:
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gate_declarations(runtime: Runtime, name: str) -> None:
-    """Native ECR and RZZ survive serialization with importable declarations."""
+def test_native_gates_survive_serialization(runtime: Runtime, name: str) -> None:
+    """Native ECR and RZZ retain their names and ordered placements."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({
         "name": name,
@@ -224,8 +223,10 @@ def test_native_gate_declarations(runtime: Runtime, name: str) -> None:
 
     assert sum(circuit().values()) == 32
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert f"gate {name}" in source
-    assert "$0, $1" in source
+    emitted = submitted_circuit(source)
+    gates = [item for item in emitted.data if item.operation.name == name]
+    assert gates
+    assert all([emitted.find_bit(bit).index for bit in item.qubits] == [0, 1] for item in gates)
 
 
 def test_invalid_batch_submits_nothing(runtime: Runtime) -> None:
@@ -320,8 +321,11 @@ def test_qaoa_decomposition(runtime: Runtime, entangler: str) -> None:
     np.testing.assert_allclose(observed, expected, atol=0.04)
     assert qml.decomposition.enabled_graph() == graph_before
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert "sx $0;" in source
-    assert f"{entangler} $0, $1;" in source
+    emitted = submitted_circuit(source)
+    assert "sx" in emitted.count_ops()
+    gates = [item for item in emitted.data if item.operation.name == entangler]
+    assert gates
+    assert all([emitted.find_bit(bit).index for bit in item.qubits] == [0, 1] for item in gates)
 
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr", "rzz"])
@@ -343,7 +347,7 @@ def test_cnot_native_synthesis(runtime: Runtime, entangler: str) -> None:
     assert correlation == 1
     for request in runtime.snapshot()["submissions"]:
         for source, _, _ in request["params"]["pubs"]:
-            emitted = qasm3.loads(source)
+            emitted = submitted_circuit(source)
             assert set(emitted.count_ops()) <= {"x", "sx", "rz", entangler, "measure"}
 
 
@@ -362,7 +366,7 @@ def test_synthesized_cnot_preserves_directed_placement(runtime: Runtime, entangl
     allowed = runtime.snapshot()["configuration"]["coupling_map"]
     for request in runtime.snapshot()["submissions"]:
         for source, _, _ in request["params"]["pubs"]:
-            emitted = qasm3.loads(source)
+            emitted = submitted_circuit(source)
             for item in emitted.data:
                 if item.operation.name == entangler:
                     assert [emitted.find_bit(wire).index for wire in item.qubits] in allowed
@@ -394,14 +398,15 @@ def test_native_rzz_angle_folding(runtime: Runtime, angle: float) -> None:
     tape = qml.tape.QuantumScript([qml.IsingZZ(angle, [0, 1])], [qml.sample(wires=[0, 1])], shots=1)
     device.execute(tape)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    emitted = qasm3.loads(source)
+    emitted = submitted_circuit(source)
     assert set(emitted.count_ops()) <= {"x", "rz", "rzz", "measure"}
     for instruction in emitted.data:
         if instruction.operation.name == "rzz":
             assert 0 <= float(instruction.operation.params[0]) <= math.pi / 2
     expected = QuantumCircuit(emitted.num_qubits)
     expected.rzz(angle, 0, 1)
-    assert QiskitOperator(emitted.remove_final_measurements(inplace=False)).equiv(QiskitOperator(expected))
+    emitted.remove_final_measurements()
+    assert QiskitOperator(emitted).equiv(QiskitOperator(expected))
 
 
 def test_native_rzz_parameter_shift_gradient(runtime: Runtime) -> None:
@@ -422,7 +427,7 @@ def test_native_rzz_parameter_shift_gradient(runtime: Runtime) -> None:
     assert len(pubs) >= 2
     assert all(pub[2] == 4096 for pub in pubs)
     for source, _, _ in pubs:
-        emitted = qasm3.loads(source)
+        emitted = submitted_circuit(source)
         angles = [float(item.operation.params[0]) for item in emitted.data if item.operation.name == "rzz"]
         assert angles
         assert all(0 < angle <= math.pi / 2 for angle in angles)
@@ -446,7 +451,7 @@ def test_partial_gate_support(runtime: Runtime) -> None:
 
     np.testing.assert_array_equal(circuit(), [[1]] * 7)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    emitted = qasm3.loads(source)
+    emitted = submitted_circuit(source)
     for instruction in emitted.data:
         if instruction.operation.name == "x":
             assert emitted.find_bit(instruction.qubits[0]).index in range(1, 5)

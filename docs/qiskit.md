@@ -73,14 +73,13 @@ Follow MQT Core's
 with the selected IBM backend:
 
 ```python
-from mqt.core.mlir import compile_program
 from qiskit import QuantumCircuit, transpile
 
 circuit = QuantumCircuit(2, 2, name="bell", metadata={"experiment": "example"})
 circuit.h(0)
 circuit.cx(0, 1)
 circuit.measure([0, 1], [0, 1])
-compiled = compile_program(circuit, target=backend)
+compiled = backend.compile(circuit)
 job = backend.run(compiled, shots=128, memory=True)
 result = job.result()
 counts = result.get_counts()

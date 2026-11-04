@@ -76,6 +76,19 @@ def test_mock_round_trip_without_cloud_credentials(monkeypatch: pytest.MonkeyPat
     assert retrieved.get_shots(0) == result.get_memory(0)
 
 
+@pytest.mark.parametrize("name", ["x", "custom_x"])
+def test_mock_checks_native_names_after_qasm_declarations(name: str) -> None:
+    """Standard definitions become native instructions; other names fail."""
+    backend = IBMBackend(backend_name="fake_manila")
+    source = f"OPENQASM 3; gate {name} a {{ U(pi,0,pi) a; }} bit[1] c; {name} $0; c[0] = measure $0;"
+    job = backend.device.submit_job(source, ProgramFormat.QASM3, num_shots=4)
+    job.wait(10)
+    if name == "x":
+        assert job.get_shots() == ["1"] * 4
+    else:
+        assert job.check() == Job.Status.FAILED
+
+
 def test_unknown_fake_fails_locally() -> None:
     """A misspelled fake cannot fall through to hardware."""
     with pytest.raises(ValueError, match="Unknown fake backend"):
@@ -97,6 +110,7 @@ def test_mock_metadata_and_environment_selection(monkeypatch: pytest.MonkeyPatch
     backend = IBMBackend()
     official = FakeManilaV2()
     assert backend.num_qubits == official.num_qubits
+    assert backend.coupling_map is not None
     assert set(backend.coupling_map.get_edges()) == set(official.coupling_map.get_edges())
     assert {"x", "sx", "rz", "cx", "measure"} <= set(backend.target.operation_names)
 

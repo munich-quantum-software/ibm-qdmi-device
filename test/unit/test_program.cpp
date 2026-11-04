@@ -106,7 +106,7 @@ TEST(Program, RejectsExplicitOutputs) {
       QDMI_ERROR_NOTSUPPORTED);
 }
 
-TEST(Program, DeclaresBareNativeGatesWithoutRewritingSource) {
+TEST(Program, SuppliesNativeGateDeclarations) {
   const std::string program =
       "// ignored;\nOPENQASM /* ignored; */ 3;\nbit[2] c; "
       "ecr $3,$4; rzz(2.5e-1) $3,$4; "
@@ -125,25 +125,23 @@ TEST(Program, DeclaresBareNativeGatesWithoutRewritingSource) {
   EXPECT_NE(withNative.find("gate ecr"), std::string::npos);
   EXPECT_NE(withNative.find("gate rzz"), std::string::npos);
   EXPECT_EQ(withNative.find("gate x "), std::string::npos);
-  EXPECT_NE(withNative.find("gate mqt_x a { U(pi,0,pi) a; }"),
-            std::string::npos);
-  EXPECT_TRUE(withNative.ends_with("bit c; mqt_x $0; c = measure $0;"));
+  EXPECT_EQ(withNative.find("mqt_"), std::string::npos);
+  EXPECT_TRUE(withNative.ends_with("bit c; x $0; c = measure $0;"));
   EXPECT_EQ(ibm::declareNativeGates(withNative), withNative);
 }
 
-TEST(Program, PreservesCustomStandardGateBodiesAndAvoidsNameCollisions) {
+TEST(Program, RemovesStandardDefinitionsAndPreservesOtherSource) {
   const std::string source = "OPENQASM 3; // x stays in comments\n"
-                             "gate mqt_x a { U(0,0,0) a; } gate x a { h a; } "
+                             "gate x a { U(0,0,0) a; } "
                              "gate helper a,b { ctrl @ x a,b; } "
                              "bit c; x $0; helper $0,$1; c = measure $0;";
   const auto prepared = ibm::declareNativeGates(source);
   EXPECT_NE(prepared.find("// x stays in comments"), std::string::npos);
-  EXPECT_NE(prepared.find("gate mqt_x a { U(0,0,0) a; }"), std::string::npos);
-  EXPECT_NE(prepared.find("gate mqt_x_ a { h a; }"), std::string::npos);
-  EXPECT_NE(prepared.find("gate helper a,b { ctrl @ mqt_x_ a,b; }"),
+  EXPECT_EQ(prepared.find("gate x "), std::string::npos);
+  EXPECT_EQ(prepared.find("mqt_"), std::string::npos);
+  EXPECT_NE(prepared.find("gate helper a,b { ctrl @ x a,b; }"),
             std::string::npos);
-  EXPECT_TRUE(
-      prepared.ends_with("bit c; mqt_x_ $0; helper $0,$1; c = measure $0;"));
+  EXPECT_TRUE(prepared.ends_with("bit c; x $0; helper $0,$1; c = measure $0;"));
   EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
   ASSERT_EQ(ibm::outputRegisters(prepared).size(), 1);
 }

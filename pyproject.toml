@@ -169,7 +169,7 @@ cache-keys = [
 ]
 
 [tool.uv.sources]
-mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "d08a421a086f744eacfc677f873695298d8bcba6" }
+mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "8dcaff8d67709ee57b6f19634e2f620cb2360221" }
 
 
 [tool.cibuildwheel]
@@ -275,7 +275,7 @@ addopts = [
 ]
 filterwarnings = [
   "error",
-  "default::mqt.core.UntestedVersionWarning",
+  "default:.* is newer than the .*tested:UserWarning",
   # PennyLane pins Autograd <1.9; its wraps helper returns in finally.
   "ignore:'return' in a 'finally' block:SyntaxWarning:.*autograd[./\\\\]wrap_util",
 ]

@@ -75,7 +75,8 @@ def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
     pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
     for pub in pubs:
         emitted = submitted_circuit(pub[0])
-        assert emitted.num_qubits == emitted.num_clbits == 1
+        assert emitted.num_clbits == 1
+        assert all(emitted.find_bit(bit).index == 0 for item in emitted.data for bit in item.qubits)
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])

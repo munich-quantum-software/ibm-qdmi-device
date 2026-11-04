@@ -27,7 +27,7 @@
 #include <charconv>
 #include <cstddef>
 #include <limits>
-#include <map>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -79,6 +79,23 @@ std::vector<std::string_view> tokenize(std::string_view source) {
   }
   return tokens;
 }
+std::size_t skipGate(const std::vector<std::string_view>& tokens,
+                     std::size_t cursor) {
+  while (cursor < tokens.size() && tokens[cursor] != "{") {
+    ++cursor;
+  }
+  require(cursor < tokens.size());
+  std::size_t depth = 1;
+  while (depth != 0) {
+    require(++cursor < tokens.size());
+    if (tokens[cursor] == "{") {
+      ++depth;
+    } else if (tokens[cursor] == "}") {
+      --depth;
+    }
+  }
+  return cursor + 1;
+}
 std::size_t number(std::string_view token) {
   std::size_t result = 0;
   const auto parsed =
@@ -128,37 +145,29 @@ std::string declareNativeGates(std::string program) {
         "cp",  "crx", "cry",   "crz",    "ch", "swap", "ccx", "cswap",
         "cu",  "CX",  "phase", "cphase", "id", "u1",   "u2",  "u3",
     };
-    std::map<std::string_view, std::string> renamed;
-    for (const auto definition : definitions) {
-      if (STANDARD_NAMES.contains(definition)) {
-        auto replacement = "mqt_" + std::string(definition);
-        while (std::ranges::find(tokens, replacement) != tokens.end()) {
-          replacement += '_';
-        }
-        renamed.emplace(definition, std::move(replacement));
-      }
-    }
-    // A custom standard-name gate need not have the standard unitary.
-    std::string rewritten;
-    std::size_t copied = 0;
-    auto rewrittenInsertion = insertion;
-    for (const auto token : tokens) {
-      const auto replacement = renamed.find(token);
-      if (replacement == renamed.end()) {
+    std::vector<std::pair<std::size_t, std::size_t>> definitionsToRemove;
+    for (std::size_t index = 3; index + 1 < tokens.size(); ++index) {
+      if (tokens[index] != "gate") {
         continue;
       }
-      const auto offset =
-          static_cast<std::size_t>(token.data() - program.data());
-      rewritten.append(program, copied, offset - copied);
-      rewritten += replacement->second;
-      copied = offset + token.size();
-      if (offset < insertion) {
-        rewrittenInsertion += replacement->second.size() - token.size();
+      const auto end = skipGate(tokens, index + 2);
+      if (STANDARD_NAMES.contains(tokens[index + 1])) {
+        const auto begin =
+            static_cast<std::size_t>(tokens[index].data() - program.data());
+        const auto finish =
+            static_cast<std::size_t>(tokens[end - 1].data() - program.data()) +
+            1;
+        definitionsToRemove.emplace_back(begin, finish - begin);
+      }
+      index = end - 1;
+    }
+    for (const auto& [begin, length] :
+         definitionsToRemove | std::views::reverse) {
+      program.erase(begin, length);
+      if (begin < insertion) {
+        insertion -= length;
       }
     }
-    rewritten.append(program, copied);
-    program = std::move(rewritten);
-    insertion = rewrittenInsertion;
   }
   if (!declarations.empty()) {
     program.insert(insertion, declarations + '\n');
@@ -184,17 +193,7 @@ std::vector<Register> outputRegisters(const std::string& program) {
     const auto token = next();
     if (token == "gate") {
       require(depth == 0);
-      while (next() != "{") {
-      }
-      std::size_t gateDepth = 1;
-      while (gateDepth != 0) {
-        const auto gateToken = next();
-        if (gateToken == "{") {
-          ++gateDepth;
-        } else if (gateToken == "}") {
-          --gateDepth;
-        }
-      }
+      cursor = skipGate(tokens, cursor);
     } else if (token == "{") {
       ++depth;
     } else if (token == "}") {

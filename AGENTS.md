@@ -58,9 +58,9 @@ submission automatically or treat local handle cleanup as remote cancellation.
 Preserve physical qubit indices and classical-bit ordering through execution.
 Keep framework imports and package information commands free of live access.
 Keep native program readers limited to result layout extraction and required
-gate declarations for bare OpenQASM. Preserve gate bodies and stored source
-bytes. When adding the standard include, rename conflicting user-defined
-identifiers consistently. Compilation, routing, and instruction validation
+gate declarations for bare OpenQASM. Preserve stored source bytes. When adding
+the standard include, remove standard-gate redefinitions so calls retain their
+native instruction names. Compilation, routing, and instruction validation
 belong in Core and the IBM service.
 
 ## Build and Validation

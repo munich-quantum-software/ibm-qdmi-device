@@ -19,30 +19,29 @@
 
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING, Any
 
 try:
+    from mqt.core.mlir import CompiledProgram
     from mqt.core.plugins.qiskit.backend import QDMIBackend
-    from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
+    from mqt.core.plugins.qiskit.exceptions import CircuitValidationError
     from mqt.core.qdmi.builtin_driver import open_device
 except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import ClassicalRegister, Clbit, ControlFlowOp, IfElseOp, QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
 
 if TYPE_CHECKING:
-    from collections.abc import MutableSet, Sequence
+    from collections.abc import Sequence
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
     from mqt.core.qdmi import Device
-    from qiskit.transpiler import Target
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
 
     from .executor import Executor
@@ -103,72 +102,18 @@ class IBMBackend(QDMIBackend):
         )
         super().__init__(device=device, provider=provider, device_id=resolved_id)
 
-    def _add_operation_to_target(
-        self, target: Target, op: Device.Operation, seen_gate_names: MutableSet[str], *, native: bool = False
-    ) -> None:
-        """Keep unsupported or incomplete operation signatures out of the target."""
-        gate = self._map_operation_to_gate(op.name())
-        arity = op.qubits_num()
-        if gate is None or isinstance(gate, type) or arity not in {1, 2}:
-            return
-        if (arity == 1 and not op.sites()) or (arity == 2 and not op.site_pairs()):
-            return
-        if gate.num_qubits != arity or len(gate.params) != op.parameters_num():
-            return
-        super()._add_operation_to_target(target, op, seen_gate_names, native=native)
-
-    def _build_target(self) -> Target:
-        """Build the metadata target with advertised conditional execution.
-
-        Returns:
-            The device target, with durations in seconds.
-        """
-        target = super()._build_target()
-        if any(operation.name() == "if_else" for operation in self.device.operations()):
-            target.add_instruction(IfElseOp, name="if_else")
-        return target
-
     @staticmethod
     def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
-        """Validate bound instructions before any circuit in a batch is submitted.
+        """Require the measurements used to produce Sampler results.
 
         Returns:
-            The unchanged circuit, preserving physical and classical indices.
+            The unchanged circuit.
 
         Raises:
             mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
-                Measurements or finite parameters are missing.
-            UnsupportedOperationError: A control-flow form is unsupported.
+                The circuit has no measurement.
         """
-        measured = False
-        pending = [(circuit, False)]
-        while pending:
-            block, conditional = pending.pop()
-            for instruction in block.data:
-                operation = instruction.operation
-                if isinstance(operation, ControlFlowOp):
-                    if not isinstance(operation, IfElseOp) or conditional:
-                        msg = "Only unnested if/else conditions are supported."
-                        raise UnsupportedOperationError(msg)
-                    condition = operation.condition
-                    if not isinstance(condition, tuple) or not isinstance(condition[0], (Clbit, ClassicalRegister)):
-                        msg = "Conditions must compare a classical bit or register to an integer."
-                        raise UnsupportedOperationError(msg)
-                    operand, value = condition
-                    width = len(operand) if isinstance(operand, ClassicalRegister) else 1
-                    if width > 32 or not isinstance(value, int) or not 0 <= value < 2**width:
-                        msg = "Conditional operands must fit in at most 32 bits."
-                        raise CircuitValidationError(msg)
-                    pending.extend((body, True) for body in operation.blocks)
-                    continue
-                if conditional and operation.name in {"measure", "reset"}:
-                    msg = "Measurements and resets inside conditional blocks are unsupported."
-                    raise UnsupportedOperationError(msg)
-                if any(not math.isfinite(float(value)) for value in operation.params):
-                    msg = "Gate parameters must be finite real numbers."
-                    raise CircuitValidationError(msg)
-                measured |= operation.name == "measure"
-        if not measured:
+        if not any(instruction.operation.name == "measure" for instruction in circuit.data):
             msg = "At least one measurement is required."
             raise CircuitValidationError(msg)
         return circuit
@@ -185,7 +130,7 @@ class IBMBackend(QDMIBackend):
 
     def run(
         self,
-        run_input: QuantumCircuit | Sequence[QuantumCircuit],
+        run_input: QuantumCircuit | CompiledProgram | Sequence[QuantumCircuit | CompiledProgram],
         parameter_values: Sequence[ParametersType] | None = None,
         **options: Any,  # ruff: ignore[any-type]
     ) -> QDMIJob:
@@ -200,5 +145,16 @@ class IBMBackend(QDMIBackend):
         """
         if options.get("shots", self.options.shots) == 0:
             msg = "shots must be positive."
+            raise CircuitValidationError(msg)
+        programs = [run_input] if isinstance(run_input, (QuantumCircuit, CompiledProgram)) else run_input
+        if any(
+            isinstance(program, CompiledProgram)
+            and (
+                program.result_width == 0
+                or (program.result_layout is not None and program.result_layout.raw_width == 0)
+            )
+            for program in programs
+        ):
+            msg = "At least one measured output is required."
             raise CircuitValidationError(msg)
         return super().run(run_input, parameter_values, **options)

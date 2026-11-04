@@ -243,6 +243,15 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
             (std::vector{QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY,
                          IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
+  const auto capabilityText = handles<char>(QDMI_DEVICE_PROPERTY_CUSTOM3);
+  const auto capabilities = nlohmann::json::parse(capabilityText.data());
+  EXPECT_EQ(capabilities.at("schema"), "mqt.payload-capabilities.v1");
+  const auto& branch = capabilities.at("capabilities").at(0);
+  EXPECT_EQ(branch.at("id"), "forward-branching");
+  EXPECT_EQ(branch.at("constraints").at("max-condition-width"), 32);
+  EXPECT_EQ(branch.at("constraints").at("max-control-flow-nesting-depth"), 1);
+  EXPECT_EQ(branch.at("constraints").at("requires-register-equality"), 1);
+  EXPECT_EQ(branch.at("constraints").at("unitary-only-branches"), 1);
   for (const auto reserved : {8, 9}) {
     EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                   session, static_cast<QDMI_Device_Property>(reserved), 0,

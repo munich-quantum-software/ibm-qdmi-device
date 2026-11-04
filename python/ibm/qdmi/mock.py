@@ -68,7 +68,7 @@ def _sample(circuit: QuantumCircuit, shots: int, rng: np.random.Generator) -> di
     return {register.name: bits[:, [circuit.find_bit(bit).index for bit in register]] for register in circuit.cregs}
 
 
-def _simulate(request: dict[str, Any]) -> dict[str, Any]:
+def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
     """Execute the native Sampler or Executor payload using MQT Core.
 
     Returns:
@@ -89,6 +89,13 @@ def _simulate(request: dict[str, Any]) -> dict[str, Any]:
                 circuit = qasm3.loads(source)
             else:
                 (circuit,) = qpy.load(io.BytesIO(zlib.decompress(base64.b64decode(source["__value__"], validate=True))))
+            pending = [circuit]
+            while pending:
+                for instruction in pending.pop().data:
+                    if instruction.operation.name not in operations and instruction.operation.name != "barrier":
+                        msg = f"Unsupported native instruction: {instruction.operation.name}"
+                        raise ValueError(msg)
+                    pending.extend(getattr(instruction.operation, "blocks", ()))
             data = _sample(circuit, shots, rng)
             results.append({
                 "data": {
@@ -224,7 +231,9 @@ class _Runtime:
                     ):
                         return 400, {}
             identifier = "mock-" + uuid.uuid4().hex
-            self.jobs[identifier] = _Job(request, self.executor.submit(_simulate, request))
+            self.jobs[identifier] = _Job(
+                request, self.executor.submit(_simulate, request, set(self.backend.target.operation_names))
+            )
             return 200, {"id": identifier, "backend": self.backend.name}
         parts = path.split("/")
         if len(parts) not in {4, 5} or parts[1:3] != ["v1", "jobs"] or parts[3] not in self.jobs:

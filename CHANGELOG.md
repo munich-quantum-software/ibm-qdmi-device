@@ -13,7 +13,7 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Complete native OpenQASM 3 declarations for Runtime import while preserving
-  self-defined gate bodies under collision-free names. ([#94])
+  native standard names by removing their redefinitions. ([#94])
   ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
   property consumed by MQT Core. ([#94]) ([**@burgholzer**])
@@ -122,6 +122,8 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
+
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
@@ -153,5 +155,3 @@ _This is the initial release of the IBM QDMI Device._
 [Common Changelog]: https://common-changelog.org/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [documentation]: https://ibm-qdmi-device.readthedocs.io/en/latest/
-
-[#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94

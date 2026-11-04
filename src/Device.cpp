@@ -371,6 +371,10 @@ int IBM_QDMI_device_session_query_device_property(
               IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           },
           size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_CUSTOM3:
+      return copyString(
+          R"({"schema":"mqt.payload-capabilities.v1","capabilities":[{"id":"forward-branching","constraints":{"max-control-flow-nesting-depth":1,"max-condition-width":32,"requires-register-equality":1,"unitary-only-branches":1}}]})",
+          size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
