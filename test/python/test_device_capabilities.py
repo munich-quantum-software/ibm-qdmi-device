@@ -25,17 +25,17 @@ from typing import TYPE_CHECKING
 import pytest
 from mqt.core.plugins.qiskit.job import QDMIJob
 from qiskit import QuantumCircuit, transpile
-from qiskit_service import open_backend
+from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_metadata_target_and_transpilation(runtime: RuntimeProxy) -> None:
+def test_metadata_target_and_transpilation(runtime: Runtime) -> None:
     """Target properties use physical sites, signatures, and seconds."""
     backend = open_backend(runtime)
     assert backend.num_qubits == 5
-    assert set(backend.target.operation_names) == {"x", "sx", "rz", "cx", "measure", "reset", "barrier"}
+    assert set(backend.target.operation_names) == {"x", "sx", "rz", "cx", "measure", "reset", "barrier", "if_else"}
     assert set(backend.target["cx"]) == {(0, 1), (1, 2), (2, 3), (3, 4)}
     assert backend.target["cx"][0, 1].duration == pytest.approx(35556e-12)
     assert backend.target["cx"][0, 1].error == pytest.approx(0.02)
@@ -55,14 +55,15 @@ def test_metadata_target_and_transpilation(runtime: RuntimeProxy) -> None:
     assert Counter(result.get_memory()) == result.get_counts()
     assert set(result.get_counts()) == {"00", "11"}
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert "qubit[5] q;" in source
-    assert "cx q[3], q[4];" in source
-    assert "q[0]" not in source
+    emitted = submitted_circuit(source)
+    assert emitted.num_qubits == 5
+    entangler = next(item for item in emitted.data if item.operation.name == "cx")
+    assert [emitted.find_bit(bit).index for bit in entangler.qubits] == [3, 4]
     assert runtime.snapshot()["submissions"][0]["cost"] == 60
     assert runtime.snapshot()["submissions"][0]["params"]["support_qiskit"] is False
 
 
-def test_repeated_measurement_calibration_opens_backend(runtime: RuntimeProxy) -> None:
+def test_repeated_measurement_calibration_opens_backend(runtime: Runtime) -> None:
     """IBM's qubit and gate readout records describe one target calibration."""
     runtime.set_properties({
         "qubits": [
@@ -89,7 +90,7 @@ def test_repeated_measurement_calibration_opens_backend(runtime: RuntimeProxy) -
     assert backend.target["measure"][4,].error == pytest.approx(0.02)
 
 
-def test_incomplete_gate_signature_is_not_exposed(runtime: RuntimeProxy) -> None:
+def test_incomplete_gate_signature_is_not_exposed(runtime: Runtime) -> None:
     """Missing or contradictory metadata cannot widen the transpilation target."""
     gates = runtime.snapshot()["configuration"]["gates"]
     gates[0]["parameters"] = ["unexpected"]

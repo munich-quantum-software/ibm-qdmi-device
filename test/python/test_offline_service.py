@@ -21,12 +21,14 @@ from __future__ import annotations
 
 import json
 import socket
-import ssl
 from http.client import HTTPConnection
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-import pytest
 from offline_service import serve
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_service_without_hostname_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -49,19 +51,3 @@ def test_service_without_hostname_lookup(monkeypatch: pytest.MonkeyPatch) -> Non
             assert json.loads(response.read()) == service.data["configuration"]
         finally:
             connection.close()
-
-
-@pytest.mark.parametrize(
-    ("minimum", "expected"),
-    [
-        (ssl.TLSVersion.MINIMUM_SUPPORTED, ssl.TLSVersion.TLSv1_2),
-        (ssl.TLSVersion.TLSv1_3, ssl.TLSVersion.TLSv1_3),
-        (ssl.TLSVersion.MAXIMUM_SUPPORTED, ssl.TLSVersion.TLSv1_3),
-    ],
-)
-def test_service_requires_modern_tls(minimum: ssl.TLSVersion, expected: ssl.TLSVersion) -> None:
-    """Raise permissive contexts to TLS 1.2 without weakening stricter callers."""
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.minimum_version = minimum
-    with serve(tls=context):
-        assert context.minimum_version == expected

@@ -21,6 +21,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <ibm-qdmi-device/diagnostics.h>
 #include <map>
@@ -68,7 +69,7 @@ struct Hooks {
 Hooks& hooks();
 } // namespace internal
 /// An internal status-only exception; never carries server text or credentials.
-struct Failure {
+struct Failure : std::exception {
   explicit Failure(int result,
                    IBM_QDMI_Diagnostic reason = IBM_QDMI_DIAGNOSTIC_NONE)
       : status(result), diagnostic(reason) {}

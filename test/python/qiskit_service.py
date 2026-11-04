@@ -19,23 +19,39 @@
 
 from __future__ import annotations
 
+import base64
+import io
 import json
+import zlib
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field
-from multiprocessing import get_context
-from multiprocessing.managers import BaseManager
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
+from mqt.core.mlir import sample
 from offline_service import CRN, serve
-from qiskit import qasm3
-from qiskit.providers.basic_provider import BasicSimulator
-
-from ibm.qdmi.qiskit import IBMBackend
+from qiskit import qasm3, qpy
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from offline_service import Service
+    from qiskit import QuantumCircuit
+
+    from ibm.qdmi.qiskit import IBMBackend
+
+
+def submitted_circuit(source: str | dict[str, Any]) -> QuantumCircuit:
+    """Decode either circuit transport using Qiskit's reference readers.
+
+    Returns:
+        A circuit parsed independently of the native implementation.
+    """
+    if isinstance(source, dict):
+        assert source["__type__"] == "QuantumCircuit"
+        (circuit,) = qpy.load(io.BytesIO(zlib.decompress(base64.b64decode(source["__value__"]))))
+        return circuit
+    return qasm3.loads(source)
 
 
 @dataclass
@@ -102,7 +118,7 @@ class Runtime:
 
     @staticmethod
     def simulate(request: dict[str, Any]) -> dict[str, Any]:
-        """Simulate the actual submitted OpenQASM and encode IBM-shaped results.
+        """Simulate the submitted circuit and encode IBM-shaped results.
 
         Returns:
             Classified per-register samples in deliberately reversed key order.
@@ -110,18 +126,14 @@ class Runtime:
         outputs = []
         for source, parameters, shots in request["params"]["pubs"]:
             assert parameters is None
-            circuit = qasm3.loads(source)
-            memory = (
-                BasicSimulator()
-                .run(circuit.decompose(reps=4), shots=shots, memory=True, seed_simulator=7)
-                .result()
-                .get_memory()
-            )
+            circuit = submitted_circuit(source)
+            program = source if isinstance(source, str) else circuit
+            memory = [bits for bits, count in sample(program, shots=shots, seed=7).items() for _ in range(count)]
             data = {}
             for register in reversed(circuit.cregs):
                 samples = []
-                for sample in memory:
-                    integer = int(sample.replace(" ", ""), 2)
+                for bits in memory:
+                    integer = int(bits.replace(" ", ""), 2)
                     value = sum(
                         ((integer >> circuit.find_bit(bit).index) & 1) << index for index, bit in enumerate(register)
                     )
@@ -129,6 +141,45 @@ class Runtime:
                 data[register.name] = {"samples": samples, "num_bits": len(register)}
             outputs.append({"data": data})
         return {"results": outputs}
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return recorded offline state without exposing server internals."""
+        return deepcopy({
+            "url": self.service.url,
+            "requests": self.service.requests,
+            "submissions": self.submissions,
+            "cancellations": self.cancellations,
+            "results": self.results,
+            "configuration": self.service.data["configuration"],
+        })
+
+    def set_executor_result(self, result: dict[str, Any]) -> None:
+        """Supply a synthetic Executor response without simulating samplex."""
+        self.executor_result = deepcopy(result)
+
+    def set_state(self, state: str, fail_submission: int) -> None:
+        """Configure deterministic failure injection."""
+        self.state = state
+        self.fail_submission = fail_submission
+
+    def set_configuration(self, key: str, value: object) -> None:
+        """Override one synthetic metadata field before opening a session."""
+        self.service.data["configuration"][key] = deepcopy(value)
+
+    def set_properties(self, value: object) -> None:
+        """Replace synthetic calibration metadata before opening a session."""
+        self.service.data["properties"] = deepcopy(value)
+
+    def set_failure(self, category: str) -> None:
+        """Select a synthetic result or authentication failure."""
+        self.cancel_failure = category == "cancellation"
+        if self.cancel_failure:
+            self.state = "Queued"
+        self.status_unavailable = category == "status"
+        self.invalid_results = category == "results"
+        self.mismatch_retrieval = category == "retrieval"
+        if category == "authentication":
+            self.service.errors["auth"] = 401
 
 
 def configure(service: Service) -> Runtime:
@@ -159,124 +210,25 @@ def configure(service: Service) -> Runtime:
     return runtime
 
 
-class RuntimeServer:
-    """Own a synthetic HTTP server in a process separate from native bindings."""
-
-    def __init__(self) -> None:
-        """Start the synthetic HTTP service and configure its backend."""
-        self.context = serve()
-        self.runtime = configure(self.context.__enter__())
-
-    def snapshot(self) -> dict[str, Any]:
-        """Return recorded offline state without exposing server internals."""
-        return {
-            "url": self.runtime.service.url,
-            "requests": self.runtime.service.requests,
-            "submissions": self.runtime.submissions,
-            "cancellations": self.runtime.cancellations,
-            "results": self.runtime.results,
-            "configuration": self.runtime.service.data["configuration"],
-        }
-
-    def set_executor_result(self, result: dict[str, Any]) -> None:
-        """Supply a synthetic Executor response without simulating samplex."""
-        self.runtime.executor_result = result
-
-    def set_state(self, state: str, fail_submission: int) -> None:
-        """Configure deterministic failure injection."""
-        self.runtime.state = state
-        self.runtime.fail_submission = fail_submission
-
-    def set_configuration(self, key: str, value: object) -> None:
-        """Override one synthetic metadata field before opening a session."""
-        self.runtime.service.data["configuration"][key] = value
-
-    def set_properties(self, value: object) -> None:
-        """Replace synthetic calibration metadata before opening a session."""
-        self.runtime.service.data["properties"] = value
-
-    def set_failure(self, category: str) -> None:
-        """Select a synthetic result or authentication failure."""
-        self.runtime.cancel_failure = category == "cancellation"
-        if self.runtime.cancel_failure:
-            self.runtime.state = "Queued"
-        self.runtime.status_unavailable = category == "status"
-        self.runtime.invalid_results = category == "results"
-        self.runtime.mismatch_retrieval = category == "retrieval"
-        if category == "authentication":
-            self.runtime.service.errors["auth"] = 401
-
-    def close(self) -> None:
-        """Stop the HTTP server before its owning process exits."""
-        self.context.__exit__(None, None, None)
-
-
-class RuntimeProxy(Protocol):
-    """The methods exposed by the multiprocessing manager."""
-
-    def snapshot(self) -> dict[str, Any]:
-        """Return the synthetic state."""
-        ...
-
-    def set_executor_result(self, result: dict[str, Any]) -> None:
-        """Supply a synthetic Executor response."""
-        ...
-
-    def set_state(self, state: str, fail_submission: int) -> None:
-        """Change synthetic job behavior."""
-        ...
-
-    def set_failure(self, category: str) -> None:
-        """Select a synthetic failure."""
-        ...
-
-    def close(self) -> None:
-        """Stop the synthetic service."""
-        ...
-
-    def set_configuration(self, key: str, value: object) -> None:
-        """Override one backend configuration field."""
-        ...
-
-    def set_properties(self, value: object) -> None:
-        """Replace backend calibration metadata."""
-        ...
-
-
-class RuntimeManager(BaseManager):
-    """Own the separate process hosting the synthetic service."""
-
-    if TYPE_CHECKING:
-
-        def runtime(self) -> RuntimeProxy:
-            """Create a proxy using the manager's registered factory."""
-            ...
-
-
-RuntimeManager.register("runtime", RuntimeServer)
-
-
 @contextmanager
-def remote_runtime() -> Generator[RuntimeProxy, None, None]:
-    """Host HTTP outside the native binding's Python GIL.
+def runtime_service() -> Generator[Runtime, None, None]:
+    """Run the synthetic HTTP service on a background thread.
 
     Yields:
-        A local IPC proxy for inspecting and configuring the synthetic service.
+        The service's recorded state and failure controls.
     """
-    with RuntimeManager(ctx=get_context("spawn")) as manager:
-        proxy = manager.runtime()
-        try:
-            yield proxy
-        finally:
-            proxy.close()
+    with serve() as service:
+        yield configure(service)
 
 
-def open_backend(runtime: RuntimeProxy) -> IBMBackend:
+def open_backend(runtime: Runtime) -> IBMBackend:
     """Open a fresh installed QDMI device against the synthetic endpoints.
 
     Returns:
         The public IBM backend.
     """
+    from ibm.qdmi.qiskit import IBMBackend  # ruff: ignore[import-outside-top-level]
+
     return IBMBackend(
         api_key="synthetic-key",
         instance_crn=CRN,

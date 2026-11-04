@@ -16,8 +16,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 PROJECT_NAME           = "IBM QDMI Device"
-PROJECT_BRIEF          = "IBM backend queries, OpenQASM 3 execution, and QDMI interfaces"
-OUTPUT_DIRECTORY       = _build/doxygen
+PROJECT_BRIEF          = "IBM QDMI device interface"
+OUTPUT_DIRECTORY       = "$(IBM_QDMI_DOCS_OUTPUT)"
 INPUT                  = "@CMAKE_CURRENT_BINARY_DIR@/include/ibm_qdmi" \
                          "@IBM_QDMI_UPSTREAM_HEADERS@" \
                          "@PROJECT_SOURCE_DIR@/include/ibm-qdmi-device"
@@ -32,14 +32,12 @@ EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO
 SOURCE_BROWSER         = NO
 INLINE_SOURCES         = NO
-# Breathe 5 matches doxygenfile paths against Doxygen's file names, which
-# include directories only for duplicates.
 FULL_PATH_NAMES        = NO
 GENERATE_HTML          = YES
-HTML_OUTPUT            = html
+HTML_OUTPUT            = cpp
 GENERATE_TREEVIEW      = YES
 DISABLE_INDEX          = NO
-GENERATE_XML           = YES
+GENERATE_XML           = NO
 GENERATE_LATEX         = NO
 GENERATE_MAN           = NO
 GENERATE_RTF           = NO

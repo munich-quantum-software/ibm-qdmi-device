@@ -23,9 +23,7 @@ from collections import Counter
 from typing import TYPE_CHECKING
 
 from mqt.core.qdmi import Job, ProgramFormat
-from qiskit import QuantumCircuit, transpile
-
-from ibm.qdmi.serializers import qiskit_to_qasm3
+from qiskit import QuantumCircuit, qasm3, transpile
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -82,7 +80,7 @@ def validate_execution(open_backend: Callable[[], IBMBackend], *, timeout: int =
             circuits.append(circuit)
         # Level 2 searches calibrated layouts even when the trivial layout fits.
         compiled = transpile(circuits, backend, optimization_level=2, seed_transpiler=7, num_processes=1)
-        programs = [qiskit_to_qasm3(circuit, backend.num_qubits) for circuit in compiled]
+        programs = [qasm3.dumps(circuit) for circuit in compiled]
         category = "submission"
         # One explicit QDMI job prevents adapter fallback into separate paid jobs.
         job = backend.device.submit_job(programs, ProgramFormat.QASM3, 64)

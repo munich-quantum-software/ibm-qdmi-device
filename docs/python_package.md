@@ -49,6 +49,6 @@ MQT Core configuration.
 
 The optional [Qiskit integration](qiskit.md) supports transpilation, sampling,
 and energy estimation. The [PennyLane integration](pennylane.md) supports
-finite-shot QNodes and gradients. Both use MQT Core's shared QDMI adapters.
-Start with the [examples](examples.md) to run workloads on a local simulator
-before selecting IBM hardware.
+finite-shot QNodes and gradients. Both use MQT Core's shared QDMI adapters. See
+[MQT Core's QDMI guides](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/)
+for framework usage and local simulation.

@@ -25,7 +25,7 @@ import pytest
 from offline_service import CRN
 from qiskit import qasm3
 from qiskit.utils import should_run_in_parallel
-from qiskit_service import open_backend, remote_runtime
+from qiskit_service import open_backend, runtime_service
 from quantum_checks import valid_results, validate_execution
 
 from ibm.qdmi.qiskit import IBMBackend
@@ -52,7 +52,7 @@ def test_hardware_contract_offline(
     monkeypatch.setenv("QISKIT_PARALLEL", "TRUE")
     should_run_in_parallel.cache_clear()
     request.addfinalizer(should_run_in_parallel.cache_clear)
-    with remote_runtime() as runtime:
+    with runtime_service() as runtime:
         if failure in {"Queued", "Failed"}:
             runtime.set_state(failure, 0)
         elif failure == "submission":
@@ -127,7 +127,7 @@ def test_result_mismatch() -> None:
 
 def test_calibrated_layout() -> None:
     """Avoid a connected but noisy trivial layout without relaxing acceptance."""
-    with remote_runtime() as runtime:
+    with runtime_service() as runtime:
         runtime.set_properties({
             "qubits": [[{"name": "readout_error", "value": 0.4 if site < 2 else 0.001}] for site in range(5)],
             "gates": [

@@ -1,44 +1,89 @@
-# Native and package builds
-/build/
-/dist/
-/wheelhouse/
-*.egg-info/
-_skbuild/
-compile_commands.json
-.ccache/
-cmake-build-*/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 *.so
 *.dylib
 *.dll
-*.gcda
-*.gcno
-*.profraw
 
-# Python and development environments
-__pycache__/
-*.py[cod]
-.venv*/
+# Packaging
+/build/
+/dist/
+.eggs/
+*.egg
+*.egg-info/
+/_skbuild/
+/wheelhouse/
+
+# Testing
+.coverage
+.coverage.*
+.hypothesis/
 .nox/
 .pytest_cache/
-.ruff_cache/
-.cache/
-.coverage*
+.tox/
+*.cover
+*.profraw
+*.gcda
+*.gcno
 coverage.xml
+coverage-*.xml
 htmlcov/
-python/**/_version.py
 
 # Documentation
 docs/_build/
+docs/**/build/
+docs/api/
 
-# Credentials and editor state
+# Environments
 .env
 .env.*
 !.env.example
+!.env.*.example
+.venv*/
+env/
+venv/
+
+# Tool caches
+.cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.rumdl_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Versioning
+python/**/_version.py
+src/**/_version.py
+
+# CMake
+.ccache/
+/build_*/
+/cmake-build-*/
+/out/build/
+test/**/build/
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+CTestTestfile.cmake
+cmake_install.cmake
+compile_commands.json
+
+# Editors
 .idea/
-.vscode/
 .vs/
+.vscode/
+*.swp
+*~
+
+# Operating systems
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
 ehthumbs.db
-*~
-*.swp

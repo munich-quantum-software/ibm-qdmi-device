@@ -43,7 +43,3 @@ if(WIN32)
 endif()
 gtest_discover_tests(integration_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS integration
                                                                           DISCOVERY_TIMEOUT 60)
-
-add_executable(ibm-qdmi-native-example "${PROJECT_SOURCE_DIR}/examples/native/execute.c")
-target_compile_features(ibm-qdmi-native-example PRIVATE c_std_17)
-target_link_libraries(ibm-qdmi-native-example PRIVATE ibm-qdmi-device::ibm-qdmi-device)

@@ -1,21 +1,17 @@
 name: Live IBM metadata
 on:
   workflow_dispatch:
-    inputs:
-      backend:
-        description: Backend metadata to validate (no quantum jobs)
-        type: choice
-        options: [both, ibm_berlin, ibm_aachen]
-        default: both
+  workflow_call:
+    secrets:
+      IBM_QUANTUM_API_KEY:
+        required: true
+      IBM_QUANTUM_INSTANCE_CRN:
         required: true
 permissions:
   contents: read
-concurrency:
-  group: live-ibm-metadata
-  cancel-in-progress: false
 jobs:
   metadata:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     environment: ibm-quantum
@@ -24,7 +20,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: "3.14"
           enable-cache: false
@@ -39,8 +35,7 @@ jobs:
         env:
           IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
           IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
-          IBM_QUANTUM_BACKEND: ${{ inputs.backend }}
         run: >-
           build/live/venv/bin/python -m pytest test/python/test_live_metadata.py
-          --run-live --ibm-backend "$IBM_QUANTUM_BACKEND"
+          --run-live --ibm-backend both
           -n 0 --tb=line --show-capture=no

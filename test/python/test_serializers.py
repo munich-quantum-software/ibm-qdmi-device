@@ -26,13 +26,13 @@ from typing import TYPE_CHECKING
 import pytest
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit import Parameter
-from qiskit_service import open_backend
+from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> None:
+def test_classical_registers_batch_and_ordered_memory(runtime: Runtime) -> None:
     """Register names, declaration order, memory, and experiments survive a batch."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
@@ -58,7 +58,7 @@ def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> 
     assert [pub[2] for pub in pubs] == [9, 9]
 
 
-def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
+def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
     """Binding preserves an independently named classical register."""
     backend = open_backend(runtime)
     theta = Parameter("theta")
@@ -71,12 +71,14 @@ def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
     assert job.result().get_counts(0) == {"1": 7}
     assert job.result().get_counts(1) == {"0": 7}
     pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
-    assert all("bit[1] c0;" in pub[0] for pub in pubs)
+    for pub in pubs:
+        emitted = submitted_circuit(pub[0])
+        assert emitted.num_qubits == emitted.num_clbits == 1
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str) -> None:
-    """Native nonstandard gates remain named operations with importable declarations."""
+def test_native_gates_preserve_physical_sites(runtime: Runtime, name: str) -> None:
+    """QPY preserves named ECR/RZZ gates and their physical sites."""
     config = runtime.snapshot()["configuration"]
     config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[3, 4]]})
     runtime.set_configuration("gates", config["gates"])
@@ -92,5 +94,7 @@ def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str)
     assert sum(result.get_counts().values()) == 32
     assert Counter(result.get_memory()) == result.get_counts()
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert f"gate {name}" in source
-    assert "q[3], q[4]" in source
+    emitted = submitted_circuit(source)
+    assert emitted.count_ops()[name] == 1
+    instruction = next(item for item in emitted.data if item.operation.name == name)
+    assert [emitted.find_bit(bit).index for bit in instruction.qubits] == [3, 4]

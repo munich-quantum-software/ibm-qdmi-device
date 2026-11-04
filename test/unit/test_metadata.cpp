@@ -74,7 +74,10 @@ TEST(Metadata, MissingAndInvalidCalibrationIsNotZero) {
                      .t1);
   }
   data["properties"]["qubits"][0][0] = {
-      {"name", "T1"}, {"value", 1}, {"unit", "unknown"}};
+      {"name", "T1"},
+      {"value", 1},
+      {"unit", "unknown"},
+  };
   EXPECT_FALSE(ibm::parseMetadata(data["configuration"], data["properties"])
                    .sites[0]
                    .t1);
@@ -101,8 +104,11 @@ TEST(Metadata, RejectsInconsistentTopologyAndStatus) {
 
 TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
   auto data = fixture();
-  data["configuration"]["supported_instructions"] = {"measure", "reset",
-                                                     "delay"};
+  data["configuration"]["supported_instructions"] = {
+      "measure",
+      "reset",
+      "delay",
+  };
   data["properties"]["qubits"][0].push_back(
       {{"name", "readout_length"}, {"value", 1.5}, {"unit", "us"}});
   data["properties"]["qubits"][0].push_back(
@@ -130,17 +136,34 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
                 .operations.size(),
             3);
 }
+
+TEST(Metadata, ExposesAdvertisedConditionalCapability) {
+  auto data = fixture();
+  data["configuration"]["supported_instructions"] = {"if_else"};
+  const auto metadata =
+      ibm::parseMetadata(data["configuration"], data["properties"]);
+  const auto& conditional = metadata.operations.back();
+  EXPECT_EQ(conditional.name, "if_else");
+  EXPECT_FALSE(conditional.arity.has_value());
+  EXPECT_FALSE(conditional.parameters.has_value());
+  EXPECT_TRUE(conditional.sites.empty());
+}
 TEST(Metadata, MergesRepeatedMeasurementCalibration) {
   auto data = fixture();
   data["configuration"]["supported_instructions"] = {"measure"};
   data["properties"]["qubits"][0].push_back(
       {{"name", "readout_length"}, {"value", 1.5}, {"unit", "us"}});
-  data["properties"]["gates"].push_back(
-      {{"gate", "measure"},
-       {"qubits", {0}},
-       {"parameters",
-        {{{"name", "gate_length"}, {"value", 2}, {"unit", "us"}},
-         {{"name", "gate_error"}, {"value", 0.03}}}}});
+  data["properties"]["gates"].push_back({
+      {"gate", "measure"},
+      {"qubits", {0}},
+      {
+          "parameters",
+          {
+              {{"name", "gate_length"}, {"value", 2}, {"unit", "us"}},
+              {{"name", "gate_error"}, {"value", 0.03}},
+          },
+      },
+  });
   const auto metadata =
       ibm::parseMetadata(data["configuration"], data["properties"]);
   const auto& measurement = metadata.operations[3];
@@ -187,10 +210,13 @@ TEST(Metadata, RejectsRepeatedGateCalibration) {
   }
 }
 TEST(Metadata, InvalidErrorsPreserveEarlierCalibration) {
-  for (const auto& invalid :
-       {nlohmann::json{}, nlohmann::json("invalid"), nlohmann::json(-0.1),
-        nlohmann::json(1.1),
-        nlohmann::json(std::numeric_limits<double>::infinity())}) {
+  for (const auto& invalid : {
+           nlohmann::json{},
+           nlohmann::json("invalid"),
+           nlohmann::json(-0.1),
+           nlohmann::json(1.1),
+           nlohmann::json(std::numeric_limits<double>::infinity()),
+       }) {
     auto data = fixture();
     data["configuration"]["supported_instructions"] = {"measure"};
     data["properties"]["qubits"][0].push_back(

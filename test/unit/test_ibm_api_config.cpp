@@ -34,12 +34,14 @@
 
 namespace {
 ibm::Configuration configuration() {
-  return {.apiKey = "synthetic-key",
-          .backend = "ibm_test",
-          .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
-          .apiKeyConfigured = true,
-          .backendConfigured = true,
-          .crnConfigured = true};
+  return {
+      .apiKey = "synthetic-key",
+      .backend = "ibm_test",
+      .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
+      .apiKeyConfigured = true,
+      .backendConfigured = true,
+      .crnConfigured = true,
+  };
 }
 template <class Function> void expectFailure(Function&& function, int status) {
   try {
@@ -65,10 +67,13 @@ TEST(Configuration, RegionsAndOverrides) {
                 QDMI_ERROR_PERMISSIONDENIED);
 }
 TEST(Configuration, RejectsUnsafeEndpointsAndInvalidSelection) {
-  for (const auto* url :
-       {"http://example.com", "file:///tmp/test",
-        "https://user:secret@example.com", "http://127.0.0.1.example.com",
-        "https://example.com?token=secret"}) {
+  for (const auto* url : {
+           "http://example.com",
+           "file:///tmp/test",
+           "https://user:secret@example.com",
+           "http://127.0.0.1.example.com",
+           "https://example.com?token=secret",
+       }) {
     EXPECT_FALSE(ibm::validEndpoint(url));
   }
   auto config = configuration();
@@ -84,8 +89,18 @@ TEST(Configuration, RequestTimeoutHasPortableBounds) {
   EXPECT_EQ(ibm::parseRequestTimeout("1"), std::chrono::milliseconds{1});
   EXPECT_EQ(ibm::parseRequestTimeout("2147483647"),
             std::chrono::milliseconds{2147483647});
-  for (const auto* value : {"", "0", "-1", "+1", " 1", "1 ", "1.5", "1ms",
-                            "2147483648", "9999999999999999999999"}) {
+  for (const auto* value : {
+           "",
+           "0",
+           "-1",
+           "+1",
+           " 1",
+           "1 ",
+           "1.5",
+           "1ms",
+           "2147483648",
+           "9999999999999999999999",
+       }) {
     expectFailure([&] { static_cast<void>(ibm::parseRequestTimeout(value)); },
                   QDMI_ERROR_INVALIDARGUMENT);
   }
@@ -200,9 +215,16 @@ TEST_F(ConfigurationFileTest, ExplicitTokenSkipsFileAccess) {
 }
 
 TEST_F(ConfigurationFileTest, RejectsMalformedFilesAndAllowsRecovery) {
-  for (const auto& content :
-       std::vector<std::string>{"", "\n", "key\n\n", "key\r", "ke\ny", "ke\ry",
-                                std::string("ke\0y", 4), "key\xff"}) {
+  for (const auto& content : std::vector<std::string>{
+           "",
+           "\n",
+           "key\n\n",
+           "key\r",
+           "ke\ny",
+           "ke\ry",
+           std::string("ke\0y", 4),
+           "key\xff",
+       }) {
     write(content);
     expectFailure([&] { (void)ibm::resolve(config()); },
                   QDMI_ERROR_INVALIDARGUMENT);

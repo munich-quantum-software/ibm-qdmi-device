@@ -28,7 +28,6 @@ import argparse
 import contextlib
 import os
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -72,22 +71,18 @@ def _run_tests(
     session: nox.Session,
     *,
     install_args: Sequence[str] = (),
-    dependency_groups: Sequence[str] = (),
-    extra_command: Sequence[str] = (),
     pytest_run_args: Sequence[str] = (),
 ) -> None:
     env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
     run_args = [
         "uv",
         "run",
+        "--no-editable",
         "--no-dev",
         "--group",
         "test",
-        *(argument for group in dependency_groups for argument in ("--group", group)),
         *install_args,
     ]
-    if extra_command:
-        session.run(*run_args, *extra_command, env=env)
     session.run(
         *run_args,
         "pytest",
@@ -101,7 +96,7 @@ def _run_tests(
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, default=True)
 def tests(session: nox.Session) -> None:
     """Run the test suite."""
-    _run_tests(session)
+    _run_tests(session, install_args=("--extra", "executor"))
 
 
 @nox.session(python="3.14", reuse_venv=True)
@@ -116,36 +111,11 @@ def minimums(session: nox.Session) -> None:
     with preserve_lockfile():
         _run_tests(
             session,
-            install_args=["--resolution=lowest-direct"],
+            install_args=["--extra", "executor", "--resolution=lowest-direct"],
             pytest_run_args=["-Wdefault"],
         )
         env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
         session.run("uv", "tree", "--frozen", env=env)
-
-
-@nox.session(python="3.14", reuse_venv=True)
-def examples(session: nox.Session) -> None:
-    """Exercise the runnable examples with local simulators and loopback IBM."""
-    _run_tests(
-        session,
-        dependency_groups=["examples"],
-        extra_command=["python", "test/examples/build_native.py"],
-        pytest_run_args=["test/examples", "-n", "0"],
-    )
-
-
-@nox.session(python="3.13", reuse_venv=True, default=False)
-def chemistry(session: nox.Session) -> None:
-    """Exercise the complete H2 chemistry workflow on the local simulator."""
-    if sys.platform == "win32":
-        session.skip("PySCF requires Linux or macOS.")
-    # PySCF's OpenMP library needs static TLS space after the other native imports.
-    session.env["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=16384"
-    _run_tests(
-        session,
-        dependency_groups=["chemistry"],
-        pytest_run_args=["test/chemistry", "-n", "0"],
-    )
 
 
 @nox.session(python="3.14", reuse_venv=True)
@@ -158,16 +128,28 @@ def docs(session: nox.Session) -> None:
     env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
     session.run(
         "uv",
-        "run",
+        "sync",
         "--no-dev",
         "--group",
         "docs",
-        "--group",
-        "examples",
         "--config-settings-package",
         "ibm-qdmi:build-dir=build/docs",
         "--config-settings-package",
         "ibm-qdmi:cmake.define.BUILD_IBM_QDMI_DOCS=ON",
+        env=env,
+    )
+    output = Path(f"docs/_build/{args.builder}").resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    session.run(
+        "doxygen",
+        "build/docs/Doxyfile",
+        env={"IBM_QDMI_DOCS_OUTPUT": str(output)},
+        external=True,
+    )
+    session.run(
+        "uv",
+        "run",
+        "--no-sync",
         "sphinx-build",
         "-n",
         "-T",
