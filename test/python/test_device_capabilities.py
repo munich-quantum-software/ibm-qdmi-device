@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 import pytest
 from mqt.core.plugins.qiskit.job import QDMIJob
 from qiskit import QuantumCircuit, transpile
+from qiskit.circuit import Gate, Parameter
 from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
@@ -90,13 +91,17 @@ def test_repeated_measurement_calibration_opens_backend(runtime: Runtime) -> Non
     assert backend.target["measure"][4,].error == pytest.approx(0.02)
 
 
-def test_incomplete_gate_signature_is_not_exposed(runtime: Runtime) -> None:
-    """Missing or contradictory metadata cannot widen the transpilation target."""
+def test_native_signature_and_empty_loci_are_preserved(runtime: Runtime) -> None:
+    """Nonstandard signatures remain opaque, while empty loci stay unavailable."""
     gates = runtime.snapshot()["configuration"]["gates"]
     gates[0]["parameters"] = ["unexpected"]
     gates[1]["coupling_map"] = []
     runtime.set_configuration("gates", gates)
     backend = open_backend(runtime)
-    assert "x" not in backend.target.operation_names
+    native_x = backend.target.operation_from_name("x")
+    assert type(native_x) is Gate
+    assert native_x.num_qubits == 1
+    assert len(native_x.params) == 1
+    assert isinstance(native_x.params[0], Parameter)
     assert "sx" not in backend.target.operation_names
     assert "measure" in backend.target.operation_names

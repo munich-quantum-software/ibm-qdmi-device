@@ -73,7 +73,7 @@ Follow MQT Core's
 with the selected IBM backend:
 
 ```python
-from qiskit import QuantumCircuit, transpile
+from qiskit import QuantumCircuit
 
 circuit = QuantumCircuit(2, 2, name="bell", metadata={"experiment": "example"})
 circuit.h(0)
@@ -107,7 +107,7 @@ circuit.measure(0, 0)
 with circuit.if_test((circuit.clbits[0], True)):
     circuit.x(1)
 circuit.measure(1, 1)
-compiled = transpile(circuit, backend, optimization_level=1)
+compiled = backend.compile(circuit)
 counts = backend.run(compiled, shots=128).result().get_counts()
 ```
 

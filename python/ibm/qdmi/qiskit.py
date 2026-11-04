@@ -36,7 +36,7 @@ from . import IBM_QDMI_DEVICE_ID
 from ._catalogue import session_parameters
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
@@ -130,7 +130,7 @@ class IBMBackend(QDMIBackend):
 
     def run(
         self,
-        run_input: QuantumCircuit | CompiledProgram | Sequence[QuantumCircuit | CompiledProgram],
+        run_input: QuantumCircuit | CompiledProgram | Iterable[QuantumCircuit | CompiledProgram],
         parameter_values: Sequence[ParametersType] | None = None,
         **options: Any,  # ruff: ignore[any-type]
     ) -> QDMIJob:
@@ -146,15 +146,8 @@ class IBMBackend(QDMIBackend):
         if options.get("shots", self.options.shots) == 0:
             msg = "shots must be positive."
             raise CircuitValidationError(msg)
-        programs = [run_input] if isinstance(run_input, (QuantumCircuit, CompiledProgram)) else run_input
-        if any(
-            isinstance(program, CompiledProgram)
-            and (
-                program.result_width == 0
-                or (program.result_layout is not None and all(bit is None for bit in program.result_layout.bits))
-            )
-            for program in programs
-        ):
+        programs = [run_input] if isinstance(run_input, (QuantumCircuit, CompiledProgram)) else list(run_input)
+        if any(isinstance(program, CompiledProgram) and program.result_width == 0 for program in programs):
             msg = "At least one measured output is required."
             raise CircuitValidationError(msg)
-        return super().run(run_input, parameter_values, **options)
+        return super().run(programs, parameter_values, **options)

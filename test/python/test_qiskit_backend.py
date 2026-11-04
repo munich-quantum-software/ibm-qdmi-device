@@ -249,16 +249,46 @@ def test_generic_selection_required(runtime: Runtime, monkeypatch: pytest.Monkey
     assert not runtime.snapshot()["requests"]
 
 
-@pytest.mark.parametrize("classical_width", [0, 2])
-def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime, classical_width: int) -> None:
+def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime) -> None:
     """A zero-output compiled artifact prevents submission of the entire batch."""
     backend = open_backend(runtime)
-    unmeasured = QuantumCircuit(1, classical_width)
+    unmeasured = QuantumCircuit(1)
     unmeasured.x(0)
-    program = backend.compile(unmeasured)
+    program = serialize_program(unmeasured, target=TargetEnvironment.from_device(backend.device))
     assert not isinstance(program, list)
     measured = QuantumCircuit(1, 1)
     measured.measure(0, 0)
     with pytest.raises(CircuitValidationError, match="measured output"):
         backend.run([measured, program], shots=2)
     assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("classical_width", [0, 2])
+def test_compile_requires_measurement(runtime: Runtime, classical_width: int) -> None:
+    """Compilation enforces the same measurement requirement as native run."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1, classical_width)
+    circuit.x(0)
+    with pytest.raises(CircuitValidationError, match="At least one measurement"):
+        backend.compile(circuit)
+    assert not runtime.snapshot()["submissions"]
+
+
+def test_run_materializes_generator_once(runtime: Runtime) -> None:
+    """A generator survives provider validation and reaches shared submission."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1, 1)
+    circuit.x(0)
+    circuit.measure(0, 0)
+    result = backend.run((circuit for _ in range(2)), shots=4).result()
+    assert result.get_counts() == [{"1": 4}, {"1": 4}]
+
+
+def test_fractional_backend_omits_branching(runtime: Runtime) -> None:
+    """Backend metadata must advertise if_else before exposing control flow."""
+    config = runtime.snapshot()["configuration"]
+    runtime.set_configuration(
+        "supported_instructions", [name for name in config["supported_instructions"] if name != "if_else"]
+    )
+    backend = open_backend(runtime)
+    assert "if_else" not in backend.target.operation_names

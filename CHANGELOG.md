@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
+  the backend supports `if_else`. ([#94]) ([**@burgholzer**])
 - ✨ Complete native OpenQASM 3 declarations for Runtime import while preserving
   native standard names by removing their redefinitions. ([#94])
   ([**@burgholzer**])
@@ -27,6 +29,8 @@ releases may include breaking changes.
 
 ### Changed
 
+- 💥 Report non-finite circuit parameters as Core `TranslationError` exceptions.
+  ([#94]) ([**@burgholzer**])
 - ♻️ Compile PennyLane programs through MQT Core, replacing provider-specific
   gate synthesis and serialization. ([#94]) ([**@burgholzer**])
 - ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
@@ -123,7 +127,6 @@ _This is the initial release of the IBM QDMI Device._
 <!-- PR links -->
 
 [#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
-
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80

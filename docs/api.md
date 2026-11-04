@@ -373,7 +373,8 @@ waiting, cancellation, and retrieval by ID use the standard QDMI API.
 
 ### Compiler payload capabilities
 
-Device property `CUSTOM3` returns versioned `mqt.payload-capabilities.v1` JSON.
-It advertises forward branching with one nesting level, register-equality
+On backends advertising `if_else`, device property `CUSTOM3` returns versioned
+`mqt.payload-capabilities.v1` JSON. Other backends return `NOTSUPPORTED`. The
+property advertises forward branching with one nesting level, register-equality
 conditions of at most 32 bits, and unitary branch bodies. Core applies these
 limits during compilation and native serialization, including QPY submission.

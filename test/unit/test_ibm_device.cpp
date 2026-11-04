@@ -211,6 +211,7 @@ TEST_F(DeviceTest, DiagnosticClearsAfterSuccess) {
 }
 
 TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
+  data["configuration"]["supported_instructions"] = {"x", "measure", "if_else"};
   initialize();
   const auto before = http.requests().size();
   for (const auto property : {
@@ -262,6 +263,14 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
                 session, QDMI_DEVICE_PROPERTY_CUSTOM1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(http.requests().size(), before);
+}
+
+TEST_F(DeviceTest, OmitsBranchingWithoutConditionalInstructions) {
+  data["configuration"]["supported_instructions"] = {"x", "measure"};
+  initialize();
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, QDMI_DEVICE_PROPERTY_CUSTOM3, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
 }
 
 TEST_F(DeviceTest, StatusAndQueueLengthRefreshFromBackend) {

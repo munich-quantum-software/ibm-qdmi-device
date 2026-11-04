@@ -372,6 +372,11 @@ int IBM_QDMI_device_session_query_device_property(
           },
           size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_CUSTOM3:
+      if (std::ranges::none_of(metadata.operations, [](const auto& operation) {
+            return operation.name == "if_else";
+          })) {
+        return QDMI_ERROR_NOTSUPPORTED;
+      }
       return copyString(
           R"({"schema":"mqt.payload-capabilities.v1","capabilities":[{"id":"forward-branching","constraints":{"max-control-flow-nesting-depth":1,"max-condition-width":32,"requires-register-equality":1,"unitary-only-branches":1}}]})",
           size, value, sizeRet);
