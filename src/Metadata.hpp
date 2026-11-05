@@ -19,10 +19,11 @@
 
 #pragma once
 
+#include "nlohmann/json_fwd.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <map>
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <vector>

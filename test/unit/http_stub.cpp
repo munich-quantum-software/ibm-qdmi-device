@@ -21,8 +21,9 @@
 
 #include "Http.hpp"
 
+#include "gtest/gtest.h"
+
 #include <chrono>
-#include <gtest/gtest.h>
 #include <utility>
 #include <vector>
 

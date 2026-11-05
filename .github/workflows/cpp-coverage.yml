@@ -1,60 +1,78 @@
 name: 🇨 • Coverage
 on:
   workflow_call:
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}-cpp-coverage
   cancel-in-progress: true
+
 permissions:
   contents: read
+
 jobs:
   coverage:
     name: 📈 Coverage
-    runs-on: ubuntu-26.04
     permissions:
       contents: read
       id-token: write
+    runs-on: ubuntu-26.04
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 4
       CTEST_PARALLEL_LEVEL: 4
       FORCE_COLOR: 3
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_IDLE_TIMEOUT: 0
+      # Cache availability must not prevent the compiler from running.
+      SCCACHE_SKIP_CACHE_CHECK: "true"
+      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          submodules: recursive
           fetch-depth: 0
           persist-credentials: false
-      - name: Setup ccache
-        uses: Chocobo1/setup-ccache-action@ccc034167d57f9a0f3248c21b633819fcf331757 # v1.5.11
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Set up mold as linker
+        uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
-          prepend_symlinks_to_path: false
-          override_cache_key: cpp-coverage-ubuntu-26.04
-      - name: Setup mold
-        if: runner.os == 'Linux'
-        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          python-version: "3.14"
-      - name: Configure
-        run: cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_ENABLE_COVERAGE=ON
+          python-version: 3.13
+          activate-environment: true
+          enable-cache: false
+
+      - name: Install Ninja
+        run: uv tool install ninja
+
+      - name: Configure CMake
+        run: |
+          cmake --preset coverage \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
       - name: Build
-        run: cmake --build build/coverage --config Debug
-      - name: Test native package
-        run: ctest --test-dir build/coverage -C Debug --output-on-failure --timeout 600
-      - name: Test offline transport with native instrumentation
+        run: cmake --build --preset coverage
+
+      - name: Test
+        run: ctest --preset coverage
+
+      - name: Test offline integration
         run: >-
-          uvx nox -s native_tests --
+          uvx nox -s integration_tests --
           --native-library="$GITHUB_WORKSPACE/build/coverage/src/libibm-qdmi-device.so"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: cpp-coverage
-          if-no-files-found: error
-          path: |
-            build/coverage/**/*.gcda
-            build/coverage/**/*.gcno
-      - name: Upload native coverage
+
+      - name: Verify sccache use
+        run: |
+          sccache --show-stats --stats-format json |
+            python -c 'import json, sys; assert json.load(sys.stdin)["stats"]["compile_requests"] > 0'
+
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           fail_ci_if_error: true
           flags: cpp
           use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
-          plugins: gcov

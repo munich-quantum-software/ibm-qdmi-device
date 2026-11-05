@@ -19,11 +19,12 @@
 
 #pragma once
 
+#include "ibm-qdmi-device/diagnostics.h"
+
 #include <chrono>
 #include <cstdint>
 #include <exception>
 #include <functional>
-#include <ibm-qdmi-device/diagnostics.h>
 #include <map>
 #include <optional>
 #include <span>

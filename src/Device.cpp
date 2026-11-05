@@ -17,24 +17,27 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/device.h"
+
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Job.hpp"
 #include "Metadata.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/device.h>
 #include <memory>
 #include <mutex>
 #include <new>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <span>
 #include <string>

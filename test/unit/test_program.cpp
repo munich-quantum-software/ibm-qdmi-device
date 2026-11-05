@@ -17,12 +17,14 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/constants.h"
+
 #include "Http.hpp"
 #include "Job.hpp"
 
+#include "gtest/gtest.h"
+
 #include <fstream>
-#include <gtest/gtest.h>
-#include <ibm_qdmi/constants.h>
 #include <ios>
 #include <iterator>
 #include <string>

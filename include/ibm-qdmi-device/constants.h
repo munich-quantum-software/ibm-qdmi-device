@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <ibm_qdmi/constants.h>
+#include "ibm_qdmi/constants.h"
 
 /// Null-terminated Executor v2.0 params JSON, including quantum_program.shots.
 /// Pass this format to IBM_QDMI_device_job_set_programs. SHOTSNUM and the

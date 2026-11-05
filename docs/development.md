@@ -15,38 +15,37 @@ Local tests use synthetic data and simulators; live checks require the explicit
 flags below. CI also checks read-only IBM metadata. Dependency installation
 requires network access.
 
-## Native checks
+## C++ and integration checks
 
 ```console
 cmake --preset release
 cmake --build --preset release
 ctest --preset release
-uvx nox -s native_tests
+uvx nox -s integration_tests
 cmake -P test/install.cmake
 ```
 
-GoogleTest exercises native components and the C API. The `native_tests` session
-checks the installed ABI and real HTTP transport against a loopback server. It
-runs separately from framework tests because MQT Core retains its driver library
-while ABI tests own initialization and finalization. `test/install.cmake` checks
-installation, relocation, and a CMake consumer.
+GoogleTest exercises C++ components and the C API. The `integration_tests`
+session checks the installed C ABI and HTTP transport against a loopback server.
+It runs separately from framework tests because it owns device initialization
+and finalization. `test/install.cmake` checks installation, relocation, and a
+CMake consumer.
 
-Use the `debug` preset for a debug build. On Linux, add
-`-DIBM_QDMI_SANITIZERS="address;undefined"` when configuring for sanitizer
+Use the `debug` preset for a debug build and `sanitizers` for Linux ASan/UBSan
 checks. For coverage, select the instrumented library explicitly in the ABI
 tests:
 
 ```console
-cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DIBM_QDMI_ENABLE_COVERAGE=ON
-cmake --build build/coverage --config Debug
-ctest --test-dir build/coverage -C Debug --output-on-failure
-uvx nox -s native_tests -- --native-library="$PWD/build/coverage/src/libibm-qdmi-device.so"
-uvx nox -s tests-3.14 -- --cov=ibm.qdmi --cov-report=xml:build/python-coverage/coverage.xml
+cmake --preset coverage
+cmake --build --preset coverage
+ctest --preset coverage
+uvx nox -s integration_tests -- --native-library="$PWD/build/coverage/src/libibm-qdmi-device.so"
+uvx nox -s tests-3.14 -- --cov --cov-report=xml:coverage.xml
 ```
 
-Coverage runs receive no IBM credentials. Never submit hardware jobs to increase
-coverage. Python coverage measures Python code; native coverage requires the
-instrumented library.
+Coverage stays offline. The C ABI tests load the selected instrumented library
+through `ctypes` and contribute to C++ coverage. Python package coverage is
+collected separately.
 
 ## Python checks
 
@@ -68,12 +67,7 @@ initialization and never supply real credentials. Stop it with Ctrl+C; its
 in-memory jobs disappear.
 
 Nox tests Python 3.11 through 3.15. The `minimums` sessions resolve minimum
-direct dependencies and restore `uv.lock` afterward. Framework tests use the
-installed device with a synthetic IBM service and local circuit simulation.
-Draft PRs run `tests-3.14` and `native_tests`; review-ready PRs run all test and
-minimum-version sessions. Hardware requests test a fresh candidate wheel offline
-before submitting jobs. The synthetic service uses MQT Core's decision-diagram
-simulator for static and conditional circuits.
+direct dependencies and restore `uv.lock` afterward.
 
 Pytest selection and registered markers live in `pyproject.toml`:
 
@@ -98,24 +92,24 @@ package version comes from `project()` in `CMakeLists.txt`.
 CI builds and tests wheels with Python 3.11–3.15 through cibuildwheel, excluding
 free-threaded interpreters. Wheel tests use the Qiskit and PennyLane adapters;
 the Nox `tests` and `minimums` sessions also exercise the optional Executor SDK.
-Windows ARM wheels are built and repaired, but optional framework dependencies
-prevent Python wheel tests there; native Windows ARM tests run separately.
+Windows builds and tests run on x86_64 with MSVC in Release and Debug
+configurations.
 
 ## Live IBM metadata
 
-CI checks `ibm_berlin` and `ibm_aachen` metadata on same-repository PRs, merge
-queues, and `main`. These read-only requests submit no jobs and consume no
+Live metadata checks query `ibm_berlin` and `ibm_aachen` without submitting jobs
+or consuming
 [QPU time](https://quantum.cloud.ibm.com/docs/en/guides/estimate-job-run-time).
-Fork PRs receive no credentials. The workflow can also be dispatched on `main`:
+CI runs these checks for non-fork PRs, merge queues, and `main`. To run them
+manually:
 
 ```console
-gh workflow run live-metadata.yml --ref main
+gh workflow run live-tests.yml --ref main -f suite=metadata
 ```
 
-The `ibm-quantum` environment supplies `IBM_QUANTUM_API_KEY` and
-`IBM_QUANTUM_INSTANCE_CRN` only to the live step after package installation. The
-library derives the API region from the CRN. Each run checks the backends
-sequentially, has a 15-minute timeout, and is never retried automatically.
+Supply `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` securely for local
+checks. CI uses the `ibm-quantum` environment and confines credentials to live
+test steps.
 
 For a local metadata check, supply those variables securely and run:
 
@@ -138,12 +132,10 @@ Reproduce compatibility failures with synthetic fixtures before fixing them.
 
 ## Gated quantum execution
 
-Hardware checks require an explicit, authorized request. Dispatch the hardware
-workflow on merged `main`, or add `live-qpu-tests` to a same-repository PR. Fork
-PRs remain offline. Main pushes and ordinary PR updates never run hardware.
+Hardware checks require an explicit, authorized dispatch on merged `main`:
 
 ```console
-gh workflow run hardware.yml --ref main
+gh workflow run live-tests.yml --ref main -f suite=quantum
 ```
 
 The `ibm-quantum` environment allows `main`, `refs/pull/*/merge`, and
@@ -152,11 +144,8 @@ native CTest, then builds and installs a candidate wheel. Its offline package
 and ABI tests must pass before hardware validation uses that same installation.
 Secrets are available only during the final test step.
 
-Adding the label starts one fresh validation of the PR merge commit. Keeping the
-label does not opt later commits into hardware checks. To request another run,
-remove and add the label again after authorizing another budget. Workflow and
-individual-job reruns reject hardware execution; they cannot repeat a
-submission. Removing the label does not cancel jobs already submitted.
+Workflow and individual-job reruns reject hardware execution. Request a fresh
+dispatch after authorizing another budget.
 
 Each eligible run uses this budget:
 
@@ -202,31 +191,24 @@ clang-format and clang-tidy on every line of each changed file, including tests.
 
 ## Documentation
 
-Install Doxygen 1.16.1 on `PATH`, then run:
+Install Doxygen 1.15 or newer on `PATH`, then run:
 
 ```console
-uvx nox --non-interactive -s docs
-uvx nox --non-interactive -s docs -- -b linkcheck
+uvx nox -s docs
+uvx nox -s docs -- -b linkcheck
 ```
 
-The session builds the package in `build/docs/`, generates the native reference
-with Doxygen, and builds Sphinx pages in `docs/_build/html/`. The native
-reference lives under `cpp/`; Python API pages come from AutoAPI. Warnings fail
-the build. Edit public header comments and Python docstrings for API references.
+The session generates the native reference with Doxygen and builds Sphinx pages
+in `docs/_build/html/`. The native reference lives under `cpp/`; Python API
+pages come from AutoAPI. Warnings fail the build. Edit public header comments
+and Python docstrings for API references.
 
 ## Automation
 
-CI covers native and Python tests, installation, sanitizers, coverage, lint, and
-source and wheel distributions. The `🚦 Check` aggregate rejects failed or
-cancelled prerequisites. PRs use change detection; `main` runs the full offline
-suite. Metadata checks run on every trusted CI run. Hardware validation runs
-independently. The main ruleset also requires `pre-commit.ci - pr` and the Read
-the Docs preview before merging.
+CI runs C++ and Python tests, minimum-dependency tests, installation checks,
+lint, coverage, and package builds offline. Authenticated metadata checks run
+separately; hardware execution requires an explicit request.
 
-Read the Docs publishes PR previews and `latest` from `main` using the strict
-documentation session. Release workflows attest and publish distributions to
-PyPI through trusted publishing after a GitHub release. The `pypi` environment
-permits `v*` tags; manual CD runs only build artifacts. Coverage uploads to
-Codecov use OpenID Connect. Native coverage combines CTest and the offline
-transport tests; Python coverage reuses the reports from the Python test
-sessions.
+Read the Docs publishes documentation previews and the documentation from
+`main`. Release workflows attest and publish distributions to PyPI through
+trusted publishing after a GitHub release. Manual CD runs only build artifacts.

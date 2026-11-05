@@ -17,8 +17,8 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-#include <ibm-qdmi-device/constants.h>
-#include <ibm_qdmi/device.h>
+#include "ibm-qdmi-device/constants.h"
+#include "ibm_qdmi/device.h"
 
 extern int cSessionLifecycle(void);
 int cSessionLifecycle(void) {
