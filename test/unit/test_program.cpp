@@ -146,6 +146,17 @@ TEST(Program, RemovesStandardDefinitionsAndPreservesOtherSource) {
   ASSERT_EQ(ibm::outputRegisters(prepared).size(), 1);
 }
 
+TEST(Program, PreservesExistingDeclarationsAndTokenBoundaries) {
+  const std::string source =
+      "OPENQASM 3; gate x_alias a { x a; } include \"stdgates.inc\"; "
+      "gate ecr a,b { /* gate rzz; include \"hidden.inc\"; { } */ cx a,b; } "
+      "gate rzz(theta) a,b { ctrl @ rz(theta) a,b; } "
+      "bit c; ecr $0,$1; c = measure $0;";
+  EXPECT_EQ(ibm::declareNativeGates(source), source);
+  fails([] { ibm::declareNativeGates("OPENQASM 3; gate helper a { x a;"); },
+        QDMI_ERROR_INVALIDARGUMENT);
+}
+
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
   std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/v17.qpy",
                      std::ios::binary);

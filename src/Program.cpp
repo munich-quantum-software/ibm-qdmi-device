@@ -119,8 +119,16 @@ std::string declareNativeGates(std::string program) {
   require(tokens.size() >= 3);
   auto insertion =
       static_cast<std::size_t>(tokens[2].data() - program.data()) + 1;
+  static const std::set<std::string_view> STANDARD_NAMES{
+      "p",   "x",   "y",     "z",      "h",  "s",    "sdg", "t",
+      "tdg", "sx",  "rx",    "ry",     "rz", "cx",   "cy",  "cz",
+      "cp",  "crx", "cry",   "crz",    "ch", "swap", "ccx", "cswap",
+      "cu",  "CX",  "phase", "cphase", "id", "u1",   "u2",  "u3",
+  };
   bool standardGates = false;
-  std::set<std::string_view> definitions;
+  bool definesEcr = false;
+  bool definesRzz = false;
+  std::vector<std::pair<std::size_t, std::size_t>> definitionsToRemove;
   for (std::size_t index = 3; index < tokens.size(); ++index) {
     if (tokens[index] == "include" && index + 2 < tokens.size()) {
       standardGates |= tokens[index + 1] == "\"stdgates.inc\"";
@@ -128,30 +136,11 @@ std::string declareNativeGates(std::string program) {
           static_cast<std::size_t>(tokens[index + 2].data() - program.data()) +
           1;
     } else if (tokens[index] == "gate" && index + 1 < tokens.size()) {
-      definitions.insert(tokens[index + 1]);
-    }
-  }
-  std::string declarations = standardGates ? "" : "\ninclude \"stdgates.inc\";";
-  if (!definitions.contains("ecr")) {
-    declarations += "\ngate ecr a,b { gphase(-pi/4); s a; sx b; cx a,b; x a; }";
-  }
-  if (!definitions.contains("rzz")) {
-    declarations += "\ngate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; }";
-  }
-  if (!standardGates) {
-    static const std::set<std::string_view> STANDARD_NAMES{
-        "p",   "x",   "y",     "z",      "h",  "s",    "sdg", "t",
-        "tdg", "sx",  "rx",    "ry",     "rz", "cx",   "cy",  "cz",
-        "cp",  "crx", "cry",   "crz",    "ch", "swap", "ccx", "cswap",
-        "cu",  "CX",  "phase", "cphase", "id", "u1",   "u2",  "u3",
-    };
-    std::vector<std::pair<std::size_t, std::size_t>> definitionsToRemove;
-    for (std::size_t index = 3; index + 1 < tokens.size(); ++index) {
-      if (tokens[index] != "gate") {
-        continue;
-      }
+      const auto gateName = tokens[index + 1];
+      definesEcr |= gateName == "ecr";
+      definesRzz |= gateName == "rzz";
       const auto end = skipGate(tokens, index + 2);
-      if (STANDARD_NAMES.contains(tokens[index + 1])) {
+      if (STANDARD_NAMES.contains(gateName)) {
         const auto begin =
             static_cast<std::size_t>(tokens[index].data() - program.data());
         const auto finish =
@@ -161,6 +150,15 @@ std::string declareNativeGates(std::string program) {
       }
       index = end - 1;
     }
+  }
+  std::string declarations = standardGates ? "" : "\ninclude \"stdgates.inc\";";
+  if (!definesEcr) {
+    declarations += "\ngate ecr a,b { gphase(-pi/4); s a; sx b; cx a,b; x a; }";
+  }
+  if (!definesRzz) {
+    declarations += "\ngate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; }";
+  }
+  if (!standardGates) {
     for (const auto& [begin, length] :
          definitionsToRemove | std::views::reverse) {
       program.erase(begin, length);
