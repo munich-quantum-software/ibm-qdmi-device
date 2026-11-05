@@ -51,10 +51,6 @@ releases may include breaking changes.
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
-### Removed
-
-- 📦 Stop publishing Windows ARM64 wheels ([#96]) ([**@denialhaag**]).
-
 ### Fixed
 
 - 🐛 Build Windows Debug binaries with embedded debug information. ([#92])
@@ -117,7 +113,6 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
-[#96]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/96
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
