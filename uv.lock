@@ -848,8 +848,8 @@ test-metadata = [
 requires-dist = [
     { name = "ibm-qdmi", extras = ["executor"], marker = "extra == 'mock'" },
     { name = "ibm-qdmi", extras = ["qiskit"], marker = "extra == 'executor'" },
-    { name = "mqt-core", extras = ["pennylane"], marker = "extra == 'pennylane'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=3dc0facad28ac79764fec0216ea2e84a7400fa0c" },
-    { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=3dc0facad28ac79764fec0216ea2e84a7400fa0c" },
+    { name = "mqt-core", extras = ["pennylane"], marker = "extra == 'pennylane'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=86899ff228ec2197971a6543aebb0e2c92c2a86b" },
+    { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=86899ff228ec2197971a6543aebb0e2c92c2a86b" },
     { name = "qiskit", marker = "extra == 'qiskit'", specifier = ">=2.5" },
     { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = ">=0.50,<0.52" },
 ]
@@ -862,7 +862,7 @@ build = [
 ]
 dev = [
     { name = "build", specifier = ">=1.2.2" },
-    { name = "mqt-core", extras = ["pennylane", "qiskit"], git = "https://github.com/munich-quantum-toolkit/core.git?rev=3dc0facad28ac79764fec0216ea2e84a7400fa0c" },
+    { name = "mqt-core", extras = ["pennylane", "qiskit"], git = "https://github.com/munich-quantum-toolkit/core.git?rev=86899ff228ec2197971a6543aebb0e2c92c2a86b" },
     { name = "nox", specifier = ">=2026.8.10" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
@@ -882,7 +882,7 @@ docs = [
     { name = "sphinx-design", specifier = ">=0.7" },
 ]
 test = [
-    { name = "mqt-core", extras = ["pennylane", "qiskit"], git = "https://github.com/munich-quantum-toolkit/core.git?rev=3dc0facad28ac79764fec0216ea2e84a7400fa0c" },
+    { name = "mqt-core", extras = ["pennylane", "qiskit"], git = "https://github.com/munich-quantum-toolkit/core.git?rev=86899ff228ec2197971a6543aebb0e2c92c2a86b" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
@@ -1114,8 +1114,8 @@ wheels = [
 
 [[package]]
 name = "mqt-core"
-version = "4.1.2.dev171+g3dc0facad"
-source = { git = "https://github.com/munich-quantum-toolkit/core.git?rev=3dc0facad28ac79764fec0216ea2e84a7400fa0c#3dc0facad28ac79764fec0216ea2e84a7400fa0c" }
+version = "4.1.2.dev171+g86899ff22"
+source = { git = "https://github.com/munich-quantum-toolkit/core.git?rev=86899ff228ec2197971a6543aebb0e2c92c2a86b#86899ff228ec2197971a6543aebb0e2c92c2a86b" }
 dependencies = [
     { name = "nanobind-backend" },
 ]
