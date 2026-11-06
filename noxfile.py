@@ -193,7 +193,7 @@ def live_metadata(session: nox.Session) -> None:
             "--python",
             session.virtualenv.location,
             "--group",
-            "test",
+            "test-metadata",
             "--reinstall-package",
             "ibm-qdmi",
             str(wheel),

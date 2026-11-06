@@ -183,17 +183,8 @@ jobs:
 
   live-tests:
     name: ☁️ Live tests
-    needs:
-      - change-detection
-      - cpp-tests-ubuntu
-      - cpp-tests-macos
-      - cpp-tests-windows
-      - python-tests
-      - build-wheel
     if: >-
       !cancelled()
-      && !contains(needs.*.result, 'failure')
-      && !contains(needs.*.result, 'cancelled')
       && (
         github.event_name != 'workflow_dispatch'
         || github.ref == 'refs/heads/main'

@@ -12,8 +12,8 @@ Use separate directories under `build/` for native, wheel, documentation, and
 installed-package builds. Run package builds sequentially within a checkout. Nox
 installs each session's dependency groups and builds the package as needed.
 Local tests use synthetic data and simulators; live checks require the explicit
-flags below. CI also checks read-only IBM metadata. Dependency installation
-requires network access.
+flags below. CI checks read-only IBM metadata in parallel with offline tests and
+wheel builds. Dependency installation requires network access.
 
 ## C++ and integration checks
 
@@ -118,7 +118,7 @@ uvx nox -s live-metadata -- both
 ```
 
 The session removes credentials from the wheel build environment. To check an
-already installed wheel with the test dependencies:
+already installed wheel with the `test-metadata` dependency group:
 
 ```console
 python -m pytest test/python/test_live_metadata.py --run-live --ibm-backend both -n 0 --tb=line --show-capture=no
