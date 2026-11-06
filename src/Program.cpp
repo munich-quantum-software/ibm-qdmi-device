@@ -72,11 +72,27 @@ std::vector<std::string_view> tokenize(std::string_view source) {
       }
       tokens.push_back(source.substr(start, index - start));
     } else {
-      require(character != '@', QDMI_ERROR_NOTSUPPORTED);
       tokens.push_back(source.substr(index++, 1));
     }
   }
   return tokens;
+}
+std::size_t skipGate(const std::vector<std::string_view>& tokens,
+                     std::size_t cursor) {
+  while (cursor < tokens.size() && tokens[cursor] != "{") {
+    ++cursor;
+  }
+  require(cursor < tokens.size());
+  std::size_t depth = 1;
+  while (depth != 0) {
+    require(++cursor < tokens.size());
+    if (tokens[cursor] == "{") {
+      ++depth;
+    } else if (tokens[cursor] == "}") {
+      --depth;
+    }
+  }
+  return cursor + 1;
 }
 std::size_t number(std::string_view token) {
   std::size_t result = 0;
@@ -96,6 +112,44 @@ bool name(std::string_view token) {
 }
 } // namespace
 
+std::string declareNativeGates(std::string program) {
+  const auto tokens = tokenize(program);
+  require(tokens.size() >= 3);
+  bool definesEcr = false;
+  bool definesRzz = false;
+  bool usesEcr = false;
+  bool usesRzz = false;
+  for (std::size_t index = 3; index + 1 < tokens.size(); ++index) {
+    if (tokens[index] == "gate") {
+      definesEcr |= tokens[index + 1] == "ecr";
+      definesRzz |= tokens[index + 1] == "rzz";
+    } else if (tokens[index - 1] != "gate") {
+      const auto next = tokens[index + 1];
+      const bool call = next == "(" || next == "$" || name(next);
+      usesEcr |= tokens[index] == "ecr" && call;
+      usesRzz |= tokens[index] == "rzz" && call;
+    }
+  }
+  // Built-in gates keep these declarations independent of include files.
+  std::string declarations;
+  if (usesEcr && !definesEcr) {
+    declarations += "\ngate ecr a,b { U(0,0,pi/2) a; "
+                    "U(pi/2,-pi/2,pi/2) b; ctrl @ U(pi,0,pi) a,b; "
+                    "U(pi,0,pi) a; }";
+  }
+  if (usesRzz && !definesRzz) {
+    declarations += "\ngate rzz(theta) a,b { gphase(-theta/2); "
+                    "ctrl @ U(pi,0,pi) a,b; U(0,0,theta) b; "
+                    "ctrl @ U(pi,0,pi) a,b; }";
+  }
+  if (!declarations.empty()) {
+    const auto insertion =
+        static_cast<std::size_t>(tokens[2].data() - program.data()) + 1;
+    program.insert(insertion, declarations + '\n');
+  }
+  return program;
+}
+
 std::vector<Register> outputRegisters(const std::string& program) {
   const auto tokens = tokenize(program);
   require(tokens.size() >= 3 && tokens[0] == "OPENQASM" &&
@@ -112,7 +166,10 @@ std::vector<Register> outputRegisters(const std::string& program) {
   };
   while (cursor < tokens.size()) {
     const auto token = next();
-    if (token == "{") {
+    if (token == "gate") {
+      require(depth == 0);
+      cursor = skipGate(tokens, cursor);
+    } else if (token == "{") {
       ++depth;
     } else if (token == "}") {
       require(depth != 0);
@@ -146,7 +203,9 @@ std::vector<Register> outputRegisters(const std::string& program) {
       width += count;
       registers.push_back({.name = std::string(registerName), .width = count});
     } else {
-      require(token != "input" && token != "pragma", QDMI_ERROR_NOTSUPPORTED);
+      require(token != "input" && token != "output" && token != "pragma" &&
+                  token != "@",
+              QDMI_ERROR_NOTSUPPORTED);
     }
   }
   require(depth == 0);

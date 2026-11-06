@@ -12,6 +12,10 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
+  the backend supports `if_else`. ([#94]) ([**@burgholzer**])
+- ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
+  property consumed by MQT Core. ([#94]) ([**@burgholzer**])
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
   access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
   ([#72]) ([**@marcelwa**], [**@burgholzer**])
@@ -22,8 +26,12 @@ releases may include breaking changes.
 
 ### Changed
 
-- ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
-  [**@burgholzer**])
+- 💥 Report non-finite circuit parameters as MQT Core `TranslationError`
+  exceptions. ([#94]) ([**@burgholzer**])
+- ♻️ Use MQT Core for PennyLane compilation and result decoding. ([#94])
+  ([**@burgholzer**])
+- ♻️ Prefer MQT Core's QPY serializer for Qiskit circuits. ([#71])
+  ([**@marcelwa**], [**@burgholzer**])
 - ♻️ Limit native OpenQASM parsing to classical result layout extraction.
   ([#71]) ([**@burgholzer**])
 - 🧪 Use MQT Core's decision-diagram simulator for offline execution tests.
@@ -53,6 +61,10 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Preserve authored OpenQASM gate definitions and includes when supplying
+  missing ECR/RZZ definitions. ([#94]) ([**@burgholzer**])
+- 🐛 Reject explicit OpenQASM output qualifiers that the Runtime importer does
+  not support. ([#94]) ([**@burgholzer**])
 - 🐛 Build Windows Debug binaries with embedded debug information. ([#92])
   ([**@burgholzer**])
 - 🐛 Use the PennyLane adapter without requiring Qiskit. ([#92])
@@ -113,6 +125,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80

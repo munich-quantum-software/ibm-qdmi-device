@@ -59,16 +59,11 @@ email = "lukas@mq.sc"
 
 [project.optional-dependencies]
 executor = [ "ibm-qdmi[qiskit]", "qiskit-ibm-runtime~=0.50.0" ]
-mock = [ "ibm-qdmi[executor]" ]
+mock = [ "ibm-qdmi[executor]", "qiskit[qasm3-import]" ]
 pennylane = [
-  """\
-  mqt-core[pennylane] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\
-  """,
+  "mqt-core[pennylane]>=4.1.2.dev0",
 ]
-qiskit = [
-  "mqt-core[qiskit] @ git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394",
-  "qiskit>=2.5"
-]
+qiskit = [ "mqt-core[qiskit]>=4.1.2.dev0", "qiskit>=2.5" ]
 
 [project.urls]
 Documentation = "https://ibm-qdmi-device.readthedocs.io/en/latest/"
@@ -95,15 +90,12 @@ dev = [
   "qiskit-ibm-runtime~=0.50.0",
 ]
 test = [
-  """\
-  mqt-core[pennylane,qiskit] @ \
-  git+https://github.com/munich-quantum-toolkit/core.git@e4cd6cfbe0efbd1d57dd34c9da6a16d7e08f9394\
-  """,
+  "mqt-core[pennylane,qiskit]>=4.1.2.dev0",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8",
-  "qiskit>=2.5",
+  "qiskit[qasm3-import]>=2.5",
 ]
 docs = [
   "cmake>=3.24",
@@ -176,6 +168,9 @@ cache-keys = [
   { file = "cmake/**/*" },
 ]
 
+[tool.uv.sources]
+mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "25854e4e3b3c06f4f68fe9052f75bdccbb4e7684" }
+
 
 [tool.cibuildwheel]
 build = "cp3*"
@@ -183,8 +178,8 @@ skip = [ "*-musllinux_*", "cp3??t-*" ]
 test-skip = [ "*-win_arm64" ]
 archs = "auto64"
 build-frontend = "uv"
+before-test = 'uv pip install --group "{project}/pyproject.toml:test"'
 test-command = "pytest"
-test-groups = [ "test" ]
 test-sources = [ "pyproject.toml", "test" ]
 
 [tool.cibuildwheel.linux]
@@ -280,6 +275,7 @@ addopts = [
 ]
 filterwarnings = [
   "error",
+  "default:.* is newer than the .*tested:UserWarning",
   # PennyLane pins Autograd <1.9; its wraps helper returns in finally.
   "ignore:'return' in a 'finally' block:SyntaxWarning:.*autograd[./\\\\]wrap_util",
 ]

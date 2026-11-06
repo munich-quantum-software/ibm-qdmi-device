@@ -6,7 +6,7 @@ and
 [pyproject.toml](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/pyproject.toml).
 `uv.lock` records the resolved Python environment.
 
-## Native dependencies
+## Runtime dependencies
 
 CPR, zlib-ng, and nlohmann/json are compiled into the device library. curl is
 linked statically on Linux and Windows; macOS uses the system library. QDMI
@@ -26,19 +26,31 @@ Linux wheels bundle OpenSSL; native builds use the installed OpenSSL development
 package. Windows uses Schannel and macOS uses system curl's TLS implementation.
 Updating a bundled library requires rebuilding the wheel.
 
-## Python package and integrations
+## Optional Python integrations
 
 The base package requires Python 3.11 or newer and has no Python runtime
-dependencies. Extras install the following packages into the user's environment;
-they are **not bundled** in the IBM wheel. MQT Core's extras supply Qiskit and
-PennyLane and define their supported versions.
+dependencies. Extras install packages into the user's environment; these are not
+bundled in the IBM wheel.
 
-| Dependency           | Version            | License    | Purpose                                                                           |
-| :------------------- | :----------------- | :--------- | :-------------------------------------------------------------------------------- |
-| [MQT Core]           | [package metadata] | MIT        | QDMI driver and adapters for `qiskit`, `executor`, `mock`, and `pennylane` extras |
-| [Qiskit IBM Runtime] | ~=0.50.0           | Apache-2.0 | Executor encoding and fake metadata in the `executor` and `mock` extras           |
+| Extra       | Dependencies                                      | Purpose                                             |
+| :---------- | :------------------------------------------------ | :-------------------------------------------------- |
+| `qiskit`    | [MQT Core] with Qiskit support                    | Qiskit backend and shared QDMI job handling         |
+| `pennylane` | [MQT Core] with PennyLane support                 | Finite-shot QNodes                                  |
+| `executor`  | `qiskit` extra and [Qiskit IBM Runtime]           | Executor encoding                                   |
+| `mock`      | `executor` extra and Qiskit's OpenQASM 3 importer | Local simulation with official fake-device metadata |
 
-See [installation](installation.md#python-package) to select extras.
+Qiskit and PennyLane can be installed independently. MQT Core's extras define
+their supported versions; [package metadata] records all dependency bounds. See
+[installation](installation.md#python-package) to select extras.
+
+## Build dependencies
+
+Native builds require a C++20 compiler, CMake 3.24 or newer, and Git. Linux
+builds also require OpenSSL development headers. Python packaging uses
+`scikit-build-core`; building the documentation uses Sphinx and Doxygen. The
+`build`, `test`, and `docs` dependency groups install tools for their respective
+tasks. See [source installation](installation.md#building-from-source) and
+[development](development.md) for commands.
 
 [CPR]: https://github.com/libcpr/cpr
 [curl]: https://curl.se/

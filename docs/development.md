@@ -55,7 +55,7 @@ uvx nox -s tests minimums
 ```
 
 The regular test suite exercises official Runtime fake metadata and ideal MQT
-Core simulation through the native device. It needs no IBM credentials. To
+MQT Core simulation through the native device. It needs no IBM credentials. To
 expose a local service to C or C++ clients:
 
 ```console

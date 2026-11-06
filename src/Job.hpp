@@ -37,6 +37,8 @@ struct Register {
   std::string name;
   std::size_t width;
 };
+/// Supply definitions for undeclared ECR and RZZ calls.
+std::string declareNativeGates(std::string program);
 /// Extract top-level classical declarations in source order.
 std::vector<Register> outputRegisters(const std::string& program);
 /// Read the output layout of one QPY 17 circuit without interpreting gates.

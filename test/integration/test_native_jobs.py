@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from native_support import Native
     from offline_service import Service
 
-PROGRAM = b"OPENQASM 3; qubit[2] q; bit[2] z; bit a; z[0] = measure q[1]; a = measure q[0];"
+PROGRAM = b'OPENQASM 3; include "stdgates.inc"; qubit[2] q; bit[2] z; bit a; z[0] = measure q[1]; a = measure q[0];'
 
 
 def configure(native: Native, job: ctypes.c_void_p) -> None:
@@ -125,7 +125,10 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
     submissions = [json.loads(body) for path, _, body in job_service.requests if path == "/v1/jobs"]
     assert len(submissions) == 1
     assert submissions[0]["cost"] == 60
-    assert submissions[0]["params"]["pubs"][0] == [PROGRAM.decode(), None, 3]
+    submitted, parameters, shots = submissions[0]["params"]["pubs"][0]
+    assert parameters is None
+    assert shots == 3
+    assert submitted == PROGRAM.decode()
 
 
 @pytest.mark.parametrize("failure", [401, 403, 500])

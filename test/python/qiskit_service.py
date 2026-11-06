@@ -127,8 +127,7 @@ class Runtime:
         for source, parameters, shots in request["params"]["pubs"]:
             assert parameters is None
             circuit = submitted_circuit(source)
-            program = source if isinstance(source, str) else circuit
-            memory = [bits for bits, count in sample(program, shots=shots, seed=7).items() for _ in range(count)]
+            memory = [bits for bits, count in sample(circuit, shots=shots, seed=7).items() for _ in range(count)]
             data = {}
             for register in reversed(circuit.cregs):
                 samples = []

@@ -23,8 +23,8 @@ See [backend selection](qiskit.md#select-a-backend) for configuration and
 platform requirements.
 
 The `executor` extra adds `qiskit-ibm-runtime` for
-[Executor programs](qiskit.md#optional-executor-primitive). The `pennylane`
-extra also installs Qiskit for circuit serialization. See the
+[Executor programs](qiskit.md#optional-executor-primitive). The `qiskit` and
+`pennylane` extras install their respective framework independently. See the
 [dependency overview](dependencies.md) for native libraries and Python extras.
 
 Prebuilt wheels are available for Linux (x86_64, aarch64; glibc 2.28 or newer),

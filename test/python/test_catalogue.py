@@ -182,7 +182,8 @@ class BlockFrameworks:
             raise AssertionError('base import loaded an optional dependency')
 sys.meta_path.insert(0, BlockFrameworks())
 from ibm import qdmi
-from ibm.qdmi import __main__
+from ibm.qdmi import __main__, _session
+assert _session.session_parameters is not None
 assert qdmi.IBM_QDMI_LIBRARY_PATH.is_file()
 assert qdmi.IBM_QDMI_CATALOG_PATH.is_file()
 assert qdmi.IBM_QDMI_INCLUDE_DIR.is_dir()

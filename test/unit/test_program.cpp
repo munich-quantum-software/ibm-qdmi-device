@@ -57,7 +57,7 @@ TEST(Program, PreservesDeclarationOrderAcrossNativeInstructions) {
       "OPENQASM 3.1; include \"stdgates.inc\"; "
       "// bit[9] ignored;\n /* bit[8] ignored; */ "
       "gate rzz(theta) a,b { cx a,b; rz(theta) b; cx a,b; } "
-      "qreg q[5]; output bit[2] z; creg a[1]; gphase(pi/2); "
+      "qreg q[5]; bit[2] z; creg a[1]; gphase(pi/2); "
       "z[0] = measure q[4]; if (z[0]) { rzz(pi/4) q[3],q[4]; } "
       "else { x q[2]; } z = bit[2](uint[2](z)); measure q[3] -> a[0];");
   ASSERT_EQ(registers.size(), 2);
@@ -77,6 +77,7 @@ TEST(Program, RejectsAmbiguousOutputLayouts) {
            "OPENQASM 3; bit[2] c",
            "OPENQASM 3; bit[2 c;",
            "OPENQASM 3; /* unterminated",
+           "OPENQASM 3; gate x a { U(0,0,0) a;",
            "OPENQASM 3; include \"unterminated",
            "OPENQASM 3; bit c; if (c) { x $0;",
        }) {
@@ -93,6 +94,35 @@ TEST(Program, RejectsAmbiguousOutputLayouts) {
        }) {
     fails([&] { (void)ibm::outputRegisters(source); }, QDMI_ERROR_NOTSUPPORTED);
   }
+}
+
+TEST(Program, RejectsExplicitOutputs) {
+  fails(
+      [] {
+        (void)ibm::outputRegisters(
+            "OPENQASM 3; output bit result; bit internal; "
+            "result = measure $0; internal = measure $1;");
+      },
+      QDMI_ERROR_NOTSUPPORTED);
+}
+
+TEST(Program, SuppliesOnlyMissingNativeDeclarations) {
+  const std::string source = "OPENQASM 3; /* gate ecr in a comment */ bit c; "
+                             "ecr $0,$1; rzz(0.25) $0,$1; c = measure $0;";
+  const auto prepared = ibm::declareNativeGates(source);
+  EXPECT_NE(prepared.find("\ngate ecr"), std::string::npos);
+  EXPECT_NE(prepared.find("\ngate rzz"), std::string::npos);
+  EXPECT_EQ(prepared.find("include"), std::string::npos);
+  EXPECT_TRUE(prepared.ends_with(source.substr(source.find(';') + 1)));
+  EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
+  EXPECT_EQ(ibm::declareNativeGates(PROGRAM), PROGRAM);
+  const std::string custom =
+      "OPENQASM 3; gate x a { U(0,0,0) a; } "
+      "gate ecr a,b { x a; } gate rzz(t) a,b { x b; } "
+      "bit c; ecr $0,$1; rzz(0.2) $0,$1; c = measure $0;";
+  EXPECT_EQ(ibm::declareNativeGates(custom), custom);
+  const std::string registers = "OPENQASM 3; bit ecr; bit rzz;";
+  EXPECT_EQ(ibm::declareNativeGates(registers), registers);
 }
 
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {
