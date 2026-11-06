@@ -39,25 +39,22 @@ session. A configured authentication file takes precedence over
 `IBM_QUANTUM_API_KEY`; see
 [session configuration](api.md#session-configuration).
 
-Wire labels identify logical wires. MQT Core compiles and routes them for the
-selected backend and reconstructs samples in the requested logical measurement
-order. Compiled OpenQASM uses physical qubit indices; the native provider adds
-standard-gate imports and any missing ECR/RZZ declarations for Runtime. The
-compiler consumes the provider's gate placements and parameter domains,
-including fractional RZZ bounds. Its current QDMI target requires the same
-native one-qubit basis on every site and two-qubit basis on every topology edge.
-Heterogeneous metadata fails during device construction.
+The `wires` argument labels the circuit's qubits. MQT Core maps them to backend
+qubits and returns samples in the order requested by each measurement. The
+compiler uses the advertised gate placements and parameter ranges, including
+fractional RZZ bounds.
 
 ## IBM gate support
 
-PennyLane applies measurement and differentiation transforms before Core
-compiles the resulting tapes into the advertised native basis. Core owns gate
-synthesis, physical placement, parameter constraints, and receiver-compatible
-serialization. Invalid input fails before any job in a prepared batch is
-submitted. A submission or result failure raises `PennyLaneExecutionError` with
-a retained `job` handle. Use that handle to inspect the batch or explicitly
-cancel earlier jobs; cancellation can race with completion. Automatic retries
-are disabled. Unknown submission outcomes are never automatically replaced.
+PennyLane applies measurement and differentiation transforms before MQT Core
+compiles the resulting tapes into the advertised native basis. MQT Core owns
+gate synthesis, physical placement, parameter constraints, and
+receiver-compatible serialization. Invalid input fails before any job in a
+prepared batch is submitted. A submission or result failure raises
+`PennyLaneExecutionError` with a retained `job` handle. Use that handle to
+inspect the batch or explicitly cancel earlier jobs; cancellation can race with
+completion. Automatic retries are disabled. Unknown submission outcomes are
+never automatically replaced.
 
 The adapter forwards compatible custom job settings through `job_parameters`;
 the native parameter contracts and default execution-time cap are documented in

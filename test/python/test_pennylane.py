@@ -83,7 +83,7 @@ def configure_entangler(runtime: Runtime, name: str) -> None:
 
 @pytest.mark.parametrize("wires", [2, ["control", "target"], [4, 2]])
 def test_subset_wires_and_measurement_order(runtime: Runtime, wires: int | list[str] | list[int]) -> None:
-    """Logical wire order survives compilation to physical qubit indices."""
+    """Samples follow the requested qubit order after compilation."""
     device = open_device(runtime, wires)
     first, second = device.wires
 
@@ -353,7 +353,7 @@ def test_cnot_native_synthesis(runtime: Runtime, entangler: str) -> None:
 
 @pytest.mark.parametrize("entangler", ["cz", "ecr"])
 def test_synthesized_cnot_preserves_directed_placement(runtime: Runtime, entangler: str) -> None:
-    """Compile either logical CNOT direction into advertised native placements."""
+    """Compile either CNOT direction into advertised native placements."""
     configure_entangler(runtime, entangler)
     device = open_device(runtime)
     tapes = tuple(

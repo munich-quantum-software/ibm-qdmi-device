@@ -26,8 +26,12 @@ commands. Keep this file focused on repository-specific guardrails.
 - Prefer the smallest change that fully solves the problem. Reuse existing code
   and C++20 facilities before adding abstractions or settings.
 - Follow documented policy. Neighboring code does not override instructions.
-- Write comments, documentation, tests, diagnostics, and public text for the
-  final design. Remove review chronology and abandoned approaches.
+- Do not leak conversation, prompt, or iteration history into code comments,
+  pull request descriptions, or other maintainer-facing prose. Write for readers
+  who have not seen the conversation.
+- Prefer comments that explain the current behavior and rationale. Avoid
+  past-facing wording such as "preserve the existing behavior"; explain the
+  actual backwards-compatibility constraint instead.
 - Use short sentences, active voice, and one established term per concept.
   Preserve the capitalization of IBM, QDMI, OpenQASM, CMake, and Python.
 - Add tests for changed behavior or concrete regressions. Keep tests in `test/`
@@ -57,9 +61,10 @@ checks. Jobs retain their session resources until freed. Never retry a job
 submission automatically or treat local handle cleanup as remote cancellation.
 Preserve physical qubit indices and classical-bit ordering through execution.
 Keep framework imports and package information commands free of live access.
-Keep native program readers limited to result layout extraction and required
-gate declarations for bare OpenQASM. Preserve stored source bytes. Compilation,
-routing, and instruction validation belong in Core and the IBM service.
+Keep native program readers limited to result layout extraction and missing
+ECR/RZZ declarations. Preserve authored gate definitions, include directives,
+and stored source bytes. Compilation, routing, and instruction validation belong
+in MQT Core and the IBM service.
 
 ## Build and Validation
 

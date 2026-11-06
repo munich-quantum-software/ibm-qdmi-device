@@ -38,7 +38,8 @@ PennyLane and define their supported versions.
 | [MQT Core]           | [package metadata] | MIT        | QDMI driver and adapters for `qiskit`, `executor`, `mock`, and `pennylane` extras |
 | [Qiskit IBM Runtime] | ~=0.50.0           | Apache-2.0 | Executor encoding and fake metadata in the `executor` and `mock` extras           |
 
-See [installation](installation.md#python-package) to select extras.
+The `mock` extra also installs Qiskit's OpenQASM 3 importer to read Sampler
+payloads. See [installation](installation.md#python-package) to select extras.
 
 [CPR]: https://github.com/libcpr/cpr
 [curl]: https://curl.se/

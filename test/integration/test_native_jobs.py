@@ -128,10 +128,7 @@ def test_job_lifecycle_and_retrieval(native: Native, job_service: Service) -> No
     submitted, parameters, shots = submissions[0]["params"]["pubs"][0]
     assert parameters is None
     assert shots == 3
-    assert submitted.count("gate ecr ") == 1
-    assert submitted.count("gate rzz(") == 1
-    assert submitted.startswith('OPENQASM 3; include "stdgates.inc";')
-    assert submitted.endswith(PROGRAM.decode().split(";", 2)[2])
+    assert submitted == PROGRAM.decode()
 
 
 @pytest.mark.parametrize("failure", [401, 403, 500])

@@ -205,10 +205,9 @@ probes support without changing configuration.
 
 Submit valid, bound OpenQASM 3 compiled for the backend's native operations and
 physical qubit indices. MQT Core's compiler and Qiskit adapter prepare programs.
-The device adds missing `stdgates.inc` and ECR/RZZ declarations before
-transport. When adding the standard include, it removes standard-gate
-redefinitions. Their calls use the backend's native standard instructions.
-Locally stored source bytes remain unchanged. IBM validates instructions; the
+The device supplies missing ECR/RZZ definitions for OpenQASM import. These
+definitions use built-in gates and need no include file. Authored gate
+definitions and includes remain unchanged. IBM validates instructions; the
 device reads classical declarations to reconstruct results in declaration order.
 
 Declare all classical output bits at the top level with fixed, positive sizes:
@@ -376,5 +375,5 @@ waiting, cancellation, and retrieval by ID use the standard QDMI API.
 On backends advertising `if_else`, device property `CUSTOM3` returns versioned
 `mqt.payload-capabilities.v1` JSON. Other backends return `NOTSUPPORTED`. The
 property advertises forward branching with one nesting level, register-equality
-conditions of at most 32 bits, and unitary branch bodies. Core applies these
+conditions of at most 32 bits, and unitary branch bodies. MQT Core applies these
 limits during compilation and native serialization, including QPY submission.

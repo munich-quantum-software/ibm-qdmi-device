@@ -147,7 +147,7 @@ class IBMBackend(QDMIBackend):
             msg = "shots must be positive."
             raise CircuitValidationError(msg)
         programs = [run_input] if isinstance(run_input, (QuantumCircuit, CompiledProgram)) else list(run_input)
-        # shortcut: IBM decides on measurement-free compiled outputs until Core exposes measurement metadata.
+        # IBM Sampler requires classical output storage.
         if any(isinstance(program, CompiledProgram) and program.result_width == 0 for program in programs):
             msg = "At least one measured output is required."
             raise CircuitValidationError(msg)

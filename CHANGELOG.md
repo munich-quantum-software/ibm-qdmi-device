@@ -14,9 +14,6 @@ releases may include breaking changes.
 
 - ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
   the backend supports `if_else`. ([#94]) ([**@burgholzer**])
-- ✨ Complete native OpenQASM 3 declarations for Runtime import while preserving
-  native standard names by removing their redefinitions. ([#94])
-  ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
   property consumed by MQT Core. ([#94]) ([**@burgholzer**])
 - ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
@@ -29,12 +26,12 @@ releases may include breaking changes.
 
 ### Changed
 
-- 💥 Report non-finite circuit parameters as Core `TranslationError` exceptions.
-  ([#94]) ([**@burgholzer**])
-- ♻️ Compile PennyLane programs through MQT Core, replacing provider-specific
-  gate synthesis and serialization. ([#94]) ([**@burgholzer**])
-- ♻️ Prefer Core's QPY serializer for Qiskit circuits. ([#71]) ([**@marcelwa**],
-  [**@burgholzer**])
+- 💥 Report non-finite circuit parameters as MQT Core `TranslationError`
+  exceptions. ([#94]) ([**@burgholzer**])
+- ♻️ Use MQT Core for PennyLane compilation and result decoding. ([#94])
+  ([**@burgholzer**])
+- ♻️ Prefer MQT Core's QPY serializer for Qiskit circuits. ([#71])
+  ([**@marcelwa**], [**@burgholzer**])
 - ♻️ Limit native OpenQASM parsing to classical result layout extraction.
   ([#71]) ([**@burgholzer**])
 - 🧪 Use MQT Core's decision-diagram simulator for offline execution tests.
@@ -64,6 +61,8 @@ releases may include breaking changes.
 
 ### Fixed
 
+- 🐛 Preserve authored OpenQASM gate definitions and includes when supplying
+  missing ECR/RZZ definitions. ([#94]) ([**@burgholzer**])
 - 🐛 Reject explicit OpenQASM output qualifiers that the Runtime importer does
   not support. ([#94]) ([**@burgholzer**])
 - 🐛 Build Windows Debug binaries with embedded debug information. ([#92])

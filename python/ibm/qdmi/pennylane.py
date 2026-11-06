@@ -44,8 +44,8 @@ class IBMDevice(QDMIDevice):
     """Run finite-shot PennyLane programs on IBM Quantum Platform.
 
     Args:
-        wires: Logical wire labels or number of wires. Core selects physical
-            qubits during compilation. By default expose all backend qubits.
+        wires: Qubit labels or number of qubits. MQT Core maps these labels to
+            device qubits during compilation. Defaults to all backend qubits.
         device_id: Catalogue ID; defaults to the entry point's stable IBM ID.
         device: An already-open device, exclusive with connection overrides.
         backend_name: Backend override; otherwise use environment or catalogue defaults.

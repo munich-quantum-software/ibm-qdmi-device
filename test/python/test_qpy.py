@@ -154,11 +154,11 @@ def test_dynamic_validation_prevents_batch_submission(runtime: Runtime, invalid:
 
 @pytest.mark.parametrize("custom", [False, True])
 def test_self_defined_standard_gate_transport(runtime: Runtime, *, custom: bool) -> None:
-    """Native standard names retain backend semantics when declarations are supplied."""
+    """Submitted gate definitions retain their declared semantics."""
     backend = open_backend(runtime)
     if custom:
         program = "OPENQASM 3; gate x a { U(0,0,0) a; } bit[1] c; x $0; c[0] = measure $0;"
-        expected = "1"
+        expected = "0"
     else:
         circuit = QuantumCircuit(5, 2)
         circuit.x(3)
@@ -171,9 +171,7 @@ def test_self_defined_standard_gate_transport(runtime: Runtime, *, custom: bool)
     assert job.get_shots() == [expected] * 9
     assert job.get_program() == program
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert 'include "stdgates.inc";' in source
-    assert "gate x " not in source
-    assert "mqt_" not in source
+    assert source == program
 
 
 @pytest.mark.parametrize("width", [3, 32])

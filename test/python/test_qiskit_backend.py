@@ -60,8 +60,9 @@ def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
     assert submitted[0]["params"]["options"]["dynamical_decoupling"]["sequence_type"] == "XpXm"
 
 
-def test_native_compiler_qasm_import(runtime: Runtime) -> None:
-    """Native submission adds missing gate definitions and preserves physical/readout semantics."""
+@pytest.mark.parametrize("standard_include", [False, True])
+def test_native_compiler_qasm_import(runtime: Runtime, *, standard_include: bool) -> None:
+    """ECR/RZZ declarations preserve qubit placement and measurement results."""
     config = runtime.snapshot()["configuration"]
     runtime.set_configuration("basis_gates", [*config["basis_gates"], "ecr", "rzz"])
     runtime.set_configuration(
@@ -86,7 +87,10 @@ def test_native_compiler_qasm_import(runtime: Runtime) -> None:
     assert "gate ecr" not in program.payload
     assert "$3" in program.payload
     assert "$4" in program.payload
-    job = backend.device.submit_job(program.payload, program.program_format, num_shots=16)
+    source = program.payload
+    if not standard_include:
+        source = source.replace('include "stdgates.inc";', "").replace("x $4;", "U(pi,0,pi) $4;")
+    job = backend.device.submit_job(source, program.program_format, num_shots=16)
     assert job.wait(10)
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
     emitted = submitted_circuit(source)

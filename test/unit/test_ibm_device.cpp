@@ -22,7 +22,6 @@
 #include "ibm_qdmi/device.h"
 
 #include "Http.hpp"
-#include "Job.hpp"
 #include "http_stub.hpp"
 
 #include "gtest/gtest.h"
@@ -696,9 +695,8 @@ TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
             1);
   const auto submitted = nlohmann::json::parse(http.requests()[3].body);
   EXPECT_EQ(submitted["cost"], 60);
-  EXPECT_EQ(
-      submitted["params"]["pubs"][0],
-      nlohmann::json::array({ibm::declareNativeGates(PROGRAM), nullptr, 3}));
+  EXPECT_EQ(submitted["params"]["pubs"][0],
+            nlohmann::json::array({PROGRAM, nullptr, 3}));
   queueStatus("Completed");
   IBM_QDMI_Device_Job retrieved = nullptr;
   ASSERT_EQ(IBM_QDMI_device_session_retrieve_device_job_by_id(

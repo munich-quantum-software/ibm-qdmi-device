@@ -106,55 +106,23 @@ TEST(Program, RejectsExplicitOutputs) {
       QDMI_ERROR_NOTSUPPORTED);
 }
 
-TEST(Program, SuppliesNativeGateDeclarations) {
-  const std::string program =
-      "// ignored;\nOPENQASM /* ignored; */ 3;\nbit[2] c; "
-      "ecr $3,$4; rzz(2.5e-1) $3,$4; "
-      "c[1] = measure $3; c[0] = measure $4;";
-  const auto prepared = ibm::declareNativeGates(program);
-  EXPECT_NE(prepared.find("include \"stdgates.inc\";"), std::string::npos);
-  EXPECT_NE(prepared.find("gate ecr"), std::string::npos);
-  EXPECT_NE(prepared.find("gate rzz"), std::string::npos);
-  EXPECT_TRUE(prepared.ends_with(program.substr(program.find("bit[2]"))));
-  EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
-  EXPECT_NE(ibm::declareNativeGates(PROGRAM).find("gate ecr"),
-            std::string::npos);
-  const std::string selfDeclared =
-      "OPENQASM 3; gate x a { U(pi,0,pi) a; } bit c; x $0; c = measure $0;";
-  const auto withNative = ibm::declareNativeGates(selfDeclared);
-  EXPECT_NE(withNative.find("gate ecr"), std::string::npos);
-  EXPECT_NE(withNative.find("gate rzz"), std::string::npos);
-  EXPECT_EQ(withNative.find("gate x "), std::string::npos);
-  EXPECT_EQ(withNative.find("mqt_"), std::string::npos);
-  EXPECT_TRUE(withNative.ends_with("bit c; x $0; c = measure $0;"));
-  EXPECT_EQ(ibm::declareNativeGates(withNative), withNative);
-}
-
-TEST(Program, RemovesStandardDefinitionsAndPreservesOtherSource) {
-  const std::string source = "OPENQASM 3; // x stays in comments\n"
-                             "gate x a { U(0,0,0) a; } "
-                             "gate helper a,b { ctrl @ x a,b; } "
-                             "bit c; x $0; helper $0,$1; c = measure $0;";
+TEST(Program, SuppliesOnlyMissingNativeDeclarations) {
+  const std::string source = "OPENQASM 3; /* gate ecr in a comment */ bit c; "
+                             "ecr $0,$1; rzz(0.25) $0,$1; c = measure $0;";
   const auto prepared = ibm::declareNativeGates(source);
-  EXPECT_NE(prepared.find("// x stays in comments"), std::string::npos);
-  EXPECT_EQ(prepared.find("gate x "), std::string::npos);
-  EXPECT_EQ(prepared.find("mqt_"), std::string::npos);
-  EXPECT_NE(prepared.find("gate helper a,b { ctrl @ x a,b; }"),
-            std::string::npos);
-  EXPECT_TRUE(prepared.ends_with("bit c; x $0; helper $0,$1; c = measure $0;"));
+  EXPECT_NE(prepared.find("\ngate ecr"), std::string::npos);
+  EXPECT_NE(prepared.find("\ngate rzz"), std::string::npos);
+  EXPECT_EQ(prepared.find("include"), std::string::npos);
+  EXPECT_TRUE(prepared.ends_with(source.substr(source.find(';') + 1)));
   EXPECT_EQ(ibm::declareNativeGates(prepared), prepared);
-  ASSERT_EQ(ibm::outputRegisters(prepared).size(), 1);
-}
-
-TEST(Program, PreservesExistingDeclarationsAndTokenBoundaries) {
-  const std::string source =
-      "OPENQASM 3; gate x_alias a { x a; } include \"stdgates.inc\"; "
-      "gate ecr a,b { /* gate rzz; include \"hidden.inc\"; { } */ cx a,b; } "
-      "gate rzz(theta) a,b { ctrl @ rz(theta) a,b; } "
-      "bit c; ecr $0,$1; c = measure $0;";
-  EXPECT_EQ(ibm::declareNativeGates(source), source);
-  fails([] { ibm::declareNativeGates("OPENQASM 3; gate helper a { x a;"); },
-        QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(ibm::declareNativeGates(PROGRAM), PROGRAM);
+  const std::string custom =
+      "OPENQASM 3; gate x a { U(0,0,0) a; } "
+      "gate ecr a,b { x a; } gate rzz(t) a,b { x b; } "
+      "bit c; ecr $0,$1; rzz(0.2) $0,$1; c = measure $0;";
+  EXPECT_EQ(ibm::declareNativeGates(custom), custom);
+  const std::string registers = "OPENQASM 3; bit ecr; bit rzz;";
+  EXPECT_EQ(ibm::declareNativeGates(registers), registers);
 }
 
 TEST(Qpy, ReadsQiskitFixturesAndPreservesBinaryTransport) {

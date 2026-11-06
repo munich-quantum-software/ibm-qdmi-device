@@ -72,7 +72,7 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
     """Execute the native Sampler or Executor payload using MQT Core.
 
     Returns:
-        Results in the IBM wire format.
+        Results encoded for the IBM Runtime API.
 
     Raises:
         ValueError: A noise model is requested.
