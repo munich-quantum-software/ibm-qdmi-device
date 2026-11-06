@@ -848,7 +848,7 @@ requires-dist = [
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=25854e4e3b3c06f4f68fe9052f75bdccbb4e7684" },
     { name = "qiskit", marker = "extra == 'qiskit'", specifier = ">=2.5" },
     { name = "qiskit", extras = ["qasm3-import"], marker = "extra == 'mock'" },
-    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = "~=0.50.0" },
+    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = ">=0.50.0,<0.52" },
 ]
 provides-extras = ["executor", "mock", "pennylane", "qiskit"]
 
@@ -866,7 +866,7 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "qiskit", extras = ["qasm3-import"], specifier = ">=2.5" },
-    { name = "qiskit-ibm-runtime", specifier = "~=0.50.0" },
+    { name = "qiskit-ibm-runtime", specifier = ">=0.50.0,<0.52" },
     { name = "scikit-build-core", specifier = ">=1.1" },
 ]
 docs = [
@@ -2101,7 +2101,7 @@ qasm3-import = [
 
 [[package]]
 name = "qiskit-ibm-runtime"
-version = "0.50.1"
+version = "0.51.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-platform-services" },
@@ -2120,9 +2120,9 @@ dependencies = [
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f5/de/fccf0ee8fab63765e76bec886e004dbd1b2436a36c5b87f10cf66e8d2c4c/qiskit_ibm_runtime-0.50.1.tar.gz", hash = "sha256:8e1ec7f6d3fa24568fabc57ce6a9c5003ae6caeeff3b18ad9c4e958f1dadbe82", size = 3753340, upload-time = "2026-10-29T11:45:03.702Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/33/a6ff6aad92fef92a733f376204083f0cb6b1e0dadddf8ed85d7e63168f62/qiskit_ibm_runtime-0.51.0.tar.gz", hash = "sha256:8873224137d4eb0e2187813252bc5e84ce73dfce7f17c954d25d51c74a6b4827", size = 3690046, upload-time = "2026-10-22T19:07:39.43Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/f7/4558a047ca3f6ecd9f472a1340908aa556745c76149d838b5dd619b8309c/qiskit_ibm_runtime-0.50.1-py3-none-any.whl", hash = "sha256:01a957b04a7653c1581eeab3471f51069d75af0b3ea167f5c4d4b650d06933c1", size = 1979736, upload-time = "2026-10-29T11:45:01.23Z" },
+    { url = "https://files.pythonhosted.org/packages/71/c5/7c14b2f83b526aa9fb2df8802b631853fb7ad5a644f19cb1e5e6c1f5bcd7/qiskit_ibm_runtime-0.51.0-py3-none-any.whl", hash = "sha256:eb3fd3dbf09e7a066106fc557bb4beb8a3cbf3cbc40623c8e9647db00ed7c28c", size = 1989560, upload-time = "2026-10-22T19:07:37.448Z" },
 ]
 
 [[package]]

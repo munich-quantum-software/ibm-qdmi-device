@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
 def test_missing_optional_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """A missing Runtime decoder reports the optional extra."""
-    monkeypatch.setitem(sys.modules, "qiskit_ibm_runtime.decoders.quantum_program.decoder", None)
+    monkeypatch.setitem(sys.modules, "qiskit_ibm_runtime.decoders.defaults", None)
     with pytest.raises(ImportError, match=r"ibm-qdmi\[executor\]"):
         runpy.run_path(str(adapter.__file__))
 
