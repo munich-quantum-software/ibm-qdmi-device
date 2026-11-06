@@ -26,6 +26,8 @@ releases may include breaking changes.
 
 ### Changed
 
+- ♻️ Parse mock OpenQASM with MQT Core and require initialized classical
+  outputs. ([#102]) ([**@burgholzer**])
 - ⚡ Run metadata CI in parallel with offline checks using a lightweight test
   environment. ([#101]) ([**@burgholzer**])
 - ⬆️ Support Qiskit IBM Runtime 0.50 and 0.51 for Executor encoding and result
@@ -129,6 +131,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
 [#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
 [#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94

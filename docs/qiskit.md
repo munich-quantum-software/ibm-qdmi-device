@@ -57,6 +57,9 @@ as well. No IBM account is needed. `IBM_QUANTUM_BACKEND=fake_manila` also
 selects a fake for `ibm.default`; explicit connection settings instead select a
 remote service. Unknown fake names fail locally.
 
+OpenQASM 3 input is parsed by MQT Core. Classical output bits must be assigned
+before they are returned; uninitialized bits have no implicit zero value.
+
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
 exponentially with circuit size. The local Sampler rejects dynamical decoupling

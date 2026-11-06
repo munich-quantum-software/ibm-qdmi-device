@@ -33,12 +33,12 @@ The base package requires Python 3.11 or newer and has no Python runtime
 dependencies. Extras install packages into the user's environment; these are not
 bundled in the IBM wheel.
 
-| Extra       | Dependencies                                      | Purpose                                             |
-| :---------- | :------------------------------------------------ | :-------------------------------------------------- |
-| `qiskit`    | [MQT Core] with Qiskit support                    | Qiskit backend and shared QDMI job handling         |
-| `pennylane` | [MQT Core] with PennyLane support                 | Finite-shot QNodes                                  |
-| `executor`  | `qiskit` extra and [Qiskit IBM Runtime]           | Executor encoding                                   |
-| `mock`      | `executor` extra and Qiskit's OpenQASM 3 importer | Local simulation with official fake-device metadata |
+| Extra       | Dependencies                            | Purpose                                             |
+| :---------- | :-------------------------------------- | :-------------------------------------------------- |
+| `qiskit`    | [MQT Core] with Qiskit support          | Qiskit backend and shared QDMI job handling         |
+| `pennylane` | [MQT Core] with PennyLane support       | Finite-shot QNodes                                  |
+| `executor`  | `qiskit` extra and [Qiskit IBM Runtime] | Executor encoding                                   |
+| `mock`      | `executor` extra                        | Local simulation with official fake-device metadata |
 
 Qiskit and PennyLane can be installed independently. MQT Core's extras define
 their supported versions; [package metadata] records all dependency bounds. See
