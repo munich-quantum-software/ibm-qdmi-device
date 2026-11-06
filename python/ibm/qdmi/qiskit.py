@@ -33,7 +33,7 @@ except ImportError as error:
 from qiskit.circuit import QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
-from ._catalogue import session_parameters
+from ._session import session_parameters
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence

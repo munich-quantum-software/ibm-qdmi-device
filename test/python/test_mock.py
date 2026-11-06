@@ -47,7 +47,7 @@ from qiskit_ibm_runtime.results import QuantumProgramResult
 from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
 
-from ibm.qdmi._catalogue import session_parameters  # ruff: ignore[import-private-name]
+from ibm.qdmi._session import session_parameters  # ruff: ignore[import-private-name]
 from ibm.qdmi.mock import connection
 from ibm.qdmi.pennylane import IBMDevice
 from ibm.qdmi.qiskit import IBMBackend
@@ -97,9 +97,7 @@ def test_unknown_fake_fails_locally() -> None:
 
 def test_fake_connection_overrides_select_remote_service() -> None:
     """An explicit endpoint can serve a fake-prefixed backend remotely."""
-    parameters = session_parameters(
-        backend_name="fake_lagos", base_url="http://127.0.0.1:8290", api_key=None, instance_crn=None, auth_url=None
-    )
+    parameters = session_parameters(backend_name="fake_lagos", base_url="http://127.0.0.1:8290")
     assert parameters["custom1"] == "fake_lagos"
     assert parameters["base_url"] == "http://127.0.0.1:8290"
 

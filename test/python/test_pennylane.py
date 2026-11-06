@@ -279,6 +279,7 @@ def reject_connection(*args, **kwargs):
     raise AssertionError('Import attempted a network connection')
 socket.socket.connect = reject_connection
 import ibm.qdmi.pennylane
+assert 'ibm.qdmi.mock' not in sys.modules
 assert 'qiskit' not in sys.modules
 from importlib.metadata import entry_points
 plugins = {

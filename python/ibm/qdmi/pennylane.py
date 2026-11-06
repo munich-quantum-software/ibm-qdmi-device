@@ -29,7 +29,7 @@ except ImportError as error:
     raise ImportError(msg) from error
 
 from . import IBM_QDMI_DEVICE_ID
-from ._catalogue import session_parameters
+from ._session import session_parameters
 
 if TYPE_CHECKING:
     from collections.abc import Hashable, Sequence
