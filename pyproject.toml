@@ -90,11 +90,10 @@ dev = [
   "qiskit-ibm-runtime>=0.50,<0.52",
 ]
 test = [
+  { include-group = "test-metadata" },
   "mqt-core[pennylane,qiskit]>=4.1.2.dev0",
-  "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
-  "pytest-xdist>=3.8",
   "qiskit[qasm3-import]>=2.5",
 ]
 docs = [
@@ -110,6 +109,7 @@ build = [
   "build>=1.2.2",
   "scikit-build-core>=1.1",
 ]
+test-metadata = [ "pytest>=9.1.1", "pytest-xdist>=3.8" ]
 
 
 [tool.scikit-build]

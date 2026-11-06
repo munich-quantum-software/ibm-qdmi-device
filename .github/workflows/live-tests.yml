@@ -49,7 +49,7 @@ jobs:
         run: |
           uv build --wheel --out-dir build/live/dist
           uv venv build/live/venv
-          uv pip install --python build/live/venv/bin/python --group test build/live/dist/*.whl
+          uv pip install --python build/live/venv/bin/python --group test-metadata build/live/dist/*.whl
 
       - name: Validate backend metadata
         env:

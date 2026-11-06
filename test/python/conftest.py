@@ -23,10 +23,11 @@ import gc
 from typing import TYPE_CHECKING
 
 import pytest
-from qiskit_service import Runtime, runtime_service
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from qiskit_service import Runtime
 
 
 @pytest.fixture
@@ -36,6 +37,8 @@ def runtime() -> Iterator[Runtime]:
     Yields:
         The loopback service and its recorded submissions.
     """
+    from qiskit_service import runtime_service  # ruff: ignore[import-outside-top-level]
+
     with runtime_service() as service:
         yield service
         gc.collect()
