@@ -78,7 +78,9 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
         ValueError: A noise model is requested.
     """
     import numpy as np  # ruff: ignore[import-outside-top-level]
-    from qiskit import qasm3, qpy  # ruff: ignore[import-outside-top-level]
+    from mqt.core.mlir import QCProgram  # ruff: ignore[import-outside-top-level]
+    from qiskit import qpy  # ruff: ignore[import-outside-top-level]
+    from qiskit.circuit import Store  # ruff: ignore[import-outside-top-level]
 
     params = request["params"]
     rng = np.random.default_rng(7)
@@ -86,13 +88,17 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
         results = []
         for source, _, shots in params["pubs"]:
             if isinstance(source, str):
-                circuit = qasm3.loads(source)
+                circuit = QCProgram.from_openqasm_str(source).to_qiskit()
             else:
                 (circuit,) = qpy.load(io.BytesIO(zlib.decompress(base64.b64decode(source["__value__"], validate=True))))
             pending = [circuit]
             while pending:
                 for instruction in pending.pop().data:
-                    if instruction.operation.name not in operations and instruction.operation.name != "barrier":
+                    if (
+                        instruction.operation.name not in operations
+                        and instruction.operation.name != "barrier"
+                        and not isinstance(instruction.operation, Store)
+                    ):
                         msg = f"Unsupported native instruction: {instruction.operation.name}"
                         raise ValueError(msg)
                     pending.extend(getattr(instruction.operation, "blocks", ()))

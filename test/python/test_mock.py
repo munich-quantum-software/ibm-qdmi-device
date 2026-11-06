@@ -89,6 +89,20 @@ def test_mock_checks_native_names_after_qasm_declarations(name: str) -> None:
         assert job.check() == Job.Status.FAILED
 
 
+@pytest.mark.parametrize("initialized", [True, False])
+def test_qasm_classical_outputs_require_initialization(*, initialized: bool) -> None:
+    """OpenQASM outputs retain explicit zeros and reject unwritten bits."""
+    backend = IBMBackend(backend_name="fake_manila")
+    declaration = 'bit[2] c; c = "00";' if initialized else "bit[2] c;"
+    source = f'OPENQASM 3; include "stdgates.inc"; {declaration} x $0; c[1] = measure $0;'
+    job = backend.device.submit_job(source, ProgramFormat.QASM3, num_shots=4)
+    job.wait(10)
+    if initialized:
+        assert job.get_shots() == ["10"] * 4
+    else:
+        assert job.check() == Job.Status.FAILED
+
+
 def test_unknown_fake_fails_locally() -> None:
     """A misspelled fake cannot fall through to hardware."""
     with pytest.raises(ValueError, match="Unknown fake backend"):
