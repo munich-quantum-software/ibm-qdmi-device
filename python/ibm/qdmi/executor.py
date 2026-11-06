@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
 
 try:
-    from qiskit_ibm_runtime.decoders.quantum_program.decoder import QuantumProgramResultDecoder
+    from qiskit_ibm_runtime.decoders.defaults import DEFAULT_DECODERS
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
     from qiskit_ibm_runtime.quantum_program.params_converters import QUANTUM_PROGRAM_PARAMS_CONVERTERS
 except ImportError as error:
@@ -32,6 +32,8 @@ except ImportError as error:
     raise ImportError(msg) from error
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from qiskit.primitives import PrimitiveResult
     from qiskit_ibm_runtime.quantum_program import QuantumProgram
     from qiskit_ibm_runtime.results import QuantumProgramResult
@@ -95,7 +97,15 @@ class ExecutorJob:
         if raw is None:
             msg = "The device did not return Executor results."
             raise RuntimeError(msg)
-        return QuantumProgramResultDecoder.decode(raw)
+        decoders = DEFAULT_DECODERS["executor"]
+        if not isinstance(decoders, list):
+            decoders = [decoders]
+        result: Any = raw
+        for decoder in decoders:
+            is_applicable = getattr(decoder, "is_applicable", None)
+            if is_applicable is None or is_applicable(result):
+                result = decoder.decode(result)
+        return result
 
 
 class Executor:

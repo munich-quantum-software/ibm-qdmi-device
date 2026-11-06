@@ -26,6 +26,8 @@ releases may include breaking changes.
 
 ### Changed
 
+- ⬆️ Support Qiskit IBM Runtime 0.50 and 0.51 for Executor encoding and result
+  decoding. ([#98]) ([**@burgholzer**])
 - 💥 Report non-finite circuit parameters as MQT Core `TranslationError`
   exceptions. ([#94]) ([**@burgholzer**])
 - ♻️ Use MQT Core for PennyLane compilation and result decoding. ([#94])
@@ -125,6 +127,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
 [#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
