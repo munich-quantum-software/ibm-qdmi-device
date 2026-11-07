@@ -25,6 +25,9 @@ uvx nox -s integration_tests
 cmake -P test/install.cmake
 ```
 
+The shared QDMI query suite uses the offline fixture and runs with
+`ctest --preset release -L qdmi-query`.
+
 GoogleTest exercises C++ components and the C API. The `integration_tests`
 session checks the installed C ABI and HTTP transport against a loopback server.
 It runs separately from framework tests because it owns device initialization

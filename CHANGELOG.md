@@ -26,6 +26,8 @@ releases may include breaking changes.
 
 ### Changed
 
+- 🧪 Use QDMI shared query conformance tests with the offline IBM fixture.
+  ([#84]) ([**@marcelwa**])
 - ♻️ Parse mock OpenQASM with MQT Core and require initialized classical
   outputs. ([#102]) ([**@burgholzer**])
 - ⚡ Run metadata CI in parallel with offline checks using a lightweight test
@@ -135,6 +137,7 @@ _This is the initial release of the IBM QDMI Device._
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
 [#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
 [#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
+[#84]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/84
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
