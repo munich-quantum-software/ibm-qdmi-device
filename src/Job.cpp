@@ -19,20 +19,22 @@
 
 #include "Job.hpp"
 
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/constants.h>
 #include <limits>
 #include <map>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -292,7 +294,7 @@ void Job::submit() {
                     {"__type__", "QuantumCircuit"},
                     {"__value__", encodeQpy(source)},
                 }
-              : nlohmann::json(source);
+                           : nlohmann::json(declareNativeGates(source));
       payload["params"]["pubs"].push_back(
           nlohmann::json::array({std::move(circuit), nullptr, shots}));
     }

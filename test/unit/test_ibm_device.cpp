@@ -17,8 +17,16 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/device.h"
+
 #include "Http.hpp"
 #include "device_fixture.hpp"
+
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <array>
@@ -26,16 +34,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
-#include <gtest/gtest.h>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/device.h>
 #include <ios>
 #include <iterator>
 #include <limits>
 #include <new>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -43,8 +46,9 @@
 #include <vector>
 
 namespace {
-constexpr auto* PROGRAM = "OPENQASM 3; qubit[2] q; bit[2] z; bit a; "
-                          "z[0] = measure q[1]; a = measure q[0];";
+constexpr auto* PROGRAM =
+    "OPENQASM 3; include \"stdgates.inc\"; qubit[2] q; bit[2] z; bit a; "
+    "z[0] = measure q[1]; a = measure q[0];";
 constexpr auto PROGRAM_SIZE = std::char_traits<char>::length(PROGRAM);
 
 TEST_F(DeviceTest, SessionStateAndDirectedCalibration) {
@@ -130,6 +134,7 @@ TEST_F(DeviceTest, DiagnosticClearsAfterSuccess) {
 }
 
 TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
+  data["configuration"]["supported_instructions"] = {"x", "measure", "if_else"};
   initialize();
   const auto before = http.requests().size();
   for (const auto property : {
@@ -162,10 +167,33 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
             (std::vector{QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY,
                          IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
+  const auto capabilityText = handles<char>(QDMI_DEVICE_PROPERTY_CUSTOM3);
+  const auto capabilities = nlohmann::json::parse(capabilityText.data());
+  EXPECT_EQ(capabilities.at("schema"), "mqt.payload-capabilities.v1");
+  const auto& branch = capabilities.at("capabilities").at(0);
+  EXPECT_EQ(branch.at("id"), "forward-branching");
+  EXPECT_EQ(branch.at("constraints").at("max-condition-width"), 32);
+  EXPECT_EQ(branch.at("constraints").at("max-control-flow-nesting-depth"), 1);
+  EXPECT_EQ(branch.at("constraints").at("requires-register-equality"), 1);
+  EXPECT_EQ(branch.at("constraints").at("unitary-only-branches"), 1);
+  for (const auto reserved : {8, 9}) {
+    EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                  session, static_cast<QDMI_Device_Property>(reserved), 0,
+                  nullptr, nullptr),
+              QDMI_ERROR_NOTSUPPORTED);
+  }
   EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                 session, QDMI_DEVICE_PROPERTY_CUSTOM1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(http.requests().size(), before);
+}
+
+TEST_F(DeviceTest, OmitsBranchingWithoutConditionalInstructions) {
+  data["configuration"]["supported_instructions"] = {"x", "measure"};
+  initialize();
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, QDMI_DEVICE_PROPERTY_CUSTOM3, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
 }
 
 TEST_F(DeviceTest, StatusAndQueueLengthRefreshFromBackend) {
@@ -402,6 +430,45 @@ TEST_F(DeviceTest, OperationAndSiteCalibrationAndParameters) {
                 session, operations[0], 0, nullptr, 0, nullptr,
                 QDMI_OPERATION_PROPERTY_CUSTOM1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
+}
+
+TEST_F(DeviceTest, FractionalRzzReportsInclusiveParameterBounds) {
+  for (const std::string name : {"rx", "rzz"}) {
+    const auto coupling =
+        name == "rx" ? nlohmann::json{{0}, {1}} : nlohmann::json{{0, 1}};
+    data.at("configuration").at("basis_gates").push_back(name);
+    data.at("configuration")
+        .at("gates")
+        .push_back({
+            {"name", name},
+            {"parameters", {"theta"}},
+            {"coupling_map", coupling},
+        });
+  }
+  initialize();
+  const auto operations =
+      handles<IBM_QDMI_Operation>(QDMI_DEVICE_PROPERTY_OPERATIONS);
+  const auto property = IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS;
+  EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(3), 0, nullptr, 0, nullptr, property, 0,
+                nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+  std::size_t required = 0;
+  ASSERT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(4), 0, nullptr, 0, nullptr, property, 0,
+                nullptr, &required),
+            QDMI_SUCCESS);
+  std::vector<char> buffer(required, 'x');
+  ASSERT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(4), 0, nullptr, 0, nullptr, property,
+                buffer.size(), buffer.data(), nullptr),
+            QDMI_SUCCESS);
+  EXPECT_EQ(buffer.back(), '\0');
+  const auto domains = nlohmann::json::parse(buffer.data());
+  EXPECT_EQ(domains.at("schema"), "mqt.operation-parameters.v1");
+  EXPECT_EQ(
+      domains.at("alternatives"),
+      nlohmann::json::array({{{"bounds", {{0.0, std::numbers::pi / 2}}}}}));
 }
 
 int setProgram(IBM_QDMI_Device_Job job, QDMI_Program_Format format,

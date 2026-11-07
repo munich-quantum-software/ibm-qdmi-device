@@ -3,8 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-*.dylib
-*.dll
 
 # Packaging
 /build/
@@ -24,10 +22,7 @@ __pycache__/
 .tox/
 *.cover
 *.profraw
-*.gcda
-*.gcno
 coverage.xml
-coverage-*.xml
 htmlcov/
 
 # Documentation
@@ -40,7 +35,7 @@ docs/api/
 .env.*
 !.env.example
 !.env.*.example
-.venv*/
+.venv/
 env/
 venv/
 
@@ -79,6 +74,10 @@ compile_commands.json
 *.swp
 *~
 
+# Claude
+.claude/
+CLAUDE.md
+
 # Operating systems
 .DS_Store
 .DS_Store?
@@ -87,3 +86,6 @@ compile_commands.json
 .Trashes
 Thumbs.db
 ehthumbs.db
+
+# Codex
+/.codex/environments/

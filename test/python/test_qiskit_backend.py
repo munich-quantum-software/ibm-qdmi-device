@@ -23,14 +23,17 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
+from mqt.core.mlir import TargetEnvironment, serialize_program
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, JobSubmissionError, UnsupportedOperationError
 from mqt.core.qdmi import Device, ProgramFormat
 from offline_service import CRN
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
 from qiskit.providers import JobStatus
-from qiskit_service import open_backend
+from qiskit.quantum_info import Operator
+from qiskit_service import open_backend, submitted_circuit
 
 from ibm.qdmi import qiskit as adapter
 from ibm.qdmi.qiskit import IBMBackend
@@ -55,6 +58,57 @@ def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
     assert len(submitted) == 1
     assert submitted[0]["params"]["options"]["dynamical_decoupling"]["enable"] is True
     assert submitted[0]["params"]["options"]["dynamical_decoupling"]["sequence_type"] == "XpXm"
+
+
+@pytest.mark.parametrize("standard_include", [False, True])
+def test_native_compiler_qasm_import(runtime: Runtime, *, standard_include: bool) -> None:
+    """ECR/RZZ declarations preserve qubit placement and measurement results."""
+    config = runtime.snapshot()["configuration"]
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "ecr", "rzz"])
+    runtime.set_configuration(
+        "gates",
+        [
+            *config["gates"],
+            {"name": "ecr", "parameters": [], "coupling_map": [[3, 4]]},
+            {"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]},
+        ],
+    )
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 4)
+    circuit.x(4)
+    circuit.ecr(3, 4)
+    circuit.rzz(0.25, 3, 4)
+    circuit.measure([3, 4, 3], [0, 2, 3])
+    program = serialize_program(
+        circuit, target=TargetEnvironment.from_device(backend.device, program_format=ProgramFormat.QASM3)
+    )
+    assert isinstance(program.payload, str)
+    assert 'include "stdgates.inc";' in program.payload
+    assert "gate ecr" not in program.payload
+    assert "$3" in program.payload
+    assert "$4" in program.payload
+    source = program.payload
+    if not standard_include:
+        source = source.replace('include "stdgates.inc";', "").replace("x $4;", "U(pi,0,pi) $4;")
+    job = backend.device.submit_job(source, program.program_format, num_shots=16)
+    assert job.wait(10)
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = submitted_circuit(source)
+    emitted.remove_final_measurements()
+    circuit.remove_final_measurements()
+    np.testing.assert_allclose(
+        Operator(emitted).data,
+        Operator(circuit).data,
+        atol=1e-12,
+    )
+    assert program.result_layout is not None
+    shots = job.get_shots()
+    assert len(shots) == 16
+    for raw in shots:
+        decoded = program.result_layout.decode_bits(raw)
+        assert len(decoded) == 4
+        assert decoded[2] == "0"
+        assert decoded[0] == decoded[3]
 
 
 @pytest.mark.parametrize("shots", [0, -1, True, 1.5])
@@ -197,3 +251,48 @@ def test_generic_selection_required(runtime: Runtime, monkeypatch: pytest.Monkey
     with pytest.raises(ValueError, match="Allocating QDMI session"):
         IBMBackend(api_key="synthetic-key", instance_crn=CRN, base_url=url, auth_url=url + "/auth")
     assert not runtime.snapshot()["requests"]
+
+
+def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime) -> None:
+    """A zero-output compiled artifact prevents submission of the entire batch."""
+    backend = open_backend(runtime)
+    unmeasured = QuantumCircuit(1)
+    unmeasured.x(0)
+    program = serialize_program(unmeasured, target=TargetEnvironment.from_device(backend.device))
+    assert not isinstance(program, list)
+    measured = QuantumCircuit(1, 1)
+    measured.measure(0, 0)
+    with pytest.raises(CircuitValidationError, match="measured output"):
+        backend.run([measured, program], shots=2)
+    assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("classical_width", [0, 2])
+def test_compile_requires_measurement(runtime: Runtime, classical_width: int) -> None:
+    """Compilation enforces the same measurement requirement as native run."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1, classical_width)
+    circuit.x(0)
+    with pytest.raises(CircuitValidationError, match="At least one measurement"):
+        backend.compile(circuit)
+    assert not runtime.snapshot()["submissions"]
+
+
+def test_run_materializes_generator_once(runtime: Runtime) -> None:
+    """A generator survives provider validation and reaches shared submission."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1, 1)
+    circuit.x(0)
+    circuit.measure(0, 0)
+    result = backend.run((circuit for _ in range(2)), shots=4).result()
+    assert result.get_counts() == [{"1": 4}, {"1": 4}]
+
+
+def test_fractional_backend_omits_branching(runtime: Runtime) -> None:
+    """Backend metadata must advertise if_else before exposing control flow."""
+    config = runtime.snapshot()["configuration"]
+    runtime.set_configuration(
+        "supported_instructions", [name for name in config["supported_instructions"] if name != "if_else"]
+    )
+    backend = open_backend(runtime)
+    assert "if_else" not in backend.target.operation_names

@@ -17,24 +17,27 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/device.h"
+
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Job.hpp"
 #include "Metadata.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/device.h>
 #include <memory>
 #include <mutex>
 #include <new>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -367,6 +370,15 @@ int IBM_QDMI_device_session_query_device_property(
               QDMI_PROGRAM_FORMAT_QPY,
               IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           },
+          size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_CUSTOM3:
+      if (std::ranges::none_of(metadata.operations, [](const auto& operation) {
+            return operation.name == "if_else";
+          })) {
+        return QDMI_ERROR_NOTSUPPORTED;
+      }
+      return copyString(
+          R"({"schema":"mqt.payload-capabilities.v1","capabilities":[{"id":"forward-branching","constraints":{"max-control-flow-nesting-depth":1,"max-condition-width":32,"requires-register-equality":1,"unitary-only-branches":1}}]})",
           size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
@@ -726,6 +738,13 @@ int IBM_QDMI_device_session_query_operation_property(
       return copyOptional(data.arity, size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_PARAMETERSNUM:
       return copyOptional(data.parameters, size, value, sizeRet);
+    case IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS:
+      require(data.name == "rzz" && data.parameters == 1,
+              QDMI_ERROR_NOTSUPPORTED);
+      return copyString(
+          R"({"schema":"mqt.operation-parameters.v1","alternatives":)"
+          R"([{"bounds":[[0,1.5707963267948966]]}]})",
+          size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_SITES: {
       require(!data.sites.empty(), QDMI_ERROR_NOTSUPPORTED);
       std::vector<IBM_QDMI_Site> supported;

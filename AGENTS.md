@@ -26,8 +26,12 @@ commands. Keep this file focused on repository-specific guardrails.
 - Prefer the smallest change that fully solves the problem. Reuse existing code
   and C++20 facilities before adding abstractions or settings.
 - Follow documented policy. Neighboring code does not override instructions.
-- Write comments, documentation, tests, diagnostics, and public text for the
-  final design. Remove review chronology and abandoned approaches.
+- Do not leak conversation, prompt, or iteration history into code comments,
+  pull request descriptions, or other maintainer-facing prose. Write for readers
+  who have not seen the conversation.
+- Prefer comments that explain the current behavior and rationale. Avoid
+  past-facing wording such as "preserve the existing behavior"; explain the
+  actual backwards-compatibility constraint instead.
 - Use short sentences, active voice, and one established term per concept.
   Preserve the capitalization of IBM, QDMI, OpenQASM, CMake, and Python.
 - Add tests for changed behavior or concrete regressions. Keep tests in `test/`
@@ -57,8 +61,10 @@ checks. Jobs retain their session resources until freed. Never retry a job
 submission automatically or treat local handle cleanup as remote cancellation.
 Preserve physical qubit indices and classical-bit ordering through execution.
 Keep framework imports and package information commands free of live access.
-Keep native program readers limited to result layout extraction. Compilation,
-routing, and instruction validation belong in Core and the IBM service.
+Keep native program readers limited to result layout extraction and missing
+ECR/RZZ declarations. Preserve authored gate definitions, include directives,
+and stored source bytes. Compilation, routing, and instruction validation belong
+in MQT Core and the IBM service.
 
 ## Build and Validation
 
@@ -97,11 +103,11 @@ Keep live tests marked `live` and skipped before credential access unless
 categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
 before fixing them. Quantum checks require `--run-quantum` and a new explicit
-request: dispatch `hardware.yml` on `main` or add `live-qpu-tests` to a
-same-repository PR. The independent hardware workflow tests the native device
-and installed candidate wheel offline before running that wheel on hardware.
-Credentials are scoped to the final step. Ordinary CI, persistent labels, fork
-PRs, and workflow/job reruns must never authorize hardware execution.
+request: dispatch `live-tests.yml` on `main` with `suite=quantum`. The hardware
+job tests the C++ device and installed candidate wheel offline before running
+that wheel on hardware. Credentials are scoped to the final step. Ordinary CI,
+PR labels, fork PRs, and workflow/job reruns must never authorize hardware
+execution.
 
 The budget is one job each on Berlin and Aachen, two programs with 64 shots each
 per job, and at most 60 seconds of QPU execution per job. Never retry a

@@ -20,24 +20,26 @@
 
 #include "Http.hpp"
 
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/constants.h"
+
+#include "cpr/body_view.h"
+#include "cpr/connection_pool.h"
+#include "cpr/cprtypes.h"
+#include "cpr/error.h"
+#include "cpr/payload.h"
+#include "cpr/response.h"
+#include "cpr/session.h"
+#include "curl/curl.h"
+#include "curl/urlapi.h"
+
 #include <algorithm>
 #include <charconv>
 #include <chrono>
-#include <cpr/body_view.h>
-#include <cpr/connection_pool.h>
-#include <cpr/cprtypes.h>
-#include <cpr/error.h>
-#include <cpr/payload.h>
-#include <cpr/response.h>
-#include <cpr/session.h>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
-#include <curl/curl.h>
-#include <curl/urlapi.h>
 #include <fstream>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/constants.h>
 #include <memory>
 #include <optional>
 #include <span>
@@ -58,7 +60,7 @@
 
 // libcurl exposes a macro in curl.h on some platforms and a function otherwise.
 #ifndef curl_easy_setopt
-#include <curl/easy.h>
+#include "curl/easy.h"
 #endif
 
 namespace ibm {

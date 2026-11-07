@@ -19,7 +19,12 @@
 
 #include "Auth.hpp"
 
+#include "ibm_qdmi/constants.h"
+
 #include "Http.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -31,13 +36,10 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <ibm_qdmi/constants.h>
 #include <ios>
 #include <iterator>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <string_view>
 #include <system_error>

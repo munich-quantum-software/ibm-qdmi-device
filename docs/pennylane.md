@@ -1,11 +1,14 @@
 # PennyLane integration
 
-Install the optional adapter with `uv pip install "ibm-qdmi[pennylane]"`. The
-{py:class}`~ibm.qdmi.pennylane.IBMDevice` class reuses MQT Core's PennyLane
-preprocessing, job orchestration, and sample decoding. It exports `ibm.default`,
-`ibm.berlin`, and `ibm.aachen` as PennyLane device names. See the
-[MQT Core PennyLane guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/pennylane_device.html)
-for QNodes, measurements, differentiation, batches, and local simulation.
+{py:class}`~ibm.qdmi.pennylane.IBMDevice` uses MQT Core's PennyLane adapter for
+compilation, job orchestration, and sample decoding. It provides `ibm.default`,
+`ibm.berlin`, and `ibm.aachen` as PennyLane device names.
+
+## Install
+
+```console
+uv pip install "ibm-qdmi[pennylane]"
+```
 
 ## Configure a device
 
@@ -16,54 +19,42 @@ Concrete catalogue IDs keep their backend selection unless `backend_name` is
 supplied.
 
 ```python
-import pennylane as qml
+import pennylane as qp
 
-# Device construction queries IBM metadata. Calling the QNode submits paid jobs.
-device = qml.device("ibm.berlin", wires=2)
-
-
-@qml.qnode(device, shots=128)
-def circuit():
-    qml.X(0)
-    return qml.counts(wires=[0, 1])
+# Device construction reads IBM metadata.
+device = qp.device("ibm.berlin", wires=2)
 ```
 
-Supply `api_key`, `instance_crn`, and `backend_name` explicitly to override the
-catalogue configuration and environment defaults.
-`IBMDevice(device=opened_device, wires=2)` adapts an existing QDMI session and
-rejects connection overrides. Importing the adapter and inspecting entry points
-do not open a session or submit work.
-
-Omitted connection arguments use the same native configuration as a direct QDMI
-session. A configured authentication file takes precedence over
-`IBM_QUANTUM_API_KEY`; see
+Supply `api_key`, `instance_crn`, and `backend_name` to override connection
+settings. Omitted arguments use the native session configuration; a configured
+authentication file takes precedence over `IBM_QUANTUM_API_KEY`. See
 [session configuration](api.md#session-configuration).
 
-Wire labels map in their declared order to physical qubits starting at zero. For
-example, `wires=["control", "target"]` maps those labels to physical qubits 0
-and 1. Integer labels are labels, not a physical layout override. The emitted
-OpenQASM always declares the full backend width, and measures only the exposed
-wires using indexed assignments. Sample columns follow the requested measurement
-order. The adapter validates each gate's parameters and physical placement
-against backend metadata. It does not route circuits or reverse directed
-couplings.
+`IBMDevice(device=opened_device, wires=2)` adapts an open QDMI device and
+rejects connection overrides. Imports do not open a session or submit work.
 
-## IBM gate support
+## Run a QNode
 
-PennyLane decomposes operations into the advertised native basis. The IBM
-adapter emits native `id`, `x`, `sx`, `rz`, `cx`, `cz`, `ecr`, and `rzz` gates;
-other native spellings fail before submission. It expresses single-qubit
-rotations using SX and RZ while preserving parameters for differentiation; this
-includes Hadamard, RX, and RY gates. Native ECR and RZZ remain native when the
-backend advertises their signatures and placements. CNOT decomposes into CZ or
-ECR when CX is unavailable. Bound RZZ angles, including parameter-shift
-circuits, are folded into IBM's calibrated range with equivalent single-qubit
-corrections. Incompatible operations or placements fail before submission. The
-adapter retains MQT Core's error and cancellation handling; unknown submission
-outcomes are never retried.
+```python
+@qp.qnode(device)
+def circuit():
+    qp.X(0)
+    return qp.counts(wires=[0, 1])
 
-The adapter forwards compatible custom job settings through `job_parameters`;
-the native parameter contracts are documented in {doc}`api`. MQT Core 4's Python
-custom-parameter interface cannot encode the `uint64_t` execution-time cap.
-PennyLane therefore retains the native default of 60 seconds; use the native C
-interface to change that cap.
+
+# This call submits a paid quantum job.
+counts = qp.set_shots(circuit, shots=1000)()
+```
+
+The `wires` argument labels the circuit's qubits. MQT Core maps them to backend
+qubits and returns samples in the order requested by each measurement. The
+compiler uses the advertised gate placements and parameter ranges, including
+fractional RZZ bounds.
+
+## Supported scope
+
+The adapter runs finite-shot QNodes and forwards custom job settings through
+`job_parameters`. See the [native API](api.md) for submission limits and the
+execution-time cap, and the
+[MQT Core PennyLane guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/pennylane_device.html)
+for measurements, differentiation, batches, failures, and local simulation.

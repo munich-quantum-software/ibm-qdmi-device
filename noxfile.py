@@ -73,7 +73,11 @@ def _run_tests(
     install_args: Sequence[str] = (),
     pytest_run_args: Sequence[str] = (),
 ) -> None:
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
+    env = {
+        "UV_PROJECT_ENVIRONMENT": session.virtualenv.location,
+        "IBM_QUANTUM_API_KEY": "",
+        "IBM_QUANTUM_INSTANCE_CRN": "",
+    }
     run_args = [
         "uv",
         "run",
@@ -100,8 +104,8 @@ def tests(session: nox.Session) -> None:
 
 
 @nox.session(python="3.14", reuse_venv=True)
-def native_tests(session: nox.Session) -> None:
-    """Test the native transport in a process independent of framework drivers."""
+def integration_tests(session: nox.Session) -> None:
+    """Test the C ABI and loopback transport independently of framework drivers."""
     _run_tests(session, pytest_run_args=("-m", "integration", "-n", "0"))
 
 
@@ -120,45 +124,49 @@ def minimums(session: nox.Session) -> None:
 
 @nox.session(python="3.14", reuse_venv=True)
 def docs(session: nox.Session) -> None:
-    """Build the documentation. Pass ``-b linkcheck`` to check links."""
+    """Build documentation.
+
+    Pass ``-b linkcheck`` to check links.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", dest="builder", default="html", help="Build target (default: html)")
     args, posargs = parser.parse_known_args(session.posargs)
 
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
     session.run(
         "uv",
         "sync",
+        "--locked",
         "--no-dev",
         "--group",
         "docs",
         "--config-settings-package",
-        "ibm-qdmi:build-dir=build/docs",
-        "--config-settings-package",
-        "ibm-qdmi:cmake.define.BUILD_IBM_QDMI_DOCS=ON",
-        env=env,
-    )
-    output = Path(f"docs/_build/{args.builder}").resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    session.run(
-        "doxygen",
-        "build/docs/Doxyfile",
-        env={"IBM_QDMI_DOCS_OUTPUT": str(output)},
-        external=True,
+        "ibm-qdmi:wheel.cmake=false",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run(
-        "uv",
-        "run",
-        "--no-sync",
+        "cmake",
+        "-S",
+        ".",
+        "-B",
+        "build/docs",
+        "-DBUILD_IBM_QDMI_TESTS=OFF",
+        "-DBUILD_IBM_QDMI_DOCS=ON",
+    )
+    session.run(
+        "cmake",
+        "--build",
+        "build/docs",
+        "--target",
+        "ibm-qdmi-device-docs",
+    )
+    session.run(
         "sphinx-build",
-        "-n",
         "-T",
         "-W",
         f"-b={args.builder}",
         "docs",
         f"docs/_build/{args.builder}",
         *posargs,
-        env=env,
     )
 
 
@@ -185,7 +193,7 @@ def live_metadata(session: nox.Session) -> None:
             "--python",
             session.virtualenv.location,
             "--group",
-            "test",
+            "test-metadata",
             "--reinstall-package",
             "ibm-qdmi",
             str(wheel),

@@ -23,7 +23,7 @@ from importlib import metadata
 
 try:
     version = metadata.version("ibm-qdmi")
-except metadata.PackageNotFoundError:
+except ModuleNotFoundError:
     msg = "ibm-qdmi must be installed to build the documentation"
     raise ModuleNotFoundError(msg) from None
 
@@ -34,6 +34,7 @@ author = "Munich Quantum Software Company GmbH"
 copyright = "2025 - 2026 Munich Quantum Software Company GmbH"  # ruff: ignore[builtin-variable-shadowing]
 language = "en"
 master_doc = "index"
+nitpicky = True
 
 extensions = [
     "autoapi.extension",
@@ -69,6 +70,7 @@ exclude_patterns = [
 
 html_theme = "furo"
 html_static_path = ["_static"]
+html_extra_path = ["_build/doxygen"]
 html_theme_options = {
     "light_logo": "logo-mqsc-light.svg",
     "dark_logo": "logo-mqsc-dark.svg",

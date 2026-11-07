@@ -19,14 +19,15 @@
 
 #pragma once
 
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
+
+#include "nlohmann/json.hpp" // IWYU pragma: keep
+#include "nlohmann/json_fwd.hpp"
 
 #include <cstddef>
 #include <cstdint>
-#include <ibm_qdmi/constants.h>
-// The stored JSON member requires the complete type, not just the json alias.
-#include <nlohmann/json.hpp> // IWYU pragma: keep
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,6 +37,8 @@ struct Register {
   std::string name;
   std::size_t width;
 };
+/// Supply definitions for undeclared ECR and RZZ calls.
+std::string declareNativeGates(std::string program);
 /// Extract top-level classical declarations in source order.
 std::vector<Register> outputRegisters(const std::string& program);
 /// Read the output layout of one QPY 17 circuit without interpreting gates.

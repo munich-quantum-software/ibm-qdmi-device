@@ -17,17 +17,19 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Job.hpp"
 
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
+
 #include <chrono>
 #include <cstddef>
-#include <gtest/gtest.h>
-#include <ibm_qdmi/constants.h>
 #include <limits>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -246,7 +248,7 @@ TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
   EXPECT_EQ(service.requests.size(), requestCount);
   ibm::Job retrieved(auth, "ibm_test", 2);
   retrieved.retrieve(job.id);
-  EXPECT_EQ(retrieved.programs, job.programs);
+  EXPECT_EQ(retrieved.programs, (std::vector<std::string>{PROGRAM}));
   EXPECT_EQ(retrieved.shots, job.shots);
   EXPECT_FALSE(retrieved.configurable());
   EXPECT_EQ(retrieved.results(0).shots, job.results(0).shots);
@@ -397,8 +399,8 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   ibm::Auth auth(configuration(),
                  [&](const auto& request) { return service(request); });
   ibm::Job job(auth, "ibm_test", 2);
-  const std::string second =
-      "OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];";
+  const std::string second = "OPENQASM 3.0; gate x a { U(0,0,0) a; } "
+                             "qubit[2] q; bit b; x q[0]; b = measure q[0];";
   job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM, second});
   fails(
       [&] { job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM, "invalid"}); },
@@ -406,6 +408,7 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   EXPECT_EQ(job.programs, (std::vector<std::string>{PROGRAM, second}));
   job.shots = 3;
   job.submit();
+  EXPECT_EQ(job.programs, (std::vector<std::string>{PROGRAM, second}));
   EXPECT_EQ(
       service.submitted["params"]["pubs"],
       nlohmann::json::array({nlohmann::json::array({PROGRAM, nullptr, 3}),
@@ -420,7 +423,7 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   EXPECT_EQ(service.requests.size(), requests);
   ibm::Job restored(auth, "ibm_test", 2);
   restored.retrieve(job.id);
-  EXPECT_EQ(restored.programs, job.programs);
+  EXPECT_EQ(restored.programs, (std::vector<std::string>{PROGRAM, second}));
   EXPECT_EQ(restored.shots, 3);
   EXPECT_EQ(restored.results(1).shots, "0,1,0");
 }
