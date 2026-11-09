@@ -12,6 +12,8 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
+  Executor path.
 - ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
   the backend supports `if_else`. ([#94]) ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation

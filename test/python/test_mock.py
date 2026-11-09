@@ -40,9 +40,7 @@ from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumReg
 from qiskit.primitives import BitArray, PrimitiveResult
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
-from qiskit_ibm_runtime.executor_sampler.prepare import prepare
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
-from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
 from qiskit_ibm_runtime.results import QuantumProgramResult
 from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
@@ -193,23 +191,46 @@ def test_mock_pennylane() -> None:
     assert np.all(circuit() == 1)
 
 
-def test_executor_semantic_role_decoding() -> None:
-    """Client-side Sampler programs retain Runtime post-processing after QDMI transport."""
+def test_executor_sampler() -> None:
+    """Sample a parameter sweep through native Executor and decode its counts."""
+    backend = IBMBackend(backend_name="fake_manila")
+    theta = Parameter("theta")
+    circuit = QuantumCircuit(1)
+    circuit.rx(theta, 0)
+    circuit.measure_all()
+    compiled = transpile(circuit, backend, seed_transpiler=7)
+    sampler = backend.executor_sampler(options={"twirling": {"enable_gates": False, "enable_measure": True}})
+    job = sampler.run([(compiled, [[0], [np.pi]])], shots=64)
+    result = job.result(timeout=30)
+    assert job.done()
+    assert isinstance(result, PrimitiveResult)
+    assert result[0].data.meas.get_counts(0) == {"0": 64}
+    assert result[0].data.meas.get_counts(1) == {"1": 64}
+
+
+def test_executor_estimator() -> None:
+    """Estimate observables through native Executor and decode expectation values."""
+    backend = IBMBackend(backend_name="fake_manila")
+    circuit = QuantumCircuit(2)
+    circuit.h(0)
+    circuit.cx(0, 1)
+    compiled = transpile(circuit, backend, seed_transpiler=7)
+    observables = [SparsePauliOp(pauli).apply_layout(compiled.layout) for pauli in ("ZZ", "XX")]
+    estimator = backend.executor_estimator(options={"resilience_level": 0})
+    result = estimator.run([(compiled, observables)], precision=0.125).result(timeout=30)
+    assert isinstance(result, PrimitiveResult)
+    np.testing.assert_allclose(result[0].data.evs, [1, 1])
+
+
+def test_executor_primitives_reject_custom_execution_cap() -> None:
+    """A custom cap cannot be silently replaced by the native default."""
     backend = IBMBackend(backend_name="fake_manila")
     circuit = QuantumCircuit(1)
     circuit.measure_all()
     compiled = transpile(circuit, backend, seed_transpiler=7)
-    program, options = prepare(
-        [compiled],
-        SamplerOptions(twirling={"enable_gates": False, "enable_measure": False}),
-        shots=16,
-        add_tags=True,
-        backend=FakeManilaV2(),
-    )
-    program._semantic_role = "sampler_v2"  # ruff: ignore[private-member-access] -- Runtime's semantic-role contract
-    result = backend.executor(options=options).run(program).result(timeout=30)
-    assert isinstance(result, PrimitiveResult)
-    assert sum(result[0].data.meas.get_counts().values()) == 16
+    sampler = backend.executor_sampler(options={"max_execution_time": 30})
+    with pytest.raises(ValueError, match="max_execution_time"):
+        sampler.run([compiled])
 
 
 def test_mock_concurrent_sessions() -> None:

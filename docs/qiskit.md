@@ -174,3 +174,24 @@ adapter uses the native 60-second execution cap; direct C callers can change it
 through the custom job parameter. Execution and experimental payload options are
 encoded by IBM's library and validated by the service. Shots come from the
 program and apply to every configuration, not to the program's total workload.
+
+## Executor-backed Sampler and Estimator
+
+With the same `ibm-qdmi[executor]` extra, use `backend.executor_sampler()` and
+`backend.executor_estimator()` for IBM Runtime's client-side primitives. They
+accept circuits compiled for the backend and return Qiskit primitive results.
+For Estimator, apply the circuit layout to each observable before submission.
+
+```python
+sampler = backend.executor_sampler(options={"default_shots": 128})
+counts = sampler.run([compiled]).result(timeout=300)[0].data.meas.get_counts()
+estimator = backend.executor_estimator(options={"resilience_level": 0})
+result = estimator.run([(compiled_observable_circuit, mapped_observable)], precision=0.05).result()
+```
+
+Pass IBM Runtime's `SamplerOptions` or `EstimatorOptions`, or a dictionary of
+their fields. Runtime prepares the program and post-processes its results,
+including twirling and mitigation where supported. Both primitives submit
+through the same native Executor path and use its 60-second execution cap. They
+reject custom `max_execution_time` values. For PEC or PEA, supply a previously
+learned layer noise model.

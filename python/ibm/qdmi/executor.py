@@ -22,25 +22,31 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
+from qiskit.primitives import BasePrimitiveJob, PrimitiveResult
+from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
 
 try:
     from qiskit_ibm_runtime.decoders.defaults import DEFAULT_DECODERS
+    from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
+    from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
     from qiskit_ibm_runtime.quantum_program.params_converters import QUANTUM_PROGRAM_PARAMS_CONVERTERS
 except ImportError as error:
     msg = "Install 'ibm-qdmi[executor]' to use Executor."
     raise ImportError(msg) from error
 
 if TYPE_CHECKING:
-    from typing import Any
+    from collections.abc import Iterable
+    from typing import Any, Literal
 
-    from qiskit.primitives import PrimitiveResult
+    from qiskit.primitives.containers.estimator_pub import EstimatorPubLike
+    from qiskit.primitives.containers.sampler_pub import SamplerPubLike
     from qiskit_ibm_runtime.quantum_program import QuantumProgram
     from qiskit_ibm_runtime.results import QuantumProgramResult
 
     from .qiskit import IBMBackend
 
-__all__ = ["Executor", "ExecutorJob"]
+__all__ = ["Executor", "ExecutorEstimator", "ExecutorJob", "ExecutorPrimitiveJob", "ExecutorSampler"]
 
 
 class ExecutorJob:
@@ -159,3 +165,106 @@ class Executor:
             A job with the same lifecycle and decoding as a new submission.
         """
         return ExecutorJob(self._backend.device.retrieve_job_by_id(job_id))
+
+
+class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
+    """A Qiskit primitive job backed by a native Executor job."""
+
+    def __init__(self, job: ExecutorJob) -> None:
+        """Wrap a submitted Executor job."""
+        super().__init__(job.job_id())
+        self._job = job
+
+    def result(self, timeout: int = 0) -> PrimitiveResult:
+        """Wait up to timeout seconds and return the decoded primitive result.
+
+        Returns:
+            The decoded Qiskit primitive result.
+
+        Raises:
+            TypeError: Runtime did not decode the result as a primitive result.
+        """
+        result = self._job.result(timeout)
+        if not isinstance(result, PrimitiveResult):
+            msg = "Executor did not return a primitive result."
+            raise TypeError(msg)
+        return result
+
+    def status(self) -> Job.Status:
+        """Return the native QDMI job status."""
+        return self._job.status()
+
+    def done(self) -> bool:
+        """Return whether the job completed successfully."""
+        return self.status() == Job.Status.DONE
+
+    def running(self) -> bool:
+        """Return whether the job is running."""
+        return self.status() == Job.Status.RUNNING
+
+    def cancelled(self) -> bool:
+        """Return whether the job was canceled."""
+        return self.status() == Job.Status.CANCELED
+
+    def in_final_state(self) -> bool:
+        """Return whether the job has finished."""
+        return self.status() in {Job.Status.DONE, Job.Status.FAILED, Job.Status.CANCELED}
+
+    def cancel(self) -> None:
+        """Cancel the remote job through QDMI."""
+        self._job.cancel()
+
+
+def _submit_primitive(
+    backend: IBMBackend,
+    program: QuantumProgram,
+    options: ExecutorOptions,
+    role: Literal["sampler_v2", "estimator_v2"],
+) -> ExecutorPrimitiveJob:
+    if options.max_execution_time is not None:
+        msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
+        raise ValueError(msg)
+    program._semantic_role = role  # ruff: ignore[private-member-access] -- Runtime's semantic-role contract
+    return ExecutorPrimitiveJob(backend.executor(options=options).run(program))
+
+
+class ExecutorSampler(BaseSamplerV2):
+    """IBM Runtime Sampler with client-side processing and native QDMI execution."""
+
+    def __init__(self, backend: IBMBackend, *, options: SamplerOptions | dict[str, object] | None = None) -> None:
+        """Use the open backend and the supplied Runtime Sampler options."""
+        super().__init__()
+        self._backend = backend
+        self.options = SamplerOptions() if options is None else SamplerOptions.model_validate(options)
+
+    def run(self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None) -> ExecutorPrimitiveJob:
+        """Submit compiled Sampler inputs, with a default shot count for each input.
+
+        Returns:
+            The submitted primitive job.
+        """
+        from qiskit_ibm_runtime.executor_sampler.prepare import prepare  # ruff: ignore[import-outside-top-level]
+
+        program, options = prepare(pubs, self.options, shots, backend=self._backend)
+        return _submit_primitive(self._backend, program, options, "sampler_v2")
+
+
+class ExecutorEstimator(BaseEstimatorV2):
+    """IBM Runtime Estimator with client-side processing and native QDMI execution."""
+
+    def __init__(self, backend: IBMBackend, *, options: EstimatorOptions | dict[str, object] | None = None) -> None:
+        """Use the open backend and the supplied Runtime Estimator options."""
+        super().__init__()
+        self._backend = backend
+        self.options = EstimatorOptions() if options is None else EstimatorOptions.model_validate(options)
+
+    def run(self, pubs: Iterable[EstimatorPubLike], *, precision: float | None = None) -> ExecutorPrimitiveJob:
+        """Submit compiled Estimator inputs, with a default precision for each input.
+
+        Returns:
+            The submitted primitive job.
+        """
+        from qiskit_ibm_runtime.executor_estimator.prepare import prepare  # ruff: ignore[import-outside-top-level]
+
+        program, options = prepare(pubs, self.options, precision, backend=self._backend)
+        return _submit_primitive(self._backend, program, options, "estimator_v2")
