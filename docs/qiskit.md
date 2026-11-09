@@ -189,9 +189,10 @@ estimator = backend.executor_estimator(options={"resilience_level": 0})
 result = estimator.run([(compiled_observable_circuit, mapped_observable)], precision=0.05).result()
 ```
 
-Pass IBM Runtime's `SamplerOptions` or `EstimatorOptions`, or a dictionary of
-their fields. Runtime prepares the program and post-processes its results,
-including twirling and mitigation where supported. Both primitives submit
-through the same native Executor path and use its 60-second execution cap. They
-reject custom `max_execution_time` values. For PEC or PEA, supply a previously
-learned layer noise model.
+Pass an IBM Runtime options model or a dictionary when creating a primitive.
+Update fields on the primitive's `options` model after creation. Runtime
+prepares the program and post-processes its results, including twirling and
+mitigation where supported. Both primitives use the native 60-second execution
+cap and reject custom `max_execution_time` values. Client-side dynamical
+decoupling requires a hardware sampling interval that QDMI targets do not
+provide. For PEC or PEA, supply a previously learned layer noise model.
