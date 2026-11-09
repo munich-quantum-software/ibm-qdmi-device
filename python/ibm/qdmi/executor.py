@@ -175,8 +175,11 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         super().__init__(job.job_id())
         self._job = job
 
-    def result(self, timeout: int = 0) -> PrimitiveResult:
+    def result(self, timeout: int | None = None) -> PrimitiveResult:
         """Wait up to timeout seconds and return the decoded primitive result.
+
+        Args:
+            timeout: Wait limit in seconds. None or zero waits indefinitely.
 
         Returns:
             The decoded Qiskit primitive result.
@@ -184,7 +187,7 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         Raises:
             TypeError: Runtime did not decode the result as a primitive result.
         """
-        result = self._job.result(timeout)
+        result = self._job.result(0 if timeout is None else timeout)
         if not isinstance(result, PrimitiveResult):
             msg = "Executor did not return a primitive result."
             raise TypeError(msg)
@@ -215,15 +218,21 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         self._job.cancel()
 
 
+def _validate_primitive_options(backend: IBMBackend, options: SamplerOptions | EstimatorOptions) -> None:
+    if options.max_execution_time is not None:
+        msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
+        raise ValueError(msg)
+    if options.dynamical_decoupling.enable and backend.target.dt is None:
+        msg = "Executor dynamical decoupling requires a backend sampling interval (dt)."
+        raise ValueError(msg)
+
+
 def _submit_primitive(
     backend: IBMBackend,
     program: QuantumProgram,
     options: ExecutorOptions,
     role: Literal["sampler_v2", "estimator_v2"],
 ) -> ExecutorPrimitiveJob:
-    if options.max_execution_time is not None:
-        msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
-        raise ValueError(msg)
     program._semantic_role = role  # ruff: ignore[private-member-access] -- Runtime's semantic-role contract
     return ExecutorPrimitiveJob(backend.executor(options=options).run(program))
 
@@ -245,6 +254,7 @@ class ExecutorSampler(BaseSamplerV2):
         """
         from qiskit_ibm_runtime.executor_sampler.prepare import prepare  # ruff: ignore[import-outside-top-level]
 
+        _validate_primitive_options(self._backend, self.options)
         program, options = prepare(pubs, self.options, shots, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "sampler_v2")
 
@@ -266,5 +276,6 @@ class ExecutorEstimator(BaseEstimatorV2):
         """
         from qiskit_ibm_runtime.executor_estimator.prepare import prepare  # ruff: ignore[import-outside-top-level]
 
+        _validate_primitive_options(self._backend, self.options)
         program, options = prepare(pubs, self.options, precision, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "estimator_v2")

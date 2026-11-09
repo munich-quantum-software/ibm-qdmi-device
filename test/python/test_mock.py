@@ -217,19 +217,26 @@ def test_executor_estimator() -> None:
     compiled = transpile(circuit, backend, seed_transpiler=7)
     observables = [SparsePauliOp(pauli).apply_layout(compiled.layout) for pauli in ("ZZ", "XX")]
     estimator = backend.executor_estimator(options={"resilience_level": 0})
-    result = estimator.run([(compiled, observables)], precision=0.125).result(timeout=30)
+    result = estimator.run([(compiled, observables)], precision=0.125).result(timeout=None)
     assert isinstance(result, PrimitiveResult)
     np.testing.assert_allclose(result[0].data.evs, [1, 1])
 
 
-def test_executor_primitives_reject_custom_execution_cap() -> None:
-    """A custom cap cannot be silently replaced by the native default."""
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ({"max_execution_time": 30}, "max_execution_time"),
+        ({"dynamical_decoupling": {"enable": True}}, "dynamical decoupling"),
+    ],
+)
+def test_executor_primitives_reject_unsupported_options(options: dict[str, object], message: str) -> None:
+    """Reject options the native target cannot honor."""
     backend = IBMBackend(backend_name="fake_manila")
     circuit = QuantumCircuit(1)
     circuit.measure_all()
     compiled = transpile(circuit, backend, seed_transpiler=7)
-    sampler = backend.executor_sampler(options={"max_execution_time": 30})
-    with pytest.raises(ValueError, match="max_execution_time"):
+    sampler = backend.executor_sampler(options=options)
+    with pytest.raises(ValueError, match=message):
         sampler.run([compiled])
 
 
