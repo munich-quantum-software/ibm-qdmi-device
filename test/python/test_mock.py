@@ -200,7 +200,7 @@ def test_executor_sampler() -> None:
     circuit.measure_all()
     compiled = transpile(circuit, backend, seed_transpiler=7)
     sampler = backend.executor_sampler(options={"twirling": {"enable_gates": False, "enable_measure": True}})
-    job = sampler.run([(compiled, [[0], [np.pi]])], shots=64)
+    job = sampler.run([(compiled, {(theta,): [[0.0], [np.pi]]})], shots=64)
     result = job.result(timeout=30)
     assert job.done()
     assert isinstance(result, PrimitiveResult)

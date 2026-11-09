@@ -13,7 +13,7 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
-  Executor path.
+  Executor path. ([#107]) ([**@marcelwa**])
 - ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
   the backend supports `if_else`. ([#94]) ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
@@ -133,6 +133,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#107]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/107
 [#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
 [#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
