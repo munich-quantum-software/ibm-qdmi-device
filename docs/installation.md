@@ -113,7 +113,7 @@ device or contacting IBM. See the
 options and the equivalent `python -m ibm.qdmi` interface.
 
 For cluster deployment, follow
-[MQT Core's Slurm guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/slurm.html)
+[MQSC Orchestrator](https://github.com/munich-quantum-software/orchestrator)
 and install `ibm-qdmi` in the shared workload environment. Use an installed
 catalogue ID such as `ibm.berlin` as the device license. Supply
 `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the site's
