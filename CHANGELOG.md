@@ -29,9 +29,9 @@ releases may include breaking changes.
 ### Changed
 
 - ⬆️ Update MQT Core to 4.2.0 ([#108]) ([**@denialhaag**]).
-- ♻️ Remove the offloader, worker commands, and application examples; use MQT
-  Core for shared QDMI workflows and MQSC Orchestrator for Slurm deployment.
-  ([#92], [#108]) ([**@burgholzer**], [**@denialhaag**])
+- ♻️ Use MQSC Orchestrator for Slurm deployment and monitoring, and remove
+  duplicated offloading code and application examples ([#92], [#108])
+  ([**@burgholzer**], [**@denialhaag**]).
 - ♻️ Parse mock OpenQASM with MQT Core and require initialized classical
   outputs. ([#102]) ([**@burgholzer**])
 - ⚡ Run metadata CI in parallel with offline checks using a lightweight test
@@ -42,8 +42,6 @@ releases may include breaking changes.
   exceptions. ([#94]) ([**@burgholzer**])
 - ♻️ Use MQT Core for PennyLane compilation and result decoding. ([#94])
   ([**@burgholzer**])
-- 👷 Consolidate CI and documentation builds and require explicit requests for
-  hardware checks. ([#96]) ([**@denialhaag**])
 - ♻️ Prefer MQT Core's QPY serializer for Qiskit circuits. ([#71])
   ([**@marcelwa**], [**@burgholzer**])
 - ♻️ Limit native OpenQASM parsing to classical result layout extraction.
@@ -141,7 +139,6 @@ _This is the initial release of the IBM QDMI Device._
 [#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
 [#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
-[#96]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/96
 [#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
