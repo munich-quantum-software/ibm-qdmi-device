@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.24...4.4)
 project(
   ibm-qdmi-device
-  VERSION 1.0.0
+  VERSION 1.1.0
   LANGUAGES C CXX
   DESCRIPTION "IBM QDMI Device")
 
