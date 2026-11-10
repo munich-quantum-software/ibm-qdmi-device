@@ -112,14 +112,14 @@ device or contacting IBM. See the
 [information CLI](python_package.md#command-line-interface) for the remaining
 options and the equivalent `python -m ibm.qdmi` interface.
 
-For cluster deployment, follow
-[MQT Core's Slurm guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/slurm.html)
-and install `ibm-qdmi` in the shared workload environment. Use an installed
-catalogue ID such as `ibm.berlin` as the device license. Supply
-`IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the site's
-credential mechanism, or configure a private `auth-file` accessible on the
-quantum access nodes. Keep credentials out of Slurm configuration and job
-scripts. Device licenses control local allocations; IBM queues, quotas, and
-charges still apply.
+For Slurm deployments, follow
+[MQSC Orchestrator's deployment guide](https://github.com/munich-quantum-software/orchestrator/blob/main/docs/deployment.md).
+Install `ibm-qdmi` in the workload environment on quantum access nodes and use
+its QDMI catalogue IDs, such as `ibm.berlin`, as Slurm resource names.
+
+Supply `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the site's
+credential mechanism, or use a private `auth-file` readable by the job user.
+Keep credentials out of Slurm configuration and job scripts. Slurm controls
+local access; IBM queues, quotas, and charges still apply.
 
 See [development](development.md) for wheel and source-distribution checks.

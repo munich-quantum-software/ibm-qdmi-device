@@ -62,14 +62,14 @@ through the process environment or a secret manager; the device does not load
 
 ## Where to Start
 
-| I want to…                                   | Guide                                                                                      |
-| :------------------------------------------- | :----------------------------------------------------------------------------------------- |
-| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)         |
-| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html)   |
-| Coordinate workloads with Slurm              | [MQT Core Slurm guide](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/slurm.html) |
-| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                   |
-| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)     |
-| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)         |
+| I want to…                                   | Guide                                                                                    |
+| :------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)       |
+| Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html) |
+| Coordinate workloads with Slurm              | [MQSC Orchestrator](https://github.com/munich-quantum-software/orchestrator)             |
+| Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                 |
+| Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)   |
+| Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)       |
 
 ## Contributing
 
