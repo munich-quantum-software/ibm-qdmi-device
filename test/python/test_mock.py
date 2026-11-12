@@ -33,6 +33,7 @@ import pytest
 
 pytest.importorskip("qiskit_ibm_runtime")
 
+from mqt.core.mlir import OutputFormat, compile_program
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
 from qiskit import QuantumCircuit, transpile
@@ -198,9 +199,9 @@ def test_executor_sampler() -> None:
     circuit = QuantumCircuit(1)
     circuit.rx(theta, 0)
     circuit.measure_all()
-    compiled = transpile(circuit, backend, seed_transpiler=7)
+    compiled = compile_program(circuit, target=backend.device, output=OutputFormat.QISKIT)
     sampler = backend.executor_sampler(options={"twirling": {"enable_gates": False, "enable_measure": True}})
-    job = sampler.run([(compiled, {(theta,): [[0.0], [np.pi]]})], shots=64)
+    job = sampler.run([(compiled, {(theta.name,): [[0.0], [np.pi]]})], shots=64)
     result = job.result(timeout=30)
     assert job.done()
     assert isinstance(result, PrimitiveResult)
@@ -214,7 +215,7 @@ def test_executor_estimator() -> None:
     circuit = QuantumCircuit(2)
     circuit.h(0)
     circuit.cx(0, 1)
-    compiled = transpile(circuit, backend, seed_transpiler=7)
+    compiled = compile_program(circuit, target=backend.device, output=OutputFormat.QISKIT)
     observables = [SparsePauliOp(pauli).apply_layout(compiled.layout) for pauli in ("ZZ", "XX")]
     estimator = backend.executor_estimator(options={"resilience_level": 0})
     result = estimator.run([(compiled, observables)], precision=0.125).result(timeout=None)

@@ -180,13 +180,23 @@ program and apply to every configuration, not to the program's total workload.
 With the same `ibm-qdmi[executor]` extra, use `backend.executor_sampler()` and
 `backend.executor_estimator()` for IBM Runtime's client-side primitives. They
 accept circuits compiled for the backend and return Qiskit primitive results.
-For Estimator, apply the circuit layout to each observable before submission.
+Use MQT Core's Qiskit output to compile several circuits with one QDMI target
+snapshot. Apply the compiled circuit's layout to the Estimator observable.
 
 ```python
+from mqt.core.mlir import OutputFormat, compile_program
+
+# sample_circuit has a measurement register named "meas".
+# observable_circuit prepares the state for the logical observable.
+sample_isa, estimate_isa = compile_program(
+    [sample_circuit, observable_circuit], target=backend.device, output=OutputFormat.QISKIT
+)
 sampler = backend.executor_sampler(options={"default_shots": 128})
-counts = sampler.run([compiled]).result(timeout=300)[0].data.meas.get_counts()
+counts = sampler.run([sample_isa]).result(timeout=300)[0].data.meas.get_counts()
+
 estimator = backend.executor_estimator(options={"resilience_level": 0})
-result = estimator.run([(compiled_observable_circuit, mapped_observable)], precision=0.05).result()
+mapped_observable = observable.apply_layout(estimate_isa.layout)
+result = estimator.run([(estimate_isa, mapped_observable)], precision=0.05).result()
 ```
 
 Pass an IBM Runtime options model or a dictionary when creating a primitive.
