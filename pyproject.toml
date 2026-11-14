@@ -168,6 +168,9 @@ cache-keys = [
   { file = "cmake/**/*" },
 ]
 
+[tool.uv.sources]
+mqt-core = { git = "https://github.com/munich-quantum-toolkit/core.git", rev = "f984f2c49f1df1f6021ff16ec8fed22b0e683fcd" }
+
 
 [tool.cibuildwheel]
 build = "cp3*"
