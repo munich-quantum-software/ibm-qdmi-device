@@ -174,3 +174,35 @@ adapter uses the native 60-second execution cap; direct C callers can change it
 through the custom job parameter. Execution and experimental payload options are
 encoded by IBM's library and validated by the service. Shots come from the
 program and apply to every configuration, not to the program's total workload.
+
+## Executor-backed Sampler and Estimator
+
+With the same `ibm-qdmi[executor]` extra, use `backend.executor_sampler()` and
+`backend.executor_estimator()` for IBM Runtime's client-side primitives. They
+accept circuits compiled for the backend and return Qiskit primitive results.
+Use MQT Core's Qiskit output to compile several circuits with one QDMI target
+snapshot. Apply the compiled circuit's layout to the Estimator observable.
+
+```python
+from mqt.core.mlir import OutputFormat, compile_program
+
+# sample_circuit has a measurement register named "meas".
+# observable_circuit prepares the state for the logical observable.
+sample_isa, estimate_isa = compile_program(
+    [sample_circuit, observable_circuit], target=backend.device, output=OutputFormat.QISKIT
+)
+sampler = backend.executor_sampler(options={"default_shots": 128})
+counts = sampler.run([sample_isa]).result(timeout=300)[0].data.meas.get_counts()
+
+estimator = backend.executor_estimator(options={"resilience_level": 0})
+mapped_observable = observable.apply_layout(estimate_isa.layout)
+result = estimator.run([(estimate_isa, mapped_observable)], precision=0.05).result()
+```
+
+Pass an IBM Runtime options model or a dictionary when creating a primitive.
+Update fields on the primitive's `options` model after creation. Runtime
+prepares the program and post-processes its results, including twirling and
+mitigation where supported. Both primitives use the native 60-second execution
+cap and reject custom `max_execution_time` values. Client-side dynamical
+decoupling requires a hardware sampling interval that QDMI targets do not
+provide. For PEC or PEA, supply a previously learned layer noise model.

@@ -42,9 +42,11 @@ if TYPE_CHECKING:
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
     from mqt.core.qdmi import Device
+    from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
+    from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
 
-    from .executor import Executor
+    from .executor import Executor, ExecutorEstimator, ExecutorSampler
 
 __all__ = ["IBMBackend"]
 
@@ -127,6 +129,26 @@ class IBMBackend(QDMIBackend):
         from .executor import Executor  # ruff: ignore[import-outside-top-level]
 
         return Executor(self, options=options)
+
+    def executor_sampler(self, *, options: SamplerOptions | dict[str, object] | None = None) -> ExecutorSampler:
+        """Create the IBM Runtime Sampler using this QDMI session.
+
+        Returns:
+            An Executor-backed Sampler requiring the ``ibm-qdmi[executor]`` extra.
+        """
+        from .executor import ExecutorSampler  # ruff: ignore[import-outside-top-level]
+
+        return ExecutorSampler(self, options=options)
+
+    def executor_estimator(self, *, options: EstimatorOptions | dict[str, object] | None = None) -> ExecutorEstimator:
+        """Create the IBM Runtime Estimator using this QDMI session.
+
+        Returns:
+            An Executor-backed Estimator requiring the ``ibm-qdmi[executor]`` extra.
+        """
+        from .executor import ExecutorEstimator  # ruff: ignore[import-outside-top-level]
+
+        return ExecutorEstimator(self, options=options)
 
     def run(
         self,

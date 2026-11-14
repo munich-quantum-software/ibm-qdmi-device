@@ -131,6 +131,22 @@ def test_executor_timeout_cancel_and_submission_failure(runtime: Runtime) -> Non
     assert len(runtime.snapshot()["submissions"]) == 2
 
 
+def test_executor_primitive_job_cancel(runtime: Runtime) -> None:
+    """Cancel a running primitive job through its native job ID."""
+    runtime.set_state("Running", 0)
+    sampler = open_backend(runtime).executor_sampler()
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    job = sampler.run([circuit], shots=8)
+
+    assert job.running()
+    assert not job.in_final_state()
+    job.cancel()
+    assert job.cancelled()
+    assert job.in_final_state()
+    assert runtime.snapshot()["cancellations"] == [job.job_id()]
+
+
 def test_executor_invalid_inputs_submit_nothing(runtime: Runtime) -> None:
     """Reject empty programs and options the native transport cannot honor."""
     backend = open_backend(runtime)

@@ -56,8 +56,15 @@ autoapi_options = ["members", "imported-members", "undoc-members", "show-inherit
 # MQT Core uses this type alias in signatures but does not publish it in its inventory.
 nitpick_ignore = [
     ("py:class", "mqt.core.plugins.qiskit.backend.ParametersType"),
-    # IBM indexes this as py:pydantic_model, which cannot resolve a class role.
+    # IBM indexes these as py:pydantic_model, which cannot resolve a class role.
+    ("py:class", "qiskit_ibm_runtime.options_models.estimator.EstimatorOptions"),
     ("py:class", "qiskit_ibm_runtime.options_models.executor.ExecutorOptions"),
+    ("py:class", "qiskit_ibm_runtime.options_models.sampler.SamplerOptions"),
+    # Qiskit's inventory omits these internal paths and type aliases.
+    ("py:obj", "qiskit.primitives.base.BaseEstimatorV2"),
+    ("py:obj", "qiskit.primitives.base.BaseSamplerV2"),
+    ("py:class", "qiskit.primitives.containers.estimator_pub.EstimatorPubLike"),
+    ("py:class", "qiskit.primitives.containers.sampler_pub.SamplerPubLike"),
 ]
 
 source_suffix = [".rst", ".md"]
