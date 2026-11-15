@@ -38,7 +38,7 @@ configuration and device behavior.
 ## Installation
 
 Install the package from [PyPI](https://pypi.org/project/ibm-qdmi/) with Python
-3.11 or newer:
+3.11.5 or newer:
 
 ```console
 uv venv

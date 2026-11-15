@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Changed
+
+- ⬆️ Require MQT Core 4.2.1 and Python 3.11.5 or newer ([#113])
+  ([**@marcelwa**], [**@burgholzer**]).
+
 ## [1.1.0] - 2026-11-10
 
 ### Added
@@ -135,6 +140,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
 [#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
 [#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101

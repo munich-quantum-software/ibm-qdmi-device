@@ -3,7 +3,7 @@
 ## Python package
 
 Install the `ibm-qdmi` distribution from
-[PyPI](https://pypi.org/project/ibm-qdmi/) with Python 3.11 or newer:
+[PyPI](https://pypi.org/project/ibm-qdmi/) with Python 3.11.5 or newer:
 
 ```console
 uv venv
@@ -46,8 +46,8 @@ library without Python, build it from a source checkout as described below.
 
 ## Building from source
 
-Building requires a C++20 compiler, CMake 3.24 or newer, Git, and Python 3.11 or
-newer for Python packaging. Linux builds require OpenSSL development headers.
+Building requires a C++20 compiler, CMake 3.24 or newer, Git, and Python 3.11.5
+or newer for Python packaging. Linux builds require OpenSSL development headers.
 Dependency downloads need network access.
 
 Clone the repository and build the native package:
