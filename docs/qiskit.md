@@ -209,6 +209,7 @@ expectation_value = estimate.data.evs
 
 On a fake backend, the counts contain only `00` and `11`, and the expectation
 value is `1.0`. `join_data()` combines all classical registers in circuit order.
+For counts from one register, use `sample.data[register_name].get_counts()`.
 
 Pass a dictionary or an IBM Runtime options model as `options`. Leave
 `max_execution_time` unset to use the 60-second QPU cap, and leave dynamical
