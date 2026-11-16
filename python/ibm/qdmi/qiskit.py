@@ -126,7 +126,7 @@ class IBMBackend(QDMIBackend):
         Returns:
             An Executor requiring the ``ibm-qdmi[executor]`` extra.
         """
-        from .executor import Executor  # ruff: ignore[import-outside-top-level]
+        from ibm.qdmi.executor import Executor
 
         return Executor(self, options=options)
 
@@ -136,7 +136,7 @@ class IBMBackend(QDMIBackend):
         Returns:
             An Executor-backed Sampler requiring the ``ibm-qdmi[executor]`` extra.
         """
-        from .executor import ExecutorSampler  # ruff: ignore[import-outside-top-level]
+        from ibm.qdmi.executor import ExecutorSampler
 
         return ExecutorSampler(self, options=options)
 
@@ -146,7 +146,7 @@ class IBMBackend(QDMIBackend):
         Returns:
             An Executor-backed Estimator requiring the ``ibm-qdmi[executor]`` extra.
         """
-        from .executor import ExecutorEstimator  # ruff: ignore[import-outside-top-level]
+        from ibm.qdmi.executor import ExecutorEstimator
 
         return ExecutorEstimator(self, options=options)
 

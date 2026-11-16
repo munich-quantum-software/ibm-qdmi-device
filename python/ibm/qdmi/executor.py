@@ -35,6 +35,9 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[executor]' to use Executor."
     raise ImportError(msg) from error
 
+from qiskit_ibm_runtime.executor_estimator.prepare import prepare as prepare_estimator
+from qiskit_ibm_runtime.executor_sampler.prepare import prepare as prepare_sampler
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any, Literal
@@ -252,10 +255,8 @@ class ExecutorSampler(BaseSamplerV2):
         Returns:
             The submitted primitive job.
         """
-        from qiskit_ibm_runtime.executor_sampler.prepare import prepare  # ruff: ignore[import-outside-top-level]
-
         _validate_primitive_options(self._backend, self.options)
-        program, options = prepare(pubs, self.options, shots, backend=self._backend)
+        program, options = prepare_sampler(pubs, self.options, shots, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "sampler_v2")
 
 
@@ -274,8 +275,6 @@ class ExecutorEstimator(BaseEstimatorV2):
         Returns:
             The submitted primitive job.
         """
-        from qiskit_ibm_runtime.executor_estimator.prepare import prepare  # ruff: ignore[import-outside-top-level]
-
         _validate_primitive_options(self._backend, self.options)
-        program, options = prepare(pubs, self.options, precision, backend=self._backend)
+        program, options = prepare_estimator(pubs, self.options, precision, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "estimator_v2")
