@@ -40,17 +40,17 @@ from qiskit_service import open_backend
 from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
 
-from ibm.qdmi import executor as adapter
-
 if TYPE_CHECKING:
     from qiskit_service import Runtime
 
 
 def test_missing_optional_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """A missing Runtime decoder reports the optional extra."""
+    from ibm.qdmi import executor
+
     monkeypatch.setitem(sys.modules, "qiskit_ibm_runtime.decoders.defaults", None)
     with pytest.raises(ImportError, match=r"ibm-qdmi\[executor\]"):
-        runpy.run_path(str(adapter.__file__))
+        runpy.run_path(str(executor.__file__))
 
 
 def program() -> QuantumProgram:
