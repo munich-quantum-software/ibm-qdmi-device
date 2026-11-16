@@ -177,32 +177,42 @@ program and apply to every configuration, not to the program's total workload.
 
 ## Executor-backed Sampler and Estimator
 
-With the same `ibm-qdmi[executor]` extra, use `backend.executor_sampler()` and
-`backend.executor_estimator()` for IBM Runtime's client-side primitives. They
-accept circuits compiled for the backend and return Qiskit primitive results.
-Use MQT Core's Qiskit output to compile several circuits with one QDMI target
-snapshot. Apply the compiled circuit's layout to the Estimator observable.
+Install `ibm-qdmi[executor]` to use IBM Runtime's client-side primitives with
+your `IBMBackend`. Use `executor_sampler()` for counts and
+`executor_estimator()` for expectation values. Both accept compiled Qiskit
+circuits and use the backend's existing QDMI session.
+
+This example samples a Bell circuit and estimates its `ZZ` expectation value.
+Add measurements for the Sampler. For the Estimator, apply the compiled
+circuit's layout to the observable so it acts on the right physical qubits.
 
 ```python
 from mqt.core.mlir import OutputFormat, compile_program
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import SparsePauliOp
 
-# sample_circuit has a measurement register named "meas".
-# observable_circuit prepares the state for the logical observable.
-sample_isa, estimate_isa = compile_program(
-    [sample_circuit, observable_circuit], target=backend.device, output=OutputFormat.QISKIT
-)
-sampler = backend.executor_sampler(options={"default_shots": 128})
-counts = sampler.run([sample_isa]).result(timeout=300)[0].data.meas.get_counts()
+bell = QuantumCircuit(2)
+bell.h(0)
+bell.cx(0, 1)
+measured = bell.measure_all(inplace=False)
+sample_isa, estimate_isa = compile_program([measured, bell], target=backend.device, output=OutputFormat.QISKIT)
+
+sampler = backend.executor_sampler()
+sample = sampler.run([sample_isa], shots=128).result(timeout=300)[0]
+counts = sample.join_data().get_counts()
 
 estimator = backend.executor_estimator(options={"resilience_level": 0})
-mapped_observable = observable.apply_layout(estimate_isa.layout)
-result = estimator.run([(estimate_isa, mapped_observable)], precision=0.05).result()
+observable = SparsePauliOp("ZZ").apply_layout(estimate_isa.layout)
+estimate = estimator.run([(estimate_isa, observable)], precision=0.125).result(timeout=300)[0]
+expectation_value = estimate.data.evs
 ```
 
-Pass an IBM Runtime options model or a dictionary when creating a primitive.
-Update fields on the primitive's `options` model after creation. Runtime
-prepares the program and post-processes its results, including twirling and
-mitigation where supported. Both primitives use the native 60-second execution
-cap and reject custom `max_execution_time` values. Client-side dynamical
-decoupling requires a hardware sampling interval that QDMI targets do not
-provide. For PEC or PEA, supply a previously learned layer noise model.
+On a fake backend, the counts contain only `00` and `11`, and the expectation
+value is `1.0`. `join_data()` combines all classical registers in circuit order.
+
+Pass a dictionary or an IBM Runtime options model as `options`. Leave
+`max_execution_time` unset to use the 60-second QPU cap, and leave dynamical
+decoupling disabled because QDMI does not expose the hardware sampling interval.
+The example disables Estimator error mitigation with `resilience_level=0`. For
+mitigation options and methods that require a separate noise learning job, see
+[IBM's client-side Estimator guide](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/executor-estimator).
