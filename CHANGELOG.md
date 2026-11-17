@@ -10,6 +10,11 @@ releases may include breaking changes.
 
 ## [Unreleased]
 
+### Added
+
+- ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
+  Executor path. ([#107]) ([**@marcelwa**])
+
 ## [1.1.1] - 2026-11-15
 
 ### Changed
@@ -144,6 +149,7 @@ _This is the initial release of the IBM QDMI Device._
 
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
 [#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
+[#107]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/107
 [#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
 [#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98

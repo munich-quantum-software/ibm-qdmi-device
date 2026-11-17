@@ -174,3 +174,46 @@ adapter uses the native 60-second execution cap; direct C callers can change it
 through the custom job parameter. Execution and experimental payload options are
 encoded by IBM's library and validated by the service. Shots come from the
 program and apply to every configuration, not to the program's total workload.
+
+## Executor-backed Sampler and Estimator
+
+Install `ibm-qdmi[executor]` to use IBM Runtime's client-side primitives with
+your `IBMBackend`. Use `executor_sampler()` for counts and
+`executor_estimator()` for expectation values. Both accept compiled Qiskit
+circuits and use the backend's existing QDMI session.
+
+This example samples a Bell circuit and estimates its `ZZ` expectation value.
+Add measurements for the Sampler. For the Estimator, apply the compiled
+circuit's layout to the observable so it acts on the right physical qubits.
+
+```python
+from mqt.core.mlir import OutputFormat, compile_program
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import SparsePauliOp
+
+bell = QuantumCircuit(2)
+bell.h(0)
+bell.cx(0, 1)
+measured = bell.measure_all(inplace=False)
+sample_isa, estimate_isa = compile_program([measured, bell], target=backend.device, output=OutputFormat.QISKIT)
+
+sampler = backend.executor_sampler()
+sample = sampler.run([sample_isa], shots=128).result(timeout=300)[0]
+counts = sample.join_data().get_counts()
+
+estimator = backend.executor_estimator(options={"resilience_level": 0})
+observable = SparsePauliOp("ZZ").apply_layout(estimate_isa.layout)
+estimate = estimator.run([(estimate_isa, observable)], precision=0.125).result(timeout=300)[0]
+expectation_value = estimate.data.evs
+```
+
+On a fake backend, the counts contain only `00` and `11`, and the expectation
+value is `1.0`. `join_data()` combines all classical registers in circuit order.
+For counts from one register, use `sample.data[register_name].get_counts()`.
+
+Pass a dictionary or an IBM Runtime options model as `options`. Leave
+`max_execution_time` unset to use the 60-second QPU cap, and leave dynamical
+decoupling disabled because QDMI does not expose the hardware sampling interval.
+The example disables Estimator error mitigation with `resilience_level=0`. For
+mitigation options and methods that require a separate noise learning job, see
+[IBM's client-side Estimator guide](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/executor-estimator).
