@@ -141,8 +141,12 @@ std::string timing(const nlohmann::json& configuration) {
     if (!constraints->is_object()) {
       return {};
     }
-    for (const auto* key : {"granularity", "min_length", "pulse_alignment",
-                            "acquire_alignment"}) {
+    for (const auto* key : {
+             "granularity",
+             "min_length",
+             "pulse_alignment",
+             "acquire_alignment",
+         }) {
       const auto value = constraints->find(key);
       if (value == constraints->end()) {
         continue;
