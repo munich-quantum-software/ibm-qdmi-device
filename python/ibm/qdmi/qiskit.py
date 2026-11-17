@@ -19,6 +19,8 @@
 
 from __future__ import annotations
 
+import json
+from copy import copy, deepcopy
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -30,7 +32,8 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import QuantumCircuit
+from mqt.core.qdmi import CustomProperty
+from qiskit.circuit import Delay, Parameter, QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._session import session_parameters
@@ -42,6 +45,7 @@ if TYPE_CHECKING:
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
     from mqt.core.qdmi import Device
+    from qiskit.transpiler import Target
     from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
     from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
@@ -103,6 +107,47 @@ class IBMBackend(QDMIBackend):
             ),
         )
         super().__init__(device=device, provider=provider, device_id=resolved_id)
+
+    def _build_target(self) -> Target:
+        """Add IBM timing to the target built from the shared device snapshot.
+
+        Returns:
+            The target with the available IBM timing information.
+        """
+        target = super()._build_target()
+        self._executor_supports_delay = False
+        raw = self.device.query_custom_property(CustomProperty.CUSTOM4, str)
+        if raw is None:
+            return target
+        timing = json.loads(raw)
+        if isinstance(timing, dict) and timing.get("schema") == "ibm.timing.v1":
+            self._executor_supports_delay = timing.get("supports_delay") is True
+            target.dt = timing["dt"]
+            target.granularity = timing.get("granularity", target.granularity)
+            target.min_length = timing.get("min_length", target.min_length)
+            target.pulse_alignment = timing.get("pulse_alignment", target.pulse_alignment)
+            target.acquire_alignment = timing.get("acquire_alignment", target.acquire_alignment)
+        return target
+
+    def _executor_dd_backend(self) -> IBMBackend:
+        """Give Runtime a scheduling target with Executor's delay support.
+
+        Returns:
+            A backend view for client-side scheduling.
+
+        Raises:
+            ValueError: The backend does not advertise the delay instruction.
+        """
+        if not self._executor_supports_delay:
+            msg = "Executor dynamical decoupling requires backend support for delay instructions."
+            raise ValueError(msg)
+        backend = copy(self)
+        backend._target = deepcopy(self.target)  # ruff: ignore[private-member-access] -- Preserve the original target.
+        if "delay" not in backend.target.operation_names:
+            backend.target.add_instruction(
+                Delay(Parameter("duration")), {(site,): None for site in self._placeable_sites}
+            )
+        return backend
 
     @staticmethod
     def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:

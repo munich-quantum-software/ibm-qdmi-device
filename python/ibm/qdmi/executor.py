@@ -221,13 +221,16 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         self._job.cancel()
 
 
-def _validate_primitive_options(backend: IBMBackend, options: SamplerOptions | EstimatorOptions) -> None:
+def _primitive_backend(backend: IBMBackend, options: SamplerOptions | EstimatorOptions) -> IBMBackend:
     if options.max_execution_time is not None:
         msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
         raise ValueError(msg)
-    if options.dynamical_decoupling.enable and backend.target.dt is None:
+    if not options.dynamical_decoupling.enable:
+        return backend
+    if backend.target.dt is None:
         msg = "Executor dynamical decoupling requires a backend sampling interval (dt)."
         raise ValueError(msg)
+    return backend._executor_dd_backend()  # ruff: ignore[private-member-access] -- Executor-only scheduling target
 
 
 def _submit_primitive(
@@ -255,8 +258,8 @@ class ExecutorSampler(BaseSamplerV2):
         Returns:
             The submitted primitive job.
         """
-        _validate_primitive_options(self._backend, self.options)
-        program, options = prepare_sampler(pubs, self.options, shots, backend=self._backend)
+        backend = _primitive_backend(self._backend, self.options)
+        program, options = prepare_sampler(pubs, self.options, shots, backend=backend)
         return _submit_primitive(self._backend, program, options, "sampler_v2")
 
 
@@ -275,6 +278,6 @@ class ExecutorEstimator(BaseEstimatorV2):
         Returns:
             The submitted primitive job.
         """
-        _validate_primitive_options(self._backend, self.options)
-        program, options = prepare_estimator(pubs, self.options, precision, backend=self._backend)
+        backend = _primitive_backend(self._backend, self.options)
+        program, options = prepare_estimator(pubs, self.options, precision, backend=backend)
         return _submit_primitive(self._backend, program, options, "estimator_v2")

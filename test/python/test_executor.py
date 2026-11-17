@@ -29,12 +29,14 @@ import pytest
 pytest.importorskip("qiskit_ibm_runtime")
 
 from ibm_quantum_schemas.common import CompressedTensorModel
-from ibm_quantum_schemas.executor.version_2_0 import QuantumProgramResultModel
+from ibm_quantum_schemas.executor.version_2_0 import ParamsModel, QuantumProgramResultModel
 from mqt.core.qdmi import Job
 from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
+from qiskit.circuit import Delay, Parameter
+from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
+from qiskit_ibm_runtime.quantum_program.converters import quantum_program_from_2_0
 from qiskit_ibm_runtime.results import QuantumProgramResult
 from qiskit_service import open_backend
 from samplomatic import build
@@ -129,6 +131,55 @@ def test_executor_timeout_cancel_and_submission_failure(runtime: Runtime) -> Non
     with pytest.raises(RuntimeError):
         executor.run(program())
     assert len(runtime.snapshot()["submissions"]) == 2
+
+
+@pytest.mark.parametrize("primitive", ["sampler", "estimator"])
+def test_executor_dynamical_decoupling(runtime: Runtime, primitive: str) -> None:
+    """Use IBM timing to insert a pair of X pulses in the submitted idle interval."""
+    runtime.set_configuration("dt", 0.25)
+    runtime.set_configuration("timing_constraints", {"pulse_alignment": 16})
+    runtime.set_properties({
+        "qubits": [[{"name": "readout_length", "value": 1.5, "unit": "us"}]],
+        "gates": [
+            {"gate": gate, "qubits": [0], "parameters": [{"name": "gate_length", "value": length, "unit": "ns"}]}
+            for gate, length in [("x", 8), ("sx", 8), ("rz", 0)]
+        ],
+    })
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1)
+    circuit.x(0)
+    circuit.delay(128, 0)
+    dd = {"enable": True}
+    if primitive == "sampler":
+        circuit.measure_all()
+        backend.executor_sampler(options={"dynamical_decoupling": dd}).run([circuit], shots=8)
+    else:
+        backend.executor_estimator(options={"dynamical_decoupling": dd, "resilience_level": 0}).run(
+            [(circuit, SparsePauliOp("Z"))], precision=0.5
+        )
+
+    assert "delay" not in backend.target.operation_names
+    (submission,) = runtime.snapshot()["submissions"]
+    encoded = ParamsModel.model_validate(submission["params"])
+    prepared, _ = quantum_program_from_2_0(encoded)
+    (item,) = prepared.items
+    assert item.circuit.count_ops()["x"] == 3
+    delay = [entry.operation.duration for entry in item.circuit.data if isinstance(entry.operation, Delay)]
+    assert delay == [16, 32, 16]
+
+
+@pytest.mark.parametrize(("dt", "message"), [(None, "sampling interval"), (0.25, "delay instructions")])
+def test_executor_sampler_requires_timing_and_delay(runtime: Runtime, dt: float | None, message: str) -> None:
+    """Reject decoupling before submission without the required capabilities."""
+    runtime.set_configuration("dt", dt)
+    runtime.set_configuration("supported_instructions", ["measure", "reset"])
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    sampler = backend.executor_sampler(options={"dynamical_decoupling": {"enable": True}})
+    with pytest.raises(ValueError, match=message):
+        sampler.run([circuit])
+    assert not runtime.snapshot()["submissions"]
 
 
 def test_executor_primitive_job_cancel(runtime: Runtime) -> None:

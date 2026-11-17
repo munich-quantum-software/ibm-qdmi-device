@@ -363,6 +363,11 @@ int IBM_QDMI_device_session_query_device_property(
       return copyString(metadata.version, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_LIBRARYVERSION:
       return copyString(QDMI_VERSION, size, value, sizeRet);
+    case IBM_QDMI_DEVICE_PROPERTY_TIMING:
+      if (metadata.timing.empty()) {
+        return QDMI_ERROR_NOTSUPPORTED;
+      }
+      return copyString(metadata.timing, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
       return copyList(
           std::vector{

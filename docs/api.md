@@ -103,6 +103,13 @@ never fabricated zero values. A missing calibration endpoint (HTTP 404) permits
 initialization without those optional values. Malformed structural metadata
 fails initialization.
 
+`IBM_QDMI_DEVICE_PROPERTY_TIMING` (`QDMI_DEVICE_PROPERTY_CUSTOM4`) returns a
+null-terminated JSON object with schema `ibm.timing.v1`, the sampling interval
+`dt` in seconds, and a `supports_delay` flag. When IBM reports them,
+`granularity`, `min_length`, `pulse_alignment`, and `acquire_alignment` are
+positive integers in samples. Missing or invalid timing returns
+`QDMI_ERROR_NOTSUPPORTED` for this query.
+
 Advertised `rzz` operations expose their inclusive angle interval `[0, pi/2]` in
 radians through `IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS`
 (`QDMI_OPERATION_PROPERTY_CUSTOM2`). The null-terminated UTF-8 JSON is:

@@ -139,8 +139,12 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
             bindings = item.circuit_arguments
         for register in item.circuit.cregs:
             data[register.name] = np.empty((*item.shape, program.shots, len(register)), dtype=bool)
+        has_delays = "delay" in item.circuit.count_ops()
         for index in np.ndindex(item.shape):
             circuit = item.circuit.assign_parameters(bindings[index])
+            if has_delays:
+                # Delays have no effect in the ideal simulator.
+                circuit.data = [entry for entry in circuit.data if entry.operation.name != "delay"]
             for name, samples in _sample(circuit, program.shots, rng).items():
                 data[name][index] = samples
         outputs.append({

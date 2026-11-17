@@ -119,6 +119,43 @@ void addSites(Operation& operation, const Sites& sites) {
     operation.sites.push_back(sites);
   }
 }
+
+std::string timing(const nlohmann::json& configuration) {
+  const auto dt = configuration.find("dt");
+  if (dt == configuration.end() || !dt->is_number()) {
+    return {};
+  }
+  const double seconds = dt->get<double>() * 1e-9;
+  if (!std::isfinite(seconds) || seconds <= 0) {
+    return {};
+  }
+  nlohmann::json result{{"schema", "ibm.timing.v1"}, {"dt", seconds}};
+  const auto instructions = configuration.find("supported_instructions");
+  result["supports_delay"] =
+      instructions != configuration.end() && instructions->is_array() &&
+      std::ranges::any_of(*instructions, [](const auto& instruction) {
+        return instruction == "delay";
+      });
+  const auto constraints = configuration.find("timing_constraints");
+  if (constraints != configuration.end() && !constraints->is_null()) {
+    if (!constraints->is_object()) {
+      return {};
+    }
+    for (const auto* key : {"granularity", "min_length", "pulse_alignment",
+                            "acquire_alignment"}) {
+      const auto value = constraints->find(key);
+      if (value == constraints->end()) {
+        continue;
+      }
+      if (!value->is_number_integer() || value->get<double>() < 1 ||
+          value->get<double>() > std::numeric_limits<std::uint32_t>::max()) {
+        return {};
+      }
+      result[key] = *value;
+    }
+  }
+  return result.dump();
+}
 } // namespace
 
 Metadata parseMetadata(const nlohmann::json& configuration,
@@ -126,6 +163,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
   Metadata result;
   result.name = configuration.at("backend_name").get<std::string>();
   result.version = configuration.at("backend_version").get<std::string>();
+  result.timing = timing(configuration);
   const auto count = index(configuration.at("n_qubits"));
   if (result.name.empty() || result.version.empty() || count == 0) {
     throw Failure{QDMI_ERROR_FATAL};
