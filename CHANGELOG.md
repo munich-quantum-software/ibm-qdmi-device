@@ -13,7 +13,7 @@ releases may include breaking changes.
 ### Added
 
 - ✨ Expose IBM backend timing to Qiskit and enable dynamical decoupling for the
-  Executor Sampler and Estimator. ([**@marcelwa**])
+  Executor Sampler and Estimator. ([#117]) ([**@marcelwa**])
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
 
@@ -149,6 +149,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
 [#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
 [#107]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/107
