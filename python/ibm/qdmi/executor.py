@@ -19,7 +19,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
 from qiskit.primitives import BasePrimitiveJob, PrimitiveResult
@@ -221,16 +221,21 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         self._job.cancel()
 
 
-def _primitive_backend(backend: IBMBackend, options: SamplerOptions | EstimatorOptions) -> IBMBackend:
+_PrimitiveOptions = TypeVar("_PrimitiveOptions", SamplerOptions, EstimatorOptions)
+
+
+def _prepare_primitive(backend: IBMBackend, options: _PrimitiveOptions) -> tuple[IBMBackend, _PrimitiveOptions]:
+    # Runtime preparation must use the same decoupling setting as target selection.
+    options = options.model_copy(update={"dynamical_decoupling": options.dynamical_decoupling.model_copy()})
     if options.max_execution_time is not None:
         msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
         raise ValueError(msg)
     if not options.dynamical_decoupling.enable:
-        return backend
+        return backend, options
     if backend.target.dt is None:
-        msg = "Executor dynamical decoupling requires a backend sampling interval (dt)."
+        msg = "Executor dynamical decoupling requires valid timing, including the sampling interval (dt)."
         raise ValueError(msg)
-    return backend._executor_dd_backend()  # ruff: ignore[private-member-access] -- Executor-only scheduling target
+    return backend._executor_dd_backend(), options  # ruff: ignore[private-member-access] -- Executor scheduling target
 
 
 def _submit_primitive(
@@ -258,8 +263,8 @@ class ExecutorSampler(BaseSamplerV2):
         Returns:
             The submitted primitive job.
         """
-        backend = _primitive_backend(self._backend, self.options)
-        program, options = prepare_sampler(pubs, self.options, shots, backend=backend)
+        backend, sampler_options = _prepare_primitive(self._backend, self.options)
+        program, options = prepare_sampler(pubs, sampler_options, shots, backend=backend)
         return _submit_primitive(self._backend, program, options, "sampler_v2")
 
 
@@ -278,6 +283,6 @@ class ExecutorEstimator(BaseEstimatorV2):
         Returns:
             The submitted primitive job.
         """
-        backend = _primitive_backend(self._backend, self.options)
-        program, options = prepare_estimator(pubs, self.options, precision, backend=backend)
+        backend, estimator_options = _prepare_primitive(self._backend, self.options)
+        program, options = prepare_estimator(pubs, estimator_options, precision, backend=backend)
         return _submit_primitive(self._backend, program, options, "estimator_v2")

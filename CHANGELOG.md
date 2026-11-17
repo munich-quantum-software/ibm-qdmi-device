@@ -12,8 +12,8 @@ releases may include breaking changes.
 
 ### Added
 
-- ✨ Enable dynamical decoupling for the Executor Sampler and Estimator when IBM
-  reports backend timing. ([**@marcelwa**])
+- ✨ Expose IBM backend timing to Qiskit and enable dynamical decoupling for the
+  Executor Sampler and Estimator. ([**@marcelwa**])
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
 

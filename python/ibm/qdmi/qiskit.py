@@ -119,14 +119,24 @@ class IBMBackend(QDMIBackend):
         raw = self.device.query_custom_property(CustomProperty.CUSTOM4, str)
         if raw is None:
             return target
-        timing = json.loads(raw)
-        if isinstance(timing, dict) and timing.get("schema") == "ibm.timing.v1":
-            self._executor_supports_delay = timing.get("supports_delay") is True
-            target.dt = timing["dt"]
-            target.granularity = timing.get("granularity", target.granularity)
-            target.min_length = timing.get("min_length", target.min_length)
-            target.pulse_alignment = timing.get("pulse_alignment", target.pulse_alignment)
-            target.acquire_alignment = timing.get("acquire_alignment", target.acquire_alignment)
+        try:
+            timing = json.loads(raw)
+        except ValueError:
+            return target
+        if not isinstance(timing, dict) or timing.get("schema") != "ibm.timing.v1":
+            return target
+        dt = timing.get("dt")
+        if not isinstance(dt, float) or not 0 < dt < float("inf"):
+            return target
+        keys = ("granularity", "min_length", "pulse_alignment", "acquire_alignment")
+        constraints = [timing.get(key, getattr(target, key)) for key in keys]
+        if not all(
+            isinstance(value, int) and not isinstance(value, bool) and 0 < value < 2**32 for value in constraints
+        ):
+            return target
+        self._executor_supports_delay = timing.get("supports_delay") is True
+        target.dt = dt
+        target.granularity, target.min_length, target.pulse_alignment, target.acquire_alignment = constraints
         return target
 
     def _executor_dd_backend(self) -> IBMBackend:

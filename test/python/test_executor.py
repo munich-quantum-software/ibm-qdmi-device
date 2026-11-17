@@ -139,21 +139,30 @@ def test_executor_dynamical_decoupling(runtime: Runtime, primitive: str) -> None
     runtime.set_configuration("dt", 0.25)
     runtime.set_configuration("timing_constraints", {"pulse_alignment": 16})
     runtime.set_properties({
-        "qubits": [[{"name": "readout_length", "value": 1.5, "unit": "us"}]],
+        "qubits": [[{"name": "readout_length", "value": 1.5, "unit": "us"}] for _ in range(2)],
         "gates": [
-            {"gate": gate, "qubits": [0], "parameters": [{"name": "gate_length", "value": length, "unit": "ns"}]}
+            {"gate": gate, "qubits": [qubit], "parameters": [{"name": "gate_length", "value": length, "unit": "ns"}]}
+            for qubit in range(2)
             for gate, length in [("x", 8), ("sx", 8), ("rz", 0)]
         ],
     })
     backend = open_backend(runtime)
-    circuit = QuantumCircuit(1)
-    circuit.x(0)
-    circuit.delay(128, 0)
     dd = {"enable": True}
     if primitive == "sampler":
+        idle_qubit = 1
+        circuit = QuantumCircuit(2)
+        circuit.x([0, 1])
+        circuit.barrier()
+        for _ in range(4):
+            circuit.x(0)
+        circuit.barrier()
         circuit.measure_all()
         backend.executor_sampler(options={"dynamical_decoupling": dd}).run([circuit], shots=8)
     else:
+        idle_qubit = 0
+        circuit = QuantumCircuit(1)
+        circuit.x(0)
+        circuit.delay(128, 0)
         backend.executor_estimator(options={"dynamical_decoupling": dd, "resilience_level": 0}).run(
             [(circuit, SparsePauliOp("Z"))], precision=0.5
         )
@@ -163,8 +172,9 @@ def test_executor_dynamical_decoupling(runtime: Runtime, primitive: str) -> None
     encoded = ParamsModel.model_validate(submission["params"])
     prepared, _ = quantum_program_from_2_0(encoded)
     (item,) = prepared.items
-    assert item.circuit.count_ops()["x"] == 3
-    delay = [entry.operation.duration for entry in item.circuit.data if isinstance(entry.operation, Delay)]
+    operations = [entry.operation for entry in item.circuit.data if entry.qubits == (item.circuit.qubits[idle_qubit],)]
+    assert sum(operation.name == "x" for operation in operations) == 3
+    delay = [operation.duration for operation in operations if isinstance(operation, Delay)]
     assert delay == [16, 32, 16]
 
 
