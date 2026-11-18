@@ -24,7 +24,7 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
       1.4.0
       CACHE STRING "QDMI version")
   set(QDMI_REV
-      "b08081e86fab65a17ab969d021dfb24f601d7136"
+      "92008fe3e478160cfbdec5d22e061b1f9532f5d8"
       CACHE STRING "QDMI revision (shared query conformance tests)")
   set(QDMI_REPO_OWNER
       "Munich-Quantum-Software-Stack"
