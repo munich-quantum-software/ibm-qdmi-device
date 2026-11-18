@@ -12,6 +12,25 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
+  Executor path. ([#107]) ([**@marcelwa**])
+
+### Changed
+
+- 🧪 Use QDMI shared query conformance tests with the offline IBM fixture.
+  ([#84]) ([**@marcelwa**])
+
+## [1.1.1] - 2026-11-15
+
+### Changed
+
+- ⬆️ Update MQT Core to 4.2.1 ([#113]) ([**@marcelwa**], [**@burgholzer**]).
+- ⬆️ Require Python 3.11.5 or newer ([#113]) ([**@burgholzer**]).
+
+## [1.1.0] - 2026-11-10
+
+### Added
+
 - ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
   the backend supports `if_else`. ([#94]) ([**@burgholzer**])
 - ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
@@ -26,8 +45,10 @@ releases may include breaking changes.
 
 ### Changed
 
-- 🧪 Use QDMI shared query conformance tests with the offline IBM fixture.
-  ([#84]) ([**@marcelwa**])
+- ⬆️ Update MQT Core to 4.2.0 ([#108]) ([**@denialhaag**]).
+- ♻️ Use MQSC Orchestrator for Slurm deployment and monitoring, and remove
+  duplicated offloading code and application examples ([#92], [#108])
+  ([**@burgholzer**], [**@denialhaag**]).
 - ♻️ Parse mock OpenQASM with MQT Core and require initialized classical
   outputs. ([#102]) ([**@burgholzer**])
 - ⚡ Run metadata CI in parallel with offline checks using a lightweight test
@@ -62,8 +83,6 @@ releases may include breaking changes.
   aggregate. ([#92]) ([**@burgholzer**])
 - 👷 Check IBM metadata automatically in trusted CI. ([#92])
   ([**@burgholzer**])
-- ♻️ Remove the offloader, worker commands, and application examples; refer to
-  MQT Core for shared QDMI and Slurm workflows. ([#92]) ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
@@ -133,6 +152,9 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
+[#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
+[#107]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/107
 [#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
 [#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
 [#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
@@ -151,7 +173,9 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- Version links -->
 
-[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.1.1
+[1.1.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.1.0
 [1.0.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.0.0
 [0.1.1]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.1
 [0.1.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.0

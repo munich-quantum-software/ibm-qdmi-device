@@ -40,17 +40,17 @@ from qiskit_service import open_backend
 from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
 
-from ibm.qdmi import executor as adapter
-
 if TYPE_CHECKING:
     from qiskit_service import Runtime
 
 
 def test_missing_optional_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """A missing Runtime decoder reports the optional extra."""
+    from ibm.qdmi import executor
+
     monkeypatch.setitem(sys.modules, "qiskit_ibm_runtime.decoders.defaults", None)
     with pytest.raises(ImportError, match=r"ibm-qdmi\[executor\]"):
-        runpy.run_path(str(adapter.__file__))
+        runpy.run_path(str(executor.__file__))
 
 
 def program() -> QuantumProgram:
@@ -129,6 +129,22 @@ def test_executor_timeout_cancel_and_submission_failure(runtime: Runtime) -> Non
     with pytest.raises(RuntimeError):
         executor.run(program())
     assert len(runtime.snapshot()["submissions"]) == 2
+
+
+def test_executor_primitive_job_cancel(runtime: Runtime) -> None:
+    """Cancel a running primitive job through its native job ID."""
+    runtime.set_state("Running", 0)
+    sampler = open_backend(runtime).executor_sampler()
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    job = sampler.run([circuit], shots=8)
+
+    assert job.running()
+    assert not job.in_final_state()
+    job.cancel()
+    assert job.cancelled()
+    assert job.in_final_state()
+    assert runtime.snapshot()["cancellations"] == [job.job_id()]
 
 
 def test_executor_invalid_inputs_submit_nothing(runtime: Runtime) -> None:

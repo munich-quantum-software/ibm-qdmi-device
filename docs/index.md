@@ -12,8 +12,10 @@ and PennyLane integrations.
 
 See
 [MQT Core's QDMI guides](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/)
-for application workflows, local simulation, and Slurm integration. This
-documentation covers IBM configuration and device behavior.
+for application workflows and local simulation. Use
+[MQSC Orchestrator](https://github.com/munich-quantum-software/orchestrator)
+for Slurm integration. This documentation covers IBM configuration and device
+behavior.
 
 ## Where to start
 
