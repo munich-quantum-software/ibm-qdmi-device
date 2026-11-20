@@ -40,6 +40,7 @@ from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
+from qiskit.transpiler import InstructionProperties
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.results import QuantumProgramResult
@@ -223,10 +224,14 @@ def test_executor_estimator() -> None:
     np.testing.assert_allclose(result[0].data.evs, [1, 1])
 
 
-@pytest.mark.filterwarnings("ignore:Duration is rounded to .*:UserWarning:qiskit.circuit.duration")
 def test_executor_dynamical_decoupling_on_fake_backend() -> None:
     """Run scheduled Executor circuits on the ideal simulator."""
     backend = IBMBackend(backend_name="fake_manila")
+    dt = backend.target.dt
+    assert dt is not None
+    # Fake calibration rounds to picoseconds, so supply exact sampling ticks.
+    for instruction, ticks in (("x", 160), ("sx", 160), ("measure", 1024)):
+        backend.target.update_instruction_properties(instruction, (0,), InstructionProperties(duration=ticks * dt))
     circuit = QuantumCircuit(1)
     circuit.x(0)
     circuit.delay(1024, 0)
