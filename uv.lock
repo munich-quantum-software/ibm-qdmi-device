@@ -866,7 +866,7 @@ requires-dist = [
     { name = "mqt-core", extras = ["pennylane"], marker = "extra == 'pennylane'", specifier = ">=4.2.1" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", specifier = ">=4.2.1" },
     { name = "qiskit", marker = "extra == 'qiskit'", specifier = ">=2.5" },
-    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = ">=0.50,<0.52" },
+    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = ">=0.52,<0.53" },
 ]
 provides-extras = ["executor", "mock", "pennylane", "qiskit"]
 
@@ -884,7 +884,7 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "qiskit", extras = ["qasm3-import"], specifier = ">=2.5" },
-    { name = "qiskit-ibm-runtime", specifier = ">=0.50,<0.52" },
+    { name = "qiskit-ibm-runtime", specifier = ">=0.52,<0.53" },
     { name = "scikit-build-core", specifier = ">=1.1" },
 ]
 docs = [
@@ -2144,7 +2144,7 @@ qasm3-import = [
 
 [[package]]
 name = "qiskit-ibm-runtime"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ibm-platform-services" },
@@ -2163,14 +2163,14 @@ dependencies = [
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/33/a6ff6aad92fef92a733f376204083f0cb6b1e0dadddf8ed85d7e63168f62/qiskit_ibm_runtime-0.51.0.tar.gz", hash = "sha256:8873224137d4eb0e2187813252bc5e84ce73dfce7f17c954d25d51c74a6b4827", size = 3690046, upload-time = "2026-10-22T19:07:39.43Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/a8/f7c7da245f2b207936e5c9a615f9f1fafe682011a97e605f809fbf75249e/qiskit_ibm_runtime-0.52.1.tar.gz", hash = "sha256:0e0064ff383676670478e43d679c63f52890b190c1a026bfccd32540af419b53", size = 3692441, upload-time = "2026-11-12T10:04:37.619Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/c5/7c14b2f83b526aa9fb2df8802b631853fb7ad5a644f19cb1e5e6c1f5bcd7/qiskit_ibm_runtime-0.51.0-py3-none-any.whl", hash = "sha256:eb3fd3dbf09e7a066106fc557bb4beb8a3cbf3cbc40623c8e9647db00ed7c28c", size = 1989560, upload-time = "2026-10-22T19:07:37.448Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/a8/9435b50112882613431152eb99cd1b4fe1d2c556428319fa088c251b674e/qiskit_ibm_runtime-0.52.1-py3-none-any.whl", hash = "sha256:cc0ac529a98a1aacbfa81dd4d473cda4590ee893ef203e22b46f3208896783d8", size = 1990382, upload-time = "2026-11-12T10:04:35.046Z" },
 ]
 
 [[package]]
 name = "qiskit-mitigation"
-version = "0.2.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -2180,9 +2180,9 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/5f/4d13258de6b20184ff0892bb1f66e73065dc8cf087fc0baca09816e00641/qiskit_mitigation-0.2.0.tar.gz", hash = "sha256:cff6f2be4d169ec031dac41631762c042ef1ff3d2378f480c7ba6086c957f375", size = 2180124, upload-time = "2026-11-05T12:30:46.728Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/67/efd5d910918201d1e846ff4cf906acb961b7e38b4dd308ccd06f14dabd94/qiskit_mitigation-0.1.1.tar.gz", hash = "sha256:d527ed3e5a511720394812d628163e19f67e916434e01beb96caf76b34d12ad8", size = 1839761, upload-time = "2026-09-24T17:52:33.782Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/96/eccc6013b16597bca571c9545facbffa3b5f5778e965e2f40c061bbd524c/qiskit_mitigation-0.2.0-py3-none-any.whl", hash = "sha256:7a66ce2105c779b1c4e8398aabf2a4c7339ef8d43c31dc3c819aaf5e5cc5566b", size = 125940, upload-time = "2026-11-05T12:30:45.136Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/92/70f86bedb10f6dbb00e1f018b1b10538a7614bfd5830bc585a57cddca7f4/qiskit_mitigation-0.1.1-py3-none-any.whl", hash = "sha256:a99c9a9b67a734675ff1f3a1cefdefe06507761b8771e87b1d10fcc9a812f7b0", size = 113312, upload-time = "2026-09-24T17:52:31.338Z" },
 ]
 
 [[package]]
