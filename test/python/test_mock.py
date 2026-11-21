@@ -38,8 +38,9 @@ from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
-from qiskit.primitives import BitArray, PrimitiveResult
+from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
+from qiskit.transpiler import InstructionProperties
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.results import QuantumProgramResult
@@ -223,21 +224,38 @@ def test_executor_estimator() -> None:
     np.testing.assert_allclose(result[0].data.evs, [1, 1])
 
 
-@pytest.mark.parametrize(
-    ("options", "message"),
-    [
-        ({"max_execution_time": 30}, "max_execution_time"),
-        ({"dynamical_decoupling": {"enable": True}}, "dynamical decoupling"),
-    ],
-)
-def test_executor_primitives_reject_unsupported_options(options: dict[str, object], message: str) -> None:
-    """Reject options the native target cannot honor."""
+def test_executor_dynamical_decoupling_on_fake_backend() -> None:
+    """Run scheduled Executor circuits on the ideal simulator."""
+    backend = IBMBackend(backend_name="fake_manila")
+    dt = backend.target.dt
+    assert dt is not None
+    # Fake calibration rounds to picoseconds, so supply exact sampling ticks.
+    for instruction, ticks in (("x", 160), ("sx", 160), ("measure", 1024)):
+        backend.target.update_instruction_properties(instruction, (0,), InstructionProperties(duration=ticks * dt))
+    circuit = QuantumCircuit(1)
+    circuit.x(0)
+    circuit.delay(1024, 0)
+    dd = {"enable": True}
+    sampler = backend.executor_sampler(options={"dynamical_decoupling": dd})
+    measured = circuit.copy()
+    measured.measure_all()
+    sample = sampler.run([measured], shots=8).result(timeout=30)[0]
+    assert isinstance(sample, SamplerPubResult)
+    assert sample.join_data().get_counts() == {"1": 8}
+
+    estimator = backend.executor_estimator(options={"dynamical_decoupling": dd, "resilience_level": 0})
+    estimate = estimator.run([(circuit, SparsePauliOp("Z"))], precision=0.5).result(timeout=30)[0]
+    np.testing.assert_allclose(estimate.data.evs, -1.0)
+
+
+def test_executor_primitives_reject_custom_execution_cap() -> None:
+    """Reject a cap other than the native execution cap."""
     backend = IBMBackend(backend_name="fake_manila")
     circuit = QuantumCircuit(1)
     circuit.measure_all()
     compiled = transpile(circuit, backend, seed_transpiler=7)
-    sampler = backend.executor_sampler(options=options)
-    with pytest.raises(ValueError, match=message):
+    sampler = backend.executor_sampler(options={"max_execution_time": 30})
+    with pytest.raises(ValueError, match="max_execution_time"):
         sampler.run([compiled])
 
 

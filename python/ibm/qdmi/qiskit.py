@@ -19,7 +19,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import json
+from copy import copy, deepcopy
+from typing import TYPE_CHECKING, Any, TypeVar
 
 try:
     from mqt.core.mlir import CompiledProgram
@@ -30,23 +32,30 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import QuantumCircuit
+from mqt.core.qdmi import CustomProperty
+from qiskit.circuit import Delay, Parameter, QuantumCircuit
+from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
 
 from . import IBM_QDMI_DEVICE_ID
 from ._session import session_parameters
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from typing import Literal
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
     from mqt.core.qdmi import Device
+    from qiskit.primitives.containers.estimator_pub import EstimatorPubLike
+    from qiskit.primitives.containers.sampler_pub import SamplerPubLike
+    from qiskit.transpiler import Target
     from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
     from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
+    from qiskit_ibm_runtime.quantum_program import QuantumProgram
 
-    from .executor import Executor, ExecutorEstimator, ExecutorSampler
+    from .executor import Executor, ExecutorPrimitiveJob
 
 __all__ = ["IBMBackend"]
 
@@ -103,6 +112,60 @@ class IBMBackend(QDMIBackend):
             ),
         )
         super().__init__(device=device, provider=provider, device_id=resolved_id)
+
+    def _build_target(self) -> Target:
+        """Add IBM timing to the target built from the shared device snapshot.
+
+        Returns:
+            The target with the available IBM timing information.
+        """
+        target = super()._build_target()
+        self._executor_supports_delay = False
+        raw = self.device.query_custom_property(CustomProperty.CUSTOM4, str)
+        if raw is None:
+            return target
+        try:
+            timing = json.loads(raw)
+        except ValueError:
+            return target
+        if not isinstance(timing, dict) or timing.get("schema") != "ibm.timing.v1":
+            return target
+        dt = timing.get("dt")
+        if not isinstance(dt, float) or not 0 < dt < float("inf"):
+            return target
+        keys = ("granularity", "min_length", "pulse_alignment", "acquire_alignment")
+        constraints = [timing.get(key, getattr(target, key)) for key in keys]
+        if not all(
+            isinstance(value, int) and not isinstance(value, bool) and 0 < value < 2**32 for value in constraints
+        ):
+            return target
+        self._executor_supports_delay = timing.get("supports_delay") is True
+        target.dt = dt
+        target.granularity, target.min_length, target.pulse_alignment, target.acquire_alignment = constraints
+        return target
+
+    def _executor_dd_backend(self) -> IBMBackend:
+        """Give Runtime a scheduling target with Executor's delay support.
+
+        Returns:
+            A backend view for client-side scheduling.
+
+        Raises:
+            ValueError: The backend lacks valid timing or delay support.
+        """
+        if self.target.dt is None:
+            msg = "Executor dynamical decoupling requires valid timing, including the sampling interval (dt)."
+            raise ValueError(msg)
+        if not self._executor_supports_delay:
+            msg = "Executor dynamical decoupling requires backend support for delay instructions."
+            raise ValueError(msg)
+        backend = copy(self)
+        backend._target = deepcopy(self.target)  # ruff: ignore[private-member-access] -- Preserve the original target.
+        if "delay" not in backend.target.operation_names:
+            backend.target.add_instruction(
+                Delay(Parameter("duration")), {(site,): None for site in self._placeable_sites}
+            )
+        return backend
 
     @staticmethod
     def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
@@ -174,3 +237,77 @@ class IBMBackend(QDMIBackend):
             msg = "At least one measured output is required."
             raise CircuitValidationError(msg)
         return super().run(programs, parameter_values, **options)
+
+
+_PrimitiveOptions = TypeVar("_PrimitiveOptions", "SamplerOptions", "EstimatorOptions")
+
+
+def _prepare_primitive(backend: IBMBackend, options: _PrimitiveOptions) -> tuple[IBMBackend, _PrimitiveOptions]:
+    # Runtime preparation must use the same decoupling setting as target selection.
+    options = options.model_copy(update={"dynamical_decoupling": options.dynamical_decoupling.model_copy()})
+    if options.max_execution_time is not None:
+        msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
+        raise ValueError(msg)
+    if not options.dynamical_decoupling.enable:
+        return backend, options
+    return backend._executor_dd_backend(), options  # ruff: ignore[private-member-access] -- Shared by both primitives.
+
+
+def _submit_primitive(
+    backend: IBMBackend,
+    program: QuantumProgram,
+    options: ExecutorOptions,
+    role: Literal["sampler_v2", "estimator_v2"],
+) -> ExecutorPrimitiveJob:
+    from ibm.qdmi.executor import ExecutorPrimitiveJob
+
+    program._semantic_role = role  # ruff: ignore[private-member-access] -- Runtime's semantic-role contract
+    return ExecutorPrimitiveJob(backend.executor(options=options).run(program))
+
+
+class ExecutorSampler(BaseSamplerV2):
+    """IBM Runtime Sampler with client-side processing and native QDMI execution."""
+
+    def __init__(self, backend: IBMBackend, *, options: SamplerOptions | dict[str, object] | None = None) -> None:
+        """Use the open backend and the supplied Runtime Sampler options."""
+        from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
+
+        super().__init__()
+        self._backend = backend
+        self.options = SamplerOptions() if options is None else SamplerOptions.model_validate(options)
+
+    def run(self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None) -> ExecutorPrimitiveJob:
+        """Submit compiled Sampler inputs, with a default shot count for each input.
+
+        Returns:
+            The submitted primitive job.
+        """
+        from qiskit_ibm_runtime.executor_sampler.prepare import prepare
+
+        backend, sampler_options = _prepare_primitive(self._backend, self.options)
+        program, options = prepare(pubs, sampler_options, shots, backend=backend)
+        return _submit_primitive(self._backend, program, options, "sampler_v2")
+
+
+class ExecutorEstimator(BaseEstimatorV2):
+    """IBM Runtime Estimator with client-side processing and native QDMI execution."""
+
+    def __init__(self, backend: IBMBackend, *, options: EstimatorOptions | dict[str, object] | None = None) -> None:
+        """Use the open backend and the supplied Runtime Estimator options."""
+        from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
+
+        super().__init__()
+        self._backend = backend
+        self.options = EstimatorOptions() if options is None else EstimatorOptions.model_validate(options)
+
+    def run(self, pubs: Iterable[EstimatorPubLike], *, precision: float | None = None) -> ExecutorPrimitiveJob:
+        """Submit compiled Estimator inputs, with a default precision for each input.
+
+        Returns:
+            The submitted primitive job.
+        """
+        from qiskit_ibm_runtime.executor_estimator.prepare import prepare
+
+        backend, estimator_options = _prepare_primitive(self._backend, self.options)
+        program, options = prepare(pubs, estimator_options, precision, backend=backend)
+        return _submit_primitive(self._backend, program, options, "estimator_v2")

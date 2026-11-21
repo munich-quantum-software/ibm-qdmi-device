@@ -272,6 +272,38 @@ TEST_F(DeviceTest, OmitsBranchingWithoutConditionalInstructions) {
             QDMI_ERROR_NOTSUPPORTED);
 }
 
+TEST_F(DeviceTest, ExposesBackendTimingWithoutAnotherRequest) {
+  auto& configuration = data["configuration"];
+  configuration["supported_instructions"] = {"x", "measure", "delay"};
+  configuration["dt"] = 0.25;
+  configuration["timing_constraints"] = {{"pulse_alignment", 16}};
+  initialize();
+
+  const auto before = http.requests().size();
+  const auto text = handles<char>(IBM_QDMI_DEVICE_PROPERTY_TIMING);
+  const auto timing = nlohmann::json::parse(text.data());
+  EXPECT_EQ(timing.at("schema"), "ibm.timing.v1");
+  EXPECT_DOUBLE_EQ(timing.at("dt").get<double>(), 2.5e-10);
+  EXPECT_EQ(timing.at("pulse_alignment"), 16);
+  EXPECT_EQ(timing.at("supports_delay"), true);
+  char tooSmall{};
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, IBM_QDMI_DEVICE_PROPERTY_TIMING, sizeof(tooSmall),
+                &tooSmall, nullptr),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(http.requests().size(), before);
+}
+
+TEST_F(DeviceTest, LeavesTimingUnsupportedWithInvalidAlignment) {
+  data["configuration"]["dt"] = 0.25;
+  data["configuration"]["timing_constraints"] = {{"pulse_alignment", 0}};
+  initialize();
+
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, IBM_QDMI_DEVICE_PROPERTY_TIMING, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+}
+
 TEST_F(DeviceTest, StatusAndQueueLengthRefreshFromBackend) {
   initialize();
   for (const auto& [body, expected] :

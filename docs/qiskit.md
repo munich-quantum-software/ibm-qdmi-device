@@ -62,12 +62,13 @@ before they are returned; uninitialized bits have no implicit zero value.
 
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
-exponentially with circuit size. The local Sampler rejects dynamical decoupling
-and twirling, and Executor rejects noise models. Requests are limited to 16 MiB.
-Pending jobs can be cancelled; running simulations finish normally. One loopback
-service per fake stays alive until process exit, so another backend object can
-retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;
-include that address in `no_proxy` if an HTTP proxy is configured.
+exponentially with circuit size. The mock rejects server-side Sampler decoupling
+and twirling. The ideal Executor mock ignores top-level delays and rejects noise
+models. Requests are limited to 16 MiB. Pending jobs can be cancelled; running
+simulations finish normally. One loopback service per fake stays alive until
+process exit, so another backend object can retrieve its jobs. The service binds
+to `127.0.0.1` with a temporary credential; include that address in `no_proxy`
+if an HTTP proxy is configured.
 
 ## Compile and execute
 
@@ -212,8 +213,12 @@ value is `1.0`. `join_data()` combines all classical registers in circuit order.
 For counts from one register, use `sample.data[register_name].get_counts()`.
 
 Pass a dictionary or an IBM Runtime options model as `options`. Leave
-`max_execution_time` unset to use the 60-second QPU cap, and leave dynamical
-decoupling disabled because QDMI does not expose the hardware sampling interval.
+`max_execution_time` unset to use the 60-second QPU cap. To enable dynamical
+decoupling, set `sampler.options.dynamical_decoupling.enable = True` (or the
+same option on the Estimator). Runtime uses the backend's sampling interval and
+gate durations to schedule the pulses. This requires a backend with timing and
+delay instructions and a circuit without control flow.
+
 The example disables Estimator error mitigation with `resilience_level=0`. For
 mitigation options and methods that require a separate noise learning job, see
 [IBM's client-side Estimator guide](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/executor-estimator).

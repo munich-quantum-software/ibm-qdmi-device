@@ -51,6 +51,7 @@ struct Operation {
 struct Metadata {
   std::string name;
   std::string version;
+  std::string timing;
   std::vector<Site> sites;
   std::vector<Operation> operations;
   std::vector<Sites> coupling;
