@@ -206,13 +206,7 @@ show-fixes = true
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Keep the Executor extra optional for users of the Qiskit adapter.
-banned-module-level-imports = [
-  "ibm.qdmi.executor",
-  "qiskit_ibm_runtime.executor_estimator.prepare",
-  "qiskit_ibm_runtime.executor_sampler.prepare",
-  "qiskit_ibm_runtime.options_models.estimator",
-  "qiskit_ibm_runtime.options_models.sampler",
-]
+banned-module-level-imports = [ "ibm.qdmi.executor" ]
 
 [tool.ruff.lint.isort]
 known-first-party = [ "ibm.qdmi" ]
