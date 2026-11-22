@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 from copy import copy, deepcopy
+from math import isfinite, ulp
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -146,17 +147,39 @@ class IBMBackend(QDMIBackend):
             A backend view for client-side scheduling.
 
         Raises:
-            ValueError: The backend does not advertise the delay instruction.
+            ValueError: The backend lacks valid timing or delay support.
         """
+        dt = self.target.dt
+        if dt is None:
+            msg = "Executor dynamical decoupling requires valid timing, including the sampling interval (dt)."
+            raise ValueError(msg)
         if not self._executor_supports_delay:
             msg = "Executor dynamical decoupling requires backend support for delay instructions."
             raise ValueError(msg)
         backend = copy(self)
         backend._target = deepcopy(self.target)  # ruff: ignore[private-member-access] -- Preserve the original target.
-        if "delay" not in backend.target.operation_names:
-            backend.target.add_instruction(
-                Delay(Parameter("duration")), {(site,): None for site in self._placeable_sites}
-            )
+        target = backend.target
+        # QDMI rounds calibrated durations to whole picoseconds. A tick can be
+        # recovered unambiguously only if adjacent ticks are more than 1 ps apart.
+        if dt > 1e-12:
+            for name in target.operation_names:
+                for sites, properties in target[name].items():
+                    if properties is None or properties.duration is None:
+                        continue
+                    duration = properties.duration
+                    ticks = duration / dt
+                    if not isfinite(ticks) or ticks < 0:
+                        continue
+                    nearest = round(ticks) * dt
+                    difference = abs(nearest - duration)
+                    # Include floating-point error at the half-picosecond cutoff.
+                    tolerance = 0.5e-12 + ulp(duration) + ulp(nearest)
+                    if 0 < difference <= tolerance and difference < dt / 2:
+                        normalized = copy(properties)
+                        normalized.duration = nearest
+                        target.update_instruction_properties(name, sites, normalized)
+        if "delay" not in target.operation_names:
+            target.add_instruction(Delay(Parameter("duration")), {(site,): None for site in self._placeable_sites})
         return backend
 
     @staticmethod

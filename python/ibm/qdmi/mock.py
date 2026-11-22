@@ -75,7 +75,7 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
         Results encoded for the IBM Runtime API.
 
     Raises:
-        ValueError: A noise model is requested.
+        ValueError: The request uses an unsupported instruction or measurement mode.
     """
     import numpy as np  # ruff: ignore[import-outside-top-level]
     from mqt.core.mlir import QCProgram  # ruff: ignore[import-outside-top-level]
@@ -123,9 +123,9 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
     from qiskit_ibm_runtime.quantum_program.converters import quantum_program_from_2_0  # ruff: ignore[import-outside-top-level]
     from samplomatic.quantum_program import CircuitItem, SamplexItem  # ruff: ignore[import-outside-top-level]
 
-    program, options = quantum_program_from_2_0(ParamsModel.model_validate(params))
-    if options.simulator.layer_noise_model:
-        msg = "The mock supports ideal simulation only."
+    program, _ = quantum_program_from_2_0(ParamsModel.model_validate(params))
+    if program.meas_level != "classified":
+        msg = "The mock supports only classified Executor measurements."
         raise ValueError(msg)
     outputs = []
     for item in program.items:

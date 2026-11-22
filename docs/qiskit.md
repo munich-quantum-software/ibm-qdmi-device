@@ -63,12 +63,12 @@ before they are returned; uninitialized bits have no implicit zero value.
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
 exponentially with circuit size. The mock rejects server-side Sampler decoupling
-and twirling. The ideal Executor mock ignores top-level delays and rejects noise
-models. Requests are limited to 16 MiB. Pending jobs can be cancelled; running
-simulations finish normally. One loopback service per fake stays alive until
-process exit, so another backend object can retrieve its jobs. The service binds
-to `127.0.0.1` with a temporary credential; include that address in `no_proxy`
-if an HTTP proxy is configured.
+and twirling. The ideal Executor mock ignores top-level delays and supports
+classified measurements. Requests are limited to 16 MiB. Pending jobs can be
+cancelled; running simulations finish normally. One loopback service per fake
+stays alive until process exit, so another backend object can retrieve its jobs.
+The service binds to `127.0.0.1` with a temporary credential; include that
+address in `no_proxy` if an HTTP proxy is configured.
 
 ## Compile and execute
 
@@ -170,11 +170,12 @@ remote job active; cancel it explicitly when needed.
 
 This path submits independent jobs. Runtime session/batch contexts and the
 `local_mode` option are unsupported; use a fake backend for local simulation.
-Nondefault environment options are rejected before submission. The Python
-adapter uses the native 60-second execution cap; direct C callers can change it
-through the custom job parameter. Execution and experimental payload options are
-encoded by IBM's library and validated by the service. Shots come from the
-program and apply to every configuration, not to the program's total workload.
+The Python adapter rejects nondefault environment and simulator options before
+submission. It uses the native 60-second execution cap and requires
+`max_execution_time` to remain unset. Native callers can set the cap through the
+custom job parameter. Execution and experimental payload options are encoded by
+IBM's library and validated by the service. Shots come from the program and
+apply to every configuration, not to the program's total workload.
 
 ## Executor-backed Sampler and Estimator
 

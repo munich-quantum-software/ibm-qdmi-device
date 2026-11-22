@@ -40,7 +40,6 @@ from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.transpiler import InstructionProperties
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.results import QuantumProgramResult
@@ -227,11 +226,7 @@ def test_executor_estimator() -> None:
 def test_executor_dynamical_decoupling_on_fake_backend() -> None:
     """Run scheduled Executor circuits on the ideal simulator."""
     backend = IBMBackend(backend_name="fake_manila")
-    dt = backend.target.dt
-    assert dt is not None
-    # Fake calibration rounds to picoseconds, so supply exact sampling ticks.
-    for instruction, ticks in (("x", 160), ("sx", 160), ("measure", 1024)):
-        backend.target.update_instruction_properties(instruction, (0,), InstructionProperties(duration=ticks * dt))
+    calibrated_x = backend.target["x"][0,].duration
     circuit = QuantumCircuit(1)
     circuit.x(0)
     circuit.delay(1024, 0)
@@ -246,17 +241,22 @@ def test_executor_dynamical_decoupling_on_fake_backend() -> None:
     estimator = backend.executor_estimator(options={"dynamical_decoupling": dd, "resilience_level": 0})
     estimate = estimator.run([(circuit, SparsePauliOp("Z"))], precision=0.5).result(timeout=30)[0]
     np.testing.assert_allclose(estimate.data.evs, -1.0)
+    assert backend.target["x"][0,].duration == calibrated_x
+    assert "delay" not in backend.target.operation_names
 
 
-def test_executor_primitives_reject_custom_execution_cap() -> None:
-    """Reject a cap other than the native execution cap."""
+def test_executor_mock_rejects_nonclassified_measurements() -> None:
+    """An ideal mock cannot return analog measurement results."""
     backend = IBMBackend(backend_name="fake_manila")
-    circuit = QuantumCircuit(1)
-    circuit.measure_all()
-    compiled = transpile(circuit, backend, seed_transpiler=7)
-    sampler = backend.executor_sampler(options={"max_execution_time": 30})
-    with pytest.raises(ValueError, match="max_execution_time"):
-        sampler.run([compiled])
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    program = QuantumProgram(shots=4, meas_level="avg_kerneled")
+    program.append_circuit_item(circuit)
+    job = backend.executor().run(program)
+
+    with pytest.raises(RuntimeError):
+        job.result(timeout=30)
+    assert job.status() == Job.Status.FAILED
 
 
 def test_mock_concurrent_sessions() -> None:

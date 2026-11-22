@@ -25,8 +25,10 @@ from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
 from qiskit.primitives import BasePrimitiveJob, PrimitiveResult
 from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
 
-try:
+try:  # ruff: ignore[too-many-statements-in-try-clause] -- One install hint for the Executor extra.
     from qiskit_ibm_runtime.decoders.defaults import DEFAULT_DECODERS
+    from qiskit_ibm_runtime.executor_estimator.prepare import prepare as prepare_estimator
+    from qiskit_ibm_runtime.executor_sampler.prepare import prepare as prepare_sampler
     from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
     from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
@@ -34,9 +36,6 @@ try:
 except ImportError as error:
     msg = "Install 'ibm-qdmi[executor]' to use Executor."
     raise ImportError(msg) from error
-
-from qiskit_ibm_runtime.executor_estimator.prepare import prepare as prepare_estimator
-from qiskit_ibm_runtime.executor_sampler.prepare import prepare as prepare_sampler
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -136,30 +135,14 @@ class Executor:
         self.options = options if options is not None else ExecutorOptions()
 
     def run(self, program: QuantumProgram) -> ExecutorJob:
-        """Encode and submit one program through the native device.
+        """Encode and submit one nonempty program through the native device.
 
         Returns:
             A job that preserves the complete Executor result.
-
-        Raises:
-            ValueError: Unsupported environment or simulator settings, or an empty program.
         """
-        if not program.items:
-            msg = "An Executor program must contain at least one item."
-            raise ValueError(msg)
-        environment = self.options.environment.model_dump(exclude_defaults=True)
-        if environment:
-            msg = "Nondefault Executor environment options are unsupported."
-            raise ValueError(msg)
-        if self.options.experimental.get("local_mode") or "simulator_options" in self.options.experimental:
-            msg = "Local Executor simulation is unsupported by the QDMI transport."
-            raise ValueError(msg)
-        params = QUANTUM_PROGRAM_PARAMS_CONVERTERS["v2.0"].encoder(program, self.options)
-        job = self._backend.device.submit_job(
-            params.model_dump_json(),
-            ProgramFormat.CUSTOM1,
-        )
-        return ExecutorJob(job)
+        options = self.options.model_copy(deep=True)
+        _validate_transport_options(options)
+        return _submit(self._backend, program, options)
 
     def retrieve_job(self, job_id: str) -> ExecutorJob:
         """Open an existing Executor job on this backend.
@@ -221,21 +204,44 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         self._job.cancel()
 
 
-_PrimitiveOptions = TypeVar("_PrimitiveOptions", SamplerOptions, EstimatorOptions)
+def _validate_transport_options(options: ExecutorOptions | SamplerOptions | EstimatorOptions) -> None:
+    if options.max_execution_time is not None:
+        msg = "Executor uses the native execution cap. Custom max_execution_time is unsupported."
+        raise ValueError(msg)
+    if options.environment.model_dump(exclude_defaults=True):
+        msg = "Nondefault Executor environment options are unsupported."
+        raise ValueError(msg)
+    if (
+        options.simulator.model_dump(exclude_defaults=True)
+        or options.experimental.get("local_mode")
+        or "simulator_options" in options.experimental
+    ):
+        msg = "Local Executor simulation is unsupported by the QDMI transport."
+        raise ValueError(msg)
+
+
+def _submit(backend: IBMBackend, program: QuantumProgram, options: ExecutorOptions) -> ExecutorJob:
+    if not program.items:
+        msg = "An Executor program must contain at least one item."
+        raise ValueError(msg)
+    params = QUANTUM_PROGRAM_PARAMS_CONVERTERS["v2.0"].encoder(program, options)
+    job = backend.device.submit_job(
+        params.model_dump_json(),
+        ProgramFormat.CUSTOM1,
+    )
+    return ExecutorJob(job)
+
+
+_PrimitiveOptions = TypeVar("_PrimitiveOptions", "SamplerOptions", "EstimatorOptions")
 
 
 def _prepare_primitive(backend: IBMBackend, options: _PrimitiveOptions) -> tuple[IBMBackend, _PrimitiveOptions]:
-    # Runtime preparation must use the same decoupling setting as target selection.
-    options = options.model_copy(update={"dynamical_decoupling": options.dynamical_decoupling.model_copy()})
-    if options.max_execution_time is not None:
-        msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
-        raise ValueError(msg)
+    # Runtime consumes user-provided PUB iterables before it finalizes its options.
+    options = options.model_copy(deep=True)
+    _validate_transport_options(options)
     if not options.dynamical_decoupling.enable:
         return backend, options
-    if backend.target.dt is None:
-        msg = "Executor dynamical decoupling requires valid timing, including the sampling interval (dt)."
-        raise ValueError(msg)
-    return backend._executor_dd_backend(), options  # ruff: ignore[private-member-access] -- Executor scheduling target
+    return backend._executor_dd_backend(), options  # ruff: ignore[private-member-access] -- Shared by both primitives.
 
 
 def _submit_primitive(
@@ -244,8 +250,8 @@ def _submit_primitive(
     options: ExecutorOptions,
     role: Literal["sampler_v2", "estimator_v2"],
 ) -> ExecutorPrimitiveJob:
-    program._semantic_role = role  # ruff: ignore[private-member-access] -- Runtime's semantic-role contract
-    return ExecutorPrimitiveJob(backend.executor(options=options).run(program))
+    program._semantic_role = role  # ruff: ignore[private-member-access] -- IBM Runtime uses this field for result dispatch
+    return ExecutorPrimitiveJob(_submit(backend, program, options))
 
 
 class ExecutorSampler(BaseSamplerV2):

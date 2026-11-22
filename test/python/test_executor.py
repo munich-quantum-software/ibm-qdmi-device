@@ -43,6 +43,8 @@ from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from qiskit_service import Runtime
 
 
@@ -136,14 +138,15 @@ def test_executor_timeout_cancel_and_submission_failure(runtime: Runtime) -> Non
 @pytest.mark.parametrize("primitive", ["sampler", "estimator"])
 def test_executor_dynamical_decoupling(runtime: Runtime, primitive: str) -> None:
     """Use IBM timing to insert a pair of X pulses in the submitted idle interval."""
-    runtime.set_configuration("dt", 0.25)
+    # X spans 32 ticks and lies at the half-picosecond rounding boundary.
+    runtime.set_configuration("dt", 0.250078125)
     runtime.set_configuration("timing_constraints", {"pulse_alignment": 16})
     runtime.set_properties({
-        "qubits": [[{"name": "readout_length", "value": 1.5, "unit": "us"}] for _ in range(2)],
+        "qubits": [[{"name": "readout_length", "value": 64.02, "unit": "ns"}] for _ in range(2)],
         "gates": [
             {"gate": gate, "qubits": [qubit], "parameters": [{"name": "gate_length", "value": length, "unit": "ns"}]}
             for qubit in range(2)
-            for gate, length in [("x", 8), ("sx", 8), ("rz", 0)]
+            for gate, length in [("x", 8.0025), ("sx", 8.0025), ("rz", 0)]
         ],
     })
     backend = open_backend(runtime)
@@ -219,7 +222,46 @@ def test_executor_invalid_inputs_submit_nothing(runtime: Runtime) -> None:
     options = ExecutorOptions(experimental={"local_mode": True})
     with pytest.raises(ValueError, match="simulation"):
         backend.executor(options=options).run(program())
+    options = ExecutorOptions(max_execution_time=10)
+    with pytest.raises(ValueError, match="max_execution_time"):
+        backend.executor(options=options).run(program())
+    options = ExecutorOptions(simulator={"seed_simulator": 7})
+    with pytest.raises(ValueError, match="simulation"):
+        backend.executor(options=options).run(program())
     assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [({"max_execution_time": 10}, "max_execution_time"), ({"simulator": {"seed_simulator": 7}}, "simulation")],
+)
+def test_executor_primitives_validate_options_before_preparation(
+    runtime: Runtime, options: dict[str, object], message: str
+) -> None:
+    """Reject transport options before Runtime validates the PUBs."""
+    backend = open_backend(runtime)
+    with pytest.raises(ValueError, match=message):
+        backend.executor_sampler(options=options).run([])
+    with pytest.raises(ValueError, match=message):
+        backend.executor_estimator(options=options).run([])
+    assert not runtime.snapshot()["submissions"]
+
+
+def test_executor_sampler_snapshots_options_before_consuming_pubs(runtime: Runtime) -> None:
+    """Option changes during iteration apply to the next submission."""
+    sampler = open_backend(runtime).executor_sampler()
+
+    def pubs() -> Iterator[QuantumCircuit]:
+        sampler.options.experimental["local_mode"] = True
+        circuit = QuantumCircuit(1, 1)
+        circuit.measure(0, 0)
+        yield circuit
+
+    sampler.run(pubs(), shots=4)
+    (submission,) = runtime.snapshot()["submissions"]
+    assert not submission["params"]["options"].get("experimental", {}).get("local_mode")
+    with pytest.raises(ValueError, match="simulation"):
+        sampler.run([], shots=4)
 
 
 def test_executor_retrieval_rejects_sampler_job(runtime: Runtime) -> None:
