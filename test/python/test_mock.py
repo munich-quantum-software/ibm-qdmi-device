@@ -233,7 +233,7 @@ def test_backend_run_preserves_scheduled_delay() -> None:
     circuit.measure(0, 0)
     compiled = transpile(circuit, backend, initial_layout=[2], optimization_level=0)
     job = backend.run(compiled, shots=4, memory=True)
-    assert job.result(timeout=10).get_memory() == ["1"] * 4
+    assert job.result().get_memory() == ["1"] * 4
     submitted = backend.device.retrieve_job_by_id(job.job_id())
     assert submitted.program_format == ProgramFormat.QPY
     (restored,) = qpy.load(BytesIO(submitted.get_program(bytes)))

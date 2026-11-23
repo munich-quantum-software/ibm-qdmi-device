@@ -106,7 +106,8 @@ def tests(session: nox.Session) -> None:
 @nox.session(python="3.14", reuse_venv=True)
 def integration_tests(session: nox.Session) -> None:
     """Test the C ABI and loopback transport independently of framework drivers."""
-    _run_tests(session, pytest_run_args=("-m", "integration", "-n", "0"))
+    # Build the temporary Core source pin with the integration interpreter.
+    _run_tests(session, install_args=("--no-cache",), pytest_run_args=("-m", "integration", "-n", "0"))
 
 
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, venv_backend="uv", default=True)

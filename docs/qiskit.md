@@ -114,7 +114,7 @@ circuit.delay(32, 0, unit="ns")
 circuit.measure(0, 0)
 scheduled = transpile(circuit, backend, scheduling_method="alap")
 job = backend.run(scheduled, shots=128, memory=True)
-shots = job.result(timeout=300).get_memory()
+shots = job.result().get_memory()
 ```
 
 Backends advertising `if_else` support conditional execution through QPY and
