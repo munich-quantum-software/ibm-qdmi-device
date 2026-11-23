@@ -106,7 +106,7 @@ def tests(session: nox.Session) -> None:
 @nox.session(python="3.14", reuse_venv=True)
 def integration_tests(session: nox.Session) -> None:
     """Test the C ABI and loopback transport independently of framework drivers."""
-    # Build the temporary Core source pin with the integration interpreter.
+    # Build the MQT Core source pin with this interpreter until release wheels are available.
     _run_tests(session, install_args=("--no-cache",), pytest_run_args=("-m", "integration", "-n", "0"))
 
 

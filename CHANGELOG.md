@@ -14,7 +14,8 @@ releases may include breaking changes.
 
 - ✨ Expose native delays and femtosecond calibration through QDMI. The Qiskit
   target supplies timing for Executor Sampler and Estimator dynamical
-  decoupling. ([#117]) ([**@marcelwa**], [**@burgholzer**])
+  decoupling. Submit scheduled circuits with literal delays through
+  `backend.run()`. ([#117], [#125]) ([**@marcelwa**], [**@burgholzer**])
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
 
@@ -22,11 +23,6 @@ releases may include breaking changes.
 
 - 🐛 Reject custom execution caps and nondefault simulator options in the Python
   Executor adapter. ([#117]) ([**@burgholzer**])
-
-### Changed
-
-- ♻️ Use MQT Core to submit scheduled circuits and simulate delays in the mock.
-  ([#125]) ([**@marcelwa**])
 
 ## [1.1.1] - 2026-11-15
 

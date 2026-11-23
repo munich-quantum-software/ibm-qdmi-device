@@ -103,7 +103,9 @@ route them. Qiskit's `transpile(circuit, backend)` uses the same target as the
 Executor primitives, including native `delay` on devices that advertise it.
 
 Submit scheduled circuits with literal delays through `backend.run()`. Qiskit
-converts numeric SI durations to backend ticks during transpilation.
+converts numeric SI durations to backend ticks during transpilation. Until an
+MQT Core release includes delay serialization, install the pinned revision from
+the IBM QDMI device checkout with `uv sync --locked --no-dev --extra qiskit`.
 
 ```python
 from qiskit import QuantumCircuit, transpile
