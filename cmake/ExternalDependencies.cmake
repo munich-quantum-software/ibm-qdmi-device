@@ -20,12 +20,13 @@ include(GNUInstallDirs)
 
 if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(ENABLE_COVERAGE ${IBM_QDMI_ENABLE_COVERAGE})
-  set(QDMI_VERSION
+  set(QDMI_MINIMUM_VERSION
       1.4.0
-      CACHE STRING "QDMI version")
+      CACHE STRING "Minimum QDMI version")
+  # Use QDMI develop for the exported CMake target version.
   set(QDMI_REV
-      "6db03d83ad602aaa9fe928b5c3fc5cce84b10061"
-      CACHE STRING "QDMI revision (v1.4.0)")
+      "d336c4ca6e972201f49b834da7d57dcb550f59f7"
+      CACHE STRING "QDMI identifier (tag, branch or commit hash)")
   set(QDMI_REPO_OWNER
       "Munich-Quantum-Software-Stack"
       CACHE STRING "QDMI repository owner")
@@ -35,13 +36,15 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   FetchContent_Declare(
     qdmi
     GIT_REPOSITORY https://github.com/${QDMI_REPO_OWNER}/qdmi.git
-    GIT_TAG ${QDMI_REV}
-    FIND_PACKAGE_ARGS ${QDMI_VERSION})
+    GIT_TAG ${QDMI_REV})
   FetchContent_MakeAvailable(qdmi)
 
+  # renovate: datasource=github-releases depName=nlohmann/json
+  set(JSON_VERSION 3.12.0)
   FetchContent_Declare(
-    nlohmann_json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
-                      FIND_PACKAGE_ARGS 3.12.0)
+    nlohmann_json
+    URL https://github.com/nlohmann/json/releases/download/v${JSON_VERSION}/json.tar.xz
+        FIND_PACKAGE_ARGS 3.12.0)
   set(JSON_SystemInclude
       ON
       CACHE INTERNAL "Treat JSON headers as system headers")
@@ -113,10 +116,13 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     zlib
     URL https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz
     URL_HASH SHA256=f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1)
+  # renovate: datasource=github-tags depName=libcpr/cpr
+  set(CPR_REV "3139b2682f0b1d6af8c7ae48cf400f9d9988deec" # tag=1.15.1
+  )
   FetchContent_Declare(
     cpr
     GIT_REPOSITORY https://github.com/libcpr/cpr.git
-    GIT_TAG 1.15.1)
+    GIT_TAG ${CPR_REV})
   if(APPLE)
     FetchContent_MakeAvailable(nlohmann_json zlib cpr)
   else()
@@ -133,9 +139,13 @@ if(BUILD_IBM_QDMI_TESTS)
       CACHE BOOL "Do not install GoogleTest" FORCE)
   set(GTEST_VERSION
       1.18.0
-      CACHE STRING "GoogleTest version")
+      CACHE STRING "Minimum installed GoogleTest version")
+  # renovate: datasource=github-tags depName=google/googletest
+  set(GTEST_REV
+      "063de7e9578f82b369302001269680b4b1553359" # tag=v1.18.0
+      CACHE STRING "GoogleTest source revision")
   FetchContent_Declare(
-    googletest URL https://github.com/google/googletest/archive/refs/tags/v${GTEST_VERSION}.tar.gz
+    googletest URL https://github.com/google/googletest/archive/${GTEST_REV}.tar.gz
                    FIND_PACKAGE_ARGS ${GTEST_VERSION} NAMES GTest)
   FetchContent_MakeAvailable(googletest)
 endif()
