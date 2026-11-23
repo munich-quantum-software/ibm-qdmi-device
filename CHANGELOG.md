@@ -26,6 +26,7 @@ releases may include breaking changes.
 ### Changed
 
 - ♻️ Use MQT Core to submit scheduled circuits and simulate delays in the mock.
+  ([#125]) ([**@marcelwa**])
 
 ## [1.1.1] - 2026-11-15
 
@@ -159,6 +160,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
 [#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
 [#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
