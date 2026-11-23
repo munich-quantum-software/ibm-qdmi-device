@@ -12,8 +12,9 @@ releases may include breaking changes.
 
 ### Added
 
-- ✨ Expose IBM backend timing to Qiskit and enable dynamical decoupling for the
-  Executor Sampler and Estimator. ([#117]) ([**@marcelwa**], [**@burgholzer**])
+- ✨ Expose native delays and femtosecond calibration through QDMI. The Qiskit
+  target supplies timing for Executor Sampler and Estimator dynamical
+  decoupling. ([#117]) ([**@marcelwa**], [**@burgholzer**])
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
 
@@ -21,8 +22,6 @@ releases may include breaking changes.
 
 - 🐛 Reject custom execution caps and nondefault simulator options in the Python
   Executor adapter. ([#117]) ([**@burgholzer**])
-- 🐛 Reject Executor requests for analog measurements in the mock service.
-  ([#117]) ([**@burgholzer**])
 
 ## [1.1.1] - 2026-11-15
 

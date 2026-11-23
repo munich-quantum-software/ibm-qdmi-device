@@ -20,8 +20,6 @@
 from __future__ import annotations
 
 import json
-from copy import copy, deepcopy
-from math import isfinite, ulp
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -34,7 +32,7 @@ except ImportError as error:
     raise ImportError(msg) from error
 
 from mqt.core.qdmi import CustomProperty
-from qiskit.circuit import Delay, Parameter, QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
 from ._session import session_parameters
@@ -87,27 +85,23 @@ class IBMBackend(QDMIBackend):
         Raises:
             ValueError: An open device conflicts with connection overrides.
         """
-        overrides = (backend_name, api_key, instance_crn, base_url, auth_url)
-        if device is not None:
-            if any(value is not None for value in overrides):
-                msg = "An already-open device is exclusive with connection overrides."
-                raise ValueError(msg)
-            super().__init__(device=device, provider=provider, device_id=device_id)
-            return
-
-        resolved_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
-        device = open_device(
-            resolved_id,
-            **session_parameters(
-                device_id=resolved_id,
-                backend_name=backend_name,
-                api_key=api_key,
-                instance_crn=instance_crn,
-                base_url=base_url,
-                auth_url=auth_url,
-            ),
-        )
-        super().__init__(device=device, provider=provider, device_id=resolved_id)
+        if device is None:
+            device_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
+            device = open_device(
+                device_id,
+                **session_parameters(
+                    device_id=device_id,
+                    backend_name=backend_name,
+                    api_key=api_key,
+                    instance_crn=instance_crn,
+                    base_url=base_url,
+                    auth_url=auth_url,
+                ),
+            )
+        elif any(value is not None for value in (backend_name, api_key, instance_crn, base_url, auth_url)):
+            msg = "An already-open device is exclusive with connection overrides."
+            raise ValueError(msg)
+        super().__init__(device=device, provider=provider, device_id=device_id)
 
     def _build_target(self) -> Target:
         """Add IBM timing to the target built from the shared device snapshot.
@@ -116,7 +110,6 @@ class IBMBackend(QDMIBackend):
             The target with the available IBM timing information.
         """
         target = super()._build_target()
-        self._executor_supports_delay = False
         raw = self.device.query_custom_property(CustomProperty.CUSTOM4, str)
         if raw is None:
             return target
@@ -135,52 +128,9 @@ class IBMBackend(QDMIBackend):
             isinstance(value, int) and not isinstance(value, bool) and 0 < value < 2**32 for value in constraints
         ):
             return target
-        self._executor_supports_delay = timing.get("supports_delay") is True
         target.dt = dt
         target.granularity, target.min_length, target.pulse_alignment, target.acquire_alignment = constraints
         return target
-
-    def _executor_dd_backend(self) -> IBMBackend:
-        """Give Runtime a scheduling target with Executor's delay support.
-
-        Returns:
-            A backend view for client-side scheduling.
-
-        Raises:
-            ValueError: The backend lacks valid timing or delay support.
-        """
-        dt = self.target.dt
-        if dt is None:
-            msg = "Executor dynamical decoupling requires valid timing, including the sampling interval (dt)."
-            raise ValueError(msg)
-        if not self._executor_supports_delay:
-            msg = "Executor dynamical decoupling requires backend support for delay instructions."
-            raise ValueError(msg)
-        backend = copy(self)
-        backend._target = deepcopy(self.target)  # ruff: ignore[private-member-access] -- Preserve the original target.
-        target = backend.target
-        # QDMI rounds calibrated durations to whole picoseconds. A tick can be
-        # recovered unambiguously only if adjacent ticks are more than 1 ps apart.
-        if dt > 1e-12:
-            for name in target.operation_names:
-                for sites, properties in target[name].items():
-                    if properties is None or properties.duration is None:
-                        continue
-                    duration = properties.duration
-                    ticks = duration / dt
-                    if not isfinite(ticks) or ticks < 0:
-                        continue
-                    nearest = round(ticks) * dt
-                    difference = abs(nearest - duration)
-                    # Include floating-point error at the half-picosecond cutoff.
-                    tolerance = 0.5e-12 + ulp(duration) + ulp(nearest)
-                    if 0 < difference <= tolerance and difference < dt / 2:
-                        normalized = copy(properties)
-                        normalized.duration = nearest
-                        target.update_instruction_properties(name, sites, normalized)
-        if "delay" not in target.operation_names:
-            target.add_instruction(Delay(Parameter("duration")), {(site,): None for site in self._placeable_sites})
-        return backend
 
     @staticmethod
     def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:

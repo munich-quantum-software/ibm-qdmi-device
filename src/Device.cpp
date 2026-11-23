@@ -388,7 +388,7 @@ int IBM_QDMI_device_session_query_device_property(
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
-      return copyString("ps", size, value, sizeRet);
+      return copyString("fs", size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONSCALEFACTOR:
       return copyValue(1.0, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SITES: {

@@ -43,8 +43,7 @@
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_REQUEST_TIMEOUT                      \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM3
 
-/// Null-terminated JSON with schema ibm.timing.v1, dt in seconds, and a
-/// supports_delay boolean.
+/// Null-terminated JSON with schema ibm.timing.v1 and dt in seconds.
 /// May include granularity, min_length, pulse_alignment, and acquire_alignment
 /// in samples. Returns QDMI_ERROR_NOTSUPPORTED when timing is unavailable.
 #define IBM_QDMI_DEVICE_PROPERTY_TIMING QDMI_DEVICE_PROPERTY_CUSTOM4

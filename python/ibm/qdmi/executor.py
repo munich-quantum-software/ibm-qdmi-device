@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar
 
 from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
+from qiskit.circuit import ControlFlowOp, Delay, ParameterExpression
 from qiskit.primitives import BasePrimitiveJob, PrimitiveResult
 from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
 
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any, Literal
 
+    from qiskit.circuit import QuantumCircuit
     from qiskit.primitives.containers.estimator_pub import EstimatorPubLike
     from qiskit.primitives.containers.sampler_pub import SamplerPubLike
     from qiskit_ibm_runtime.quantum_program import QuantumProgram
@@ -220,10 +222,26 @@ def _validate_transport_options(options: ExecutorOptions | SamplerOptions | Esti
         raise ValueError(msg)
 
 
+def _validate_qpy_delays(circuit: QuantumCircuit) -> None:
+    # QPY preserves duration expressions, but omits the unit of a numeric Delay.
+    if "delay" not in circuit.count_ops() and not circuit.has_control_flow_op():
+        return
+    for instruction in circuit.data:
+        op = instruction.operation
+        if isinstance(op, Delay) and (op.unit not in {"dt", "expr"} or isinstance(op.duration, ParameterExpression)):
+            msg = "Bind numeric Executor delay durations to backend clock ticks (dt) before submission."
+            raise ValueError(msg)
+        if isinstance(op, ControlFlowOp):
+            for block in op.blocks:
+                _validate_qpy_delays(block)
+
+
 def _submit(backend: IBMBackend, program: QuantumProgram, options: ExecutorOptions) -> ExecutorJob:
     if not program.items:
         msg = "An Executor program must contain at least one item."
         raise ValueError(msg)
+    for item in program.items:
+        _validate_qpy_delays(item.circuit)
     params = QUANTUM_PROGRAM_PARAMS_CONVERTERS["v2.0"].encoder(program, options)
     job = backend.device.submit_job(
         params.model_dump_json(),
@@ -235,13 +253,18 @@ def _submit(backend: IBMBackend, program: QuantumProgram, options: ExecutorOptio
 _PrimitiveOptions = TypeVar("_PrimitiveOptions", "SamplerOptions", "EstimatorOptions")
 
 
-def _prepare_primitive(backend: IBMBackend, options: _PrimitiveOptions) -> tuple[IBMBackend, _PrimitiveOptions]:
+def _primitive_options(backend: IBMBackend, options: _PrimitiveOptions) -> _PrimitiveOptions:
     # Runtime consumes user-provided PUB iterables before it finalizes its options.
     options = options.model_copy(deep=True)
     _validate_transport_options(options)
-    if not options.dynamical_decoupling.enable:
-        return backend, options
-    return backend._executor_dd_backend(), options  # ruff: ignore[private-member-access] -- Shared by both primitives.
+    if options.dynamical_decoupling.enable:
+        if backend.dt is None:
+            msg = "Executor dynamical decoupling requires a backend sampling interval (dt)."
+            raise ValueError(msg)
+        if "delay" not in backend.target.operation_names:
+            msg = "Executor dynamical decoupling requires backend support for delay instructions."
+            raise ValueError(msg)
+    return options
 
 
 def _submit_primitive(
@@ -269,8 +292,8 @@ class ExecutorSampler(BaseSamplerV2):
         Returns:
             The submitted primitive job.
         """
-        backend, sampler_options = _prepare_primitive(self._backend, self.options)
-        program, options = prepare_sampler(pubs, sampler_options, shots, backend=backend)
+        sampler_options = _primitive_options(self._backend, self.options)
+        program, options = prepare_sampler(pubs, sampler_options, shots, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "sampler_v2")
 
 
@@ -289,6 +312,6 @@ class ExecutorEstimator(BaseEstimatorV2):
         Returns:
             The submitted primitive job.
         """
-        backend, estimator_options = _prepare_primitive(self._backend, self.options)
-        program, options = prepare_estimator(pubs, estimator_options, precision, backend=backend)
+        estimator_options = _primitive_options(self._backend, self.options)
+        program, options = prepare_estimator(pubs, estimator_options, precision, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "estimator_v2")

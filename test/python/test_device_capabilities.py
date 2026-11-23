@@ -36,9 +36,19 @@ def test_metadata_target_and_transpilation(runtime: Runtime) -> None:
     """Target properties use physical sites, signatures, and seconds."""
     backend = open_backend(runtime)
     assert backend.num_qubits == 5
-    assert set(backend.target.operation_names) == {"x", "sx", "rz", "cx", "measure", "reset", "barrier", "if_else"}
+    assert set(backend.target.operation_names) == {
+        "x",
+        "sx",
+        "rz",
+        "cx",
+        "measure",
+        "reset",
+        "delay",
+        "barrier",
+        "if_else",
+    }
     assert set(backend.target["cx"]) == {(0, 1), (1, 2), (2, 3), (3, 4)}
-    assert backend.target["cx"][0, 1].duration == pytest.approx(35556e-12)
+    assert backend.target["cx"][0, 1].duration == pytest.approx(35.5555e-9, abs=1e-15)
     assert backend.target["cx"][0, 1].error == pytest.approx(0.02)
     assert backend.target["measure"][4,].duration == pytest.approx(1.5e-6)
     assert backend.target["measure"][4,].error == pytest.approx(0.02)

@@ -32,7 +32,8 @@ from ibm_quantum_schemas.common import CompressedTensorModel
 from ibm_quantum_schemas.executor.version_2_0 import ParamsModel, QuantumProgramResultModel
 from mqt.core.qdmi import Job
 from qiskit import QuantumCircuit
-from qiskit.circuit import Delay, Parameter
+from qiskit.circuit import Delay, Duration, Parameter
+from qiskit.circuit.classical import expr
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
@@ -138,7 +139,7 @@ def test_executor_timeout_cancel_and_submission_failure(runtime: Runtime) -> Non
 @pytest.mark.parametrize("primitive", ["sampler", "estimator"])
 def test_executor_dynamical_decoupling(runtime: Runtime, primitive: str) -> None:
     """Use IBM timing to insert a pair of X pulses in the submitted idle interval."""
-    # X spans 32 ticks and lies at the half-picosecond rounding boundary.
+    # X spans 32 ticks, including a fractional picosecond.
     runtime.set_configuration("dt", 0.250078125)
     runtime.set_configuration("timing_constraints", {"pulse_alignment": 16})
     runtime.set_properties({
@@ -170,7 +171,6 @@ def test_executor_dynamical_decoupling(runtime: Runtime, primitive: str) -> None
             [(circuit, SparsePauliOp("Z"))], precision=0.5
         )
 
-    assert "delay" not in backend.target.operation_names
     (submission,) = runtime.snapshot()["submissions"]
     encoded = ParamsModel.model_validate(submission["params"])
     prepared, _ = quantum_program_from_2_0(encoded)
@@ -193,6 +193,36 @@ def test_executor_sampler_requires_timing_and_delay(runtime: Runtime, dt: float 
     with pytest.raises(ValueError, match=message):
         sampler.run([circuit])
     assert not runtime.snapshot()["submissions"]
+
+
+def test_executor_delay_encoding(runtime: Runtime) -> None:
+    """The wire preserves typed durations. Ambiguous numeric delays fail locally."""
+    executor = open_backend(runtime).executor()
+    circuit = QuantumCircuit(1, 1)
+    circuit.delay(expr.lift(Duration.ns(5)), 0)
+    circuit.measure(0, 0)
+    timed = QuantumProgram(shots=4)
+    timed.append_circuit_item(circuit)
+    executor.run(timed)
+    (submission,) = runtime.snapshot()["submissions"]
+    decoded, _ = quantum_program_from_2_0(ParamsModel.model_validate(submission["params"]))
+    assert decoded.items[0].circuit.data[0].operation == circuit.data[0].operation
+
+    circuit = QuantumCircuit(1, 1)
+    with circuit.if_test((circuit.clbits[0], True)):
+        circuit.delay(5, 0, unit="ns")
+    ambiguous = QuantumProgram(shots=4)
+    ambiguous.append_circuit_item(circuit)
+    with pytest.raises(ValueError, match="clock ticks"):
+        executor.run(ambiguous)
+
+    circuit = QuantumCircuit(1)
+    circuit.delay(Parameter("length"), 0)
+    sweep = QuantumProgram(shots=4)
+    sweep.append_circuit_item(circuit, circuit_arguments=np.array([[32], [64]]))
+    with pytest.raises(ValueError, match="clock ticks"):
+        executor.run(sweep)
+    assert len(runtime.snapshot()["submissions"]) == 1
 
 
 def test_executor_primitive_job_cancel(runtime: Runtime) -> None:

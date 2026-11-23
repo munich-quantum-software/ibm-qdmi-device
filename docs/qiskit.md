@@ -63,12 +63,12 @@ before they are returned; uninitialized bits have no implicit zero value.
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
 exponentially with circuit size. The mock rejects server-side Sampler decoupling
-and twirling. The ideal Executor mock ignores top-level delays and supports
-classified measurements. Requests are limited to 16 MiB. Pending jobs can be
-cancelled; running simulations finish normally. One loopback service per fake
-stays alive until process exit, so another backend object can retrieve its jobs.
-The service binds to `127.0.0.1` with a temporary credential; include that
-address in `no_proxy` if an HTTP proxy is configured.
+and twirling. The ideal simulator ignores top-level QPY and Executor delays. The
+mock returns classified Executor measurements. Requests are limited to 16 MiB.
+Pending jobs can be cancelled; running simulations finish normally. One loopback
+service per fake stays alive until process exit, so another backend object can
+retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;
+include that address in `no_proxy` if an HTTP proxy is configured.
 
 ## Compile and execute
 
@@ -94,11 +94,36 @@ The backend uses QPY, preserving conditions, global phase, classical registers,
 and physical indices. Direct QDMI submissions also accept OpenQASM 3 with
 physical indices and conditional operations. Results preserve circuit names,
 metadata, classical register boundaries, and bit order. Unsupported
-instructions, unbound parameters, invalid site tuples, and scheduled delays fail
-before submission.
+instructions, unbound parameters, and invalid site tuples fail before
+submission.
 
 `run()` validates and serializes native instructions; it does not compile or
-route them. Qiskit's `transpile(circuit, backend)` is also supported.
+route them. Qiskit's `transpile(circuit, backend)` uses the same target as the
+Executor primitives, including native `delay` on devices that advertise it.
+
+MQT Core 4.2.1 rejects delays in `backend.compile()`, `backend.run()`, and the
+mock's OpenQASM importer. With that release, use an Executor primitive or submit
+a scheduled Qiskit circuit through the native Sampler. Qiskit converts numeric
+SI durations to backend ticks before QPY encoding. The native job returns
+samples in classical register order.
+
+```python
+from io import BytesIO
+
+from mqt.core.qdmi import ProgramFormat
+from qiskit import QuantumCircuit, qpy, transpile
+
+circuit = QuantumCircuit(1, 1)
+circuit.x(0)
+circuit.delay(32, 0, unit="ns")
+circuit.measure(0, 0)
+scheduled = transpile(circuit, backend, scheduling_method="alap")
+payload = BytesIO()
+qpy.dump(scheduled, payload, version=17)
+job = backend.device.submit_job(payload.getvalue(), ProgramFormat.QPY, num_shots=128)
+if job.wait(300):
+    shots = job.get_shots()
+```
 
 Backends advertising `if_else` support conditional execution through QPY and
 OpenQASM 3. Conditions compare one classical bit or a register of at most 32

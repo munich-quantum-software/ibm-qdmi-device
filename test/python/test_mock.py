@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
@@ -36,8 +37,8 @@ pytest.importorskip("qiskit_ibm_runtime")
 from mqt.core.mlir import OutputFormat, compile_program
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
-from qiskit import QuantumCircuit, transpile
-from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
+from qiskit import QuantumCircuit, qpy, transpile
+from qiskit.circuit import ClassicalRegister, Delay, Instruction, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
@@ -223,10 +224,28 @@ def test_executor_estimator() -> None:
     np.testing.assert_allclose(result[0].data.evs, [1, 1])
 
 
+def test_native_delay_survives_qiskit_transpilation_and_qpy() -> None:
+    """Submit a timed ISA circuit through the native Sampler transport."""
+    backend = IBMBackend(backend_name="fake_manila")
+    assert isinstance(backend.target.operation_from_name("delay"), Delay)
+    circuit = QuantumCircuit(1, 1)
+    circuit.x(0)
+    circuit.delay(32, 0, unit="ns")
+    circuit.measure(0, 0)
+    compiled = transpile(circuit, backend, initial_layout=[2], optimization_level=0)
+    (delay,) = compiled.get_instructions("delay")
+    assert delay.operation == Delay(144)
+    assert compiled.find_bit(delay.qubits[0]).index == 2
+    payload = io.BytesIO()
+    qpy.dump(compiled, payload, version=17)
+    job = backend.device.submit_job(payload.getvalue(), ProgramFormat.QPY, num_shots=4)
+    assert job.wait(10)
+    assert job.get_shots() == ["1"] * 4
+
+
 def test_executor_dynamical_decoupling_on_fake_backend() -> None:
     """Run scheduled Executor circuits on the ideal simulator."""
     backend = IBMBackend(backend_name="fake_manila")
-    calibrated_x = backend.target["x"][0,].duration
     circuit = QuantumCircuit(1)
     circuit.x(0)
     circuit.delay(1024, 0)
@@ -241,8 +260,6 @@ def test_executor_dynamical_decoupling_on_fake_backend() -> None:
     estimator = backend.executor_estimator(options={"dynamical_decoupling": dd, "resilience_level": 0})
     estimate = estimator.run([(circuit, SparsePauliOp("Z"))], precision=0.5).result(timeout=30)[0]
     np.testing.assert_allclose(estimate.data.evs, -1.0)
-    assert backend.target["x"][0,].duration == calibrated_x
-    assert "delay" not in backend.target.operation_names
 
 
 def test_executor_mock_rejects_nonclassified_measurements() -> None:

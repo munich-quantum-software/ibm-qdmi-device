@@ -78,16 +78,16 @@ session snapshot. Site and operation handles remain stable until that session is
 freed and cannot be used with another session. Create a new session for a fresh
 calibration snapshot. Status and queue queries fetch current backend status.
 
-| Queries                      | Behavior                                                                                                                                                        |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Device name/version          | IBM backend name/version.                                                                                                                                       |
-| Library version              | Version of the QDMI library used to build the device.                                                                                                           |
-| Qubit count, sites, coupling | Physical indices and directed pairs from backend configuration.                                                                                                 |
-| Operations                   | Native basis gates and advertised measurement/reset; signatures and site tuples from configuration or calibration metadata. Missing information is unsupported. |
-| T1, T2, gate duration        | Integer picoseconds, rounded to the nearest picosecond; duration unit `ps`, scale factor `1`.                                                                   |
-| Gate fidelity                | `1 - gate_error`, where IBM reports a finite error in `[0, 1]`.                                                                                                 |
-| Device status                | `OFFLINE` when unavailable; otherwise `BUSY` for a nonempty queue and `IDLE` for an empty queue. Missing availability is unsupported.                           |
-| Queue length                 | Nonnegative number of queued jobs.                                                                                                                              |
+| Queries                      | Behavior                                                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Device name/version          | IBM backend name/version.                                                                                                              |
+| Library version              | Version of the QDMI library used to build the device.                                                                                  |
+| Qubit count, sites, coupling | Physical indices and directed pairs from backend configuration.                                                                        |
+| Operations                   | Basis gates and advertised `measure`, `reset`, and `delay`. Configuration and calibration provide signatures and physical site tuples. |
+| T1, T2, gate duration        | Rounded to the nearest femtosecond. Duration unit `fs`, scale factor `1`.                                                              |
+| Gate fidelity                | `1 - gate_error`, where IBM reports a finite error in `[0, 1]`.                                                                        |
+| Device status                | `OFFLINE` when unavailable; otherwise `BUSY` for a nonempty queue and `IDLE` for an empty queue. Missing availability is unsupported.  |
+| Queue length                 | Nonnegative number of queued jobs.                                                                                                     |
 
 Measurement calibration uses `readout_length` and `1 - readout_error` from qubit
 properties. Site-dependent duration and fidelity require a supported ordered
@@ -104,11 +104,11 @@ initialization without those optional values. Malformed structural metadata
 fails initialization.
 
 `IBM_QDMI_DEVICE_PROPERTY_TIMING` (`QDMI_DEVICE_PROPERTY_CUSTOM4`) returns a
-null-terminated JSON object with schema `ibm.timing.v1`, the sampling interval
-`dt` in seconds, and a `supports_delay` flag. When IBM reports them,
-`granularity`, `min_length`, `pulse_alignment`, and `acquire_alignment` are
-positive integers in samples. The query returns `QDMI_ERROR_NOTSUPPORTED` if the
-sampling interval is missing or any reported timing value is invalid.
+null-terminated JSON object with schema `ibm.timing.v1` and the sampling
+interval `dt` in seconds. When IBM reports them, `granularity`, `min_length`,
+`pulse_alignment`, and `acquire_alignment` are positive integers in samples. The
+query returns `QDMI_ERROR_NOTSUPPORTED` if the sampling interval is missing or
+any reported timing value is invalid.
 
 Advertised `rzz` operations expose their inclusive angle interval `[0, pi/2]` in
 radians through `IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS`
