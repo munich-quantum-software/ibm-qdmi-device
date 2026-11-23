@@ -153,7 +153,7 @@ TEST_F(DeviceTest, QueryContractAndDirectedCalibration) {
                 session, sites[0], QDMI_SITE_PROPERTY_T1, sizeof(value), &value,
                 nullptr),
             QDMI_SUCCESS);
-  EXPECT_EQ(value, 100500000);
+  EXPECT_EQ(value, 100'500'000'000ULL);
   EXPECT_EQ(IBM_QDMI_device_session_query_site_property(
                 session, sites[1], QDMI_SITE_PROPERTY_T1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
@@ -162,7 +162,7 @@ TEST_F(DeviceTest, QueryContractAndDirectedCalibration) {
                 QDMI_OPERATION_PROPERTY_DURATION, sizeof(value), &value,
                 nullptr),
             QDMI_SUCCESS);
-  EXPECT_EQ(value, 35556);
+  EXPECT_EQ(value, 35'555'500);
   const std::array reverse{sites[1], sites[0]};
   EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
                 session, operations[2], 2, reverse.data(), 0, nullptr,
@@ -269,6 +269,37 @@ TEST_F(DeviceTest, OmitsBranchingWithoutConditionalInstructions) {
   initialize();
   EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                 session, QDMI_DEVICE_PROPERTY_CUSTOM3, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+}
+
+TEST_F(DeviceTest, ExposesBackendTimingWithoutAnotherRequest) {
+  auto& configuration = data["configuration"];
+  configuration["supported_instructions"] = {"x", "measure", "delay"};
+  configuration["dt"] = 0.25;
+  configuration["timing_constraints"] = {{"pulse_alignment", 16}};
+  initialize();
+
+  const auto before = http.requests().size();
+  const auto text = handles<char>(IBM_QDMI_DEVICE_PROPERTY_TIMING);
+  const auto timing = nlohmann::json::parse(text.data());
+  EXPECT_EQ(timing.at("schema"), "ibm.timing.v1");
+  EXPECT_DOUBLE_EQ(timing.at("dt").get<double>(), 2.5e-10);
+  EXPECT_EQ(timing.at("pulse_alignment"), 16);
+  char tooSmall{};
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, IBM_QDMI_DEVICE_PROPERTY_TIMING, sizeof(tooSmall),
+                &tooSmall, nullptr),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(http.requests().size(), before);
+}
+
+TEST_F(DeviceTest, LeavesTimingUnsupportedWithInvalidAlignment) {
+  data["configuration"]["dt"] = 0.25;
+  data["configuration"]["timing_constraints"] = {{"pulse_alignment", 0}};
+  initialize();
+
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, IBM_QDMI_DEVICE_PROPERTY_TIMING, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
 }
 
@@ -453,7 +484,7 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
       IBM_QDMI_device_session_query_site_property(
           session, sites[0], QDMI_SITE_PROPERTY_T2, sizeof(t2), &t2, nullptr),
       QDMI_SUCCESS);
-  EXPECT_EQ(t2, 200000000);
+  EXPECT_EQ(t2, 200'000'000'000ULL);
   EXPECT_EQ(
       IBM_QDMI_device_session_query_site_property(
           session, sites[0], QDMI_SITE_PROPERTY_CUSTOM1, 0, nullptr, nullptr),

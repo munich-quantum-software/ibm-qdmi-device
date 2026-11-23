@@ -62,8 +62,10 @@ before they are returned; uninitialized bits have no implicit zero value.
 
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
-exponentially with circuit size. The local Sampler rejects dynamical decoupling
-and twirling, and Executor rejects noise models. Requests are limited to 16 MiB.
+exponentially with circuit size. The mock rejects server-side Sampler decoupling
+and twirling. Literal delays advance the circuit without changing its ideal
+state. A mock job fails if its circuit contains a nonliteral delay. The mock
+returns classified Executor measurements. Requests are limited to 16 MiB.
 Pending jobs can be cancelled; running simulations finish normally. One loopback
 service per fake stays alive until process exit, so another backend object can
 retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;
@@ -93,11 +95,29 @@ The backend uses QPY, preserving conditions, global phase, classical registers,
 and physical indices. Direct QDMI submissions also accept OpenQASM 3 with
 physical indices and conditional operations. Results preserve circuit names,
 metadata, classical register boundaries, and bit order. Unsupported
-instructions, unbound parameters, invalid site tuples, and scheduled delays fail
-before submission.
+instructions, unbound parameters, and invalid site tuples fail before
+submission.
 
 `run()` validates and serializes native instructions; it does not compile or
-route them. Qiskit's `transpile(circuit, backend)` is also supported.
+route them. Qiskit's `transpile(circuit, backend)` uses the same target as the
+Executor primitives, including native `delay` on devices that advertise it.
+
+Submit scheduled circuits with literal delays through `backend.run()`. Qiskit
+converts numeric SI durations to backend ticks during transpilation. Until an
+MQT Core release includes delay serialization, install the pinned revision from
+the IBM QDMI device checkout with `uv sync --locked --no-dev --extra qiskit`.
+
+```python
+from qiskit import QuantumCircuit, transpile
+
+circuit = QuantumCircuit(1, 1)
+circuit.x(0)
+circuit.delay(32, 0, unit="ns")
+circuit.measure(0, 0)
+scheduled = transpile(circuit, backend, scheduling_method="alap")
+job = backend.run(scheduled, shots=128, memory=True)
+shots = job.result().get_memory()
+```
 
 Backends advertising `if_else` support conditional execution through QPY and
 OpenQASM 3. Conditions compare one classical bit or a register of at most 32
@@ -169,11 +189,12 @@ remote job active; cancel it explicitly when needed.
 
 This path submits independent jobs. Runtime session/batch contexts and the
 `local_mode` option are unsupported; use a fake backend for local simulation.
-Nondefault environment options are rejected before submission. The Python
-adapter uses the native 60-second execution cap; direct C callers can change it
-through the custom job parameter. Execution and experimental payload options are
-encoded by IBM's library and validated by the service. Shots come from the
-program and apply to every configuration, not to the program's total workload.
+The Python adapter rejects nondefault environment and simulator options before
+submission. It uses the native 60-second execution cap and requires
+`max_execution_time` to remain unset. Native callers can set the cap through the
+custom job parameter. Execution and experimental payload options are encoded by
+IBM's library and validated by the service. Shots come from the program and
+apply to every configuration, not to the program's total workload.
 
 ## Executor-backed Sampler and Estimator
 
@@ -212,8 +233,12 @@ value is `1.0`. `join_data()` combines all classical registers in circuit order.
 For counts from one register, use `sample.data[register_name].get_counts()`.
 
 Pass a dictionary or an IBM Runtime options model as `options`. Leave
-`max_execution_time` unset to use the 60-second QPU cap, and leave dynamical
-decoupling disabled because QDMI does not expose the hardware sampling interval.
+`max_execution_time` unset to use the 60-second QPU cap. To enable dynamical
+decoupling, set `sampler.options.dynamical_decoupling.enable = True` (or the
+same option on the Estimator). Runtime uses the backend's sampling interval and
+gate durations to schedule the pulses. This requires a backend with timing and
+delay instructions and a circuit without control flow.
+
 The example disables Estimator error mitigation with `resilience_level=0`. For
 mitigation options and methods that require a separate noise learning job, see
 [IBM's client-side Estimator guide](https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/executor-estimator).

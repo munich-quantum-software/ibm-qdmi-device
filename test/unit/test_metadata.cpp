@@ -51,15 +51,15 @@ TEST(Metadata, ConvertsUnitsAndPreservesDirectedTuples) {
   const auto metadata =
       ibm::parseMetadata(data["configuration"], data["properties"]);
   ASSERT_EQ(metadata.sites.size(), 2);
-  EXPECT_EQ(metadata.sites[0].t1, 100500000);
-  EXPECT_EQ(metadata.sites[0].t2, 200000000);
+  EXPECT_EQ(metadata.sites[0].t1, 100'500'000'000ULL);
+  EXPECT_EQ(metadata.sites[0].t2, 200'000'000'000ULL);
   EXPECT_FALSE(metadata.sites[1].t1);
   EXPECT_EQ(metadata.coupling, (std::vector<ibm::Sites>{{0, 1}}));
   const auto& operation = metadata.operations[2];
   EXPECT_EQ(operation.arity, 2);
   EXPECT_EQ(operation.parameters, 0);
   EXPECT_EQ(operation.sites, (std::vector<ibm::Sites>{{0, 1}}));
-  EXPECT_EQ(operation.calibrations.at({0, 1}).duration, 35556);
+  EXPECT_EQ(operation.calibrations.at({0, 1}).duration, 35'555'500);
   EXPECT_DOUBLE_EQ(*operation.calibrations.at({0, 1}).fidelity, 0.98);
 }
 TEST(Metadata, MissingAndInvalidCalibrationIsNotZero) {
@@ -104,7 +104,7 @@ TEST(Metadata, RejectsInconsistentTopologyAndStatus) {
   EXPECT_FALSE(ibm::parseStatus({{"length_queue", 0}}).available);
 }
 
-TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
+TEST(Metadata, ExposesAdvertisedSingleQubitInstructions) {
   auto data = fixture();
   data["configuration"]["supported_instructions"] = {
       "measure",
@@ -118,17 +118,22 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
   data["properties"]["qubits"][1].push_back(
       {{"name", "operational"}, {"value", false}});
   auto metadata = ibm::parseMetadata(data["configuration"], data["properties"]);
-  ASSERT_EQ(metadata.operations.size(), 5);
+  ASSERT_EQ(metadata.operations.size(), 6);
   const auto& measurement = metadata.operations[3];
   EXPECT_EQ(measurement.name, "measure");
   EXPECT_EQ(measurement.arity, 1);
   EXPECT_EQ(measurement.parameters, 0);
   EXPECT_EQ(measurement.sites, (std::vector<ibm::Sites>{{0}}));
   ASSERT_EQ(measurement.calibrations.size(), 1);
-  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1500000);
+  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1'500'000'000);
   EXPECT_DOUBLE_EQ(*measurement.calibrations.at({0}).fidelity, 0.97);
   EXPECT_EQ(metadata.operations[4].name, "reset");
   EXPECT_EQ(metadata.operations[4].sites, measurement.sites);
+  const auto& delay = metadata.operations[5];
+  EXPECT_EQ(delay.name, "delay");
+  EXPECT_EQ(delay.arity, 1);
+  EXPECT_EQ(delay.parameters, 1);
+  EXPECT_EQ(delay.sites, measurement.sites);
   metadata =
       ibm::parseMetadata(data["configuration"], nlohmann::json::object());
   EXPECT_EQ(metadata.operations[3].sites.size(), 2);
@@ -170,7 +175,7 @@ TEST(Metadata, MergesRepeatedMeasurementCalibration) {
       ibm::parseMetadata(data["configuration"], data["properties"]);
   const auto& measurement = metadata.operations[3];
   ASSERT_EQ(measurement.calibrations.size(), 1);
-  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1500000);
+  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1'500'000'000);
   EXPECT_DOUBLE_EQ(*measurement.calibrations.at({0}).fidelity, 0.97);
 }
 

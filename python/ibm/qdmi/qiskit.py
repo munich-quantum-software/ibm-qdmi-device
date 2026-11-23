@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -30,6 +31,7 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
+from mqt.core.qdmi import CustomProperty
 from qiskit.circuit import QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
@@ -42,6 +44,7 @@ if TYPE_CHECKING:
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
     from mqt.core.qdmi import Device
+    from qiskit.transpiler import Target
     from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
     from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
@@ -82,27 +85,52 @@ class IBMBackend(QDMIBackend):
         Raises:
             ValueError: An open device conflicts with connection overrides.
         """
-        overrides = (backend_name, api_key, instance_crn, base_url, auth_url)
-        if device is not None:
-            if any(value is not None for value in overrides):
-                msg = "An already-open device is exclusive with connection overrides."
-                raise ValueError(msg)
-            super().__init__(device=device, provider=provider, device_id=device_id)
-            return
+        if device is None:
+            device_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
+            device = open_device(
+                device_id,
+                **session_parameters(
+                    device_id=device_id,
+                    backend_name=backend_name,
+                    api_key=api_key,
+                    instance_crn=instance_crn,
+                    base_url=base_url,
+                    auth_url=auth_url,
+                ),
+            )
+        elif any(value is not None for value in (backend_name, api_key, instance_crn, base_url, auth_url)):
+            msg = "An already-open device is exclusive with connection overrides."
+            raise ValueError(msg)
+        super().__init__(device=device, provider=provider, device_id=device_id)
 
-        resolved_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
-        device = open_device(
-            resolved_id,
-            **session_parameters(
-                device_id=resolved_id,
-                backend_name=backend_name,
-                api_key=api_key,
-                instance_crn=instance_crn,
-                base_url=base_url,
-                auth_url=auth_url,
-            ),
-        )
-        super().__init__(device=device, provider=provider, device_id=resolved_id)
+    def _build_target(self) -> Target:
+        """Add IBM timing to the target built from the shared device snapshot.
+
+        Returns:
+            The target with the available IBM timing information.
+        """
+        target = super()._build_target()
+        raw = self.device.query_custom_property(CustomProperty.CUSTOM4, str)
+        if raw is None:
+            return target
+        try:
+            timing = json.loads(raw)
+        except ValueError:
+            return target
+        if not isinstance(timing, dict) or timing.get("schema") != "ibm.timing.v1":
+            return target
+        dt = timing.get("dt")
+        if not isinstance(dt, float) or not 0 < dt < float("inf"):
+            return target
+        keys = ("granularity", "min_length", "pulse_alignment", "acquire_alignment")
+        constraints = [timing.get(key, getattr(target, key)) for key in keys]
+        if not all(
+            isinstance(value, int) and not isinstance(value, bool) and 0 < value < 2**32 for value in constraints
+        ):
+            return target
+        target.dt = dt
+        target.granularity, target.min_length, target.pulse_alignment, target.acquire_alignment = constraints
+        return target
 
     @staticmethod
     def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:

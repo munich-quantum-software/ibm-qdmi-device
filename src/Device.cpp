@@ -363,6 +363,11 @@ int IBM_QDMI_device_session_query_device_property(
       return copyString(metadata.version, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_LIBRARYVERSION:
       return copyString(QDMI_VERSION, size, value, sizeRet);
+    case IBM_QDMI_DEVICE_PROPERTY_TIMING:
+      if (metadata.timing.empty()) {
+        return QDMI_ERROR_NOTSUPPORTED;
+      }
+      return copyString(metadata.timing, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
       return copyList(
           std::vector{
@@ -383,7 +388,7 @@ int IBM_QDMI_device_session_query_device_property(
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
-      return copyString("ps", size, value, sizeRet);
+      return copyString("fs", size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONSCALEFACTOR:
       return copyValue(1.0, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SITES: {

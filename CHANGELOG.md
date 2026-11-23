@@ -12,8 +12,17 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Expose native delays and femtosecond calibration through QDMI. The Qiskit
+  target supplies timing for Executor Sampler and Estimator dynamical
+  decoupling. Submit scheduled circuits with literal delays through
+  `backend.run()`. ([#117], [#125]) ([**@marcelwa**], [**@burgholzer**])
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
+
+### Fixed
+
+- 🐛 Reject custom execution caps and nondefault simulator options in the Python
+  Executor adapter. ([#117]) ([**@burgholzer**])
 
 ## [1.1.1] - 2026-11-15
 
@@ -147,6 +156,8 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
+[#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
 [#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
 [#107]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/107

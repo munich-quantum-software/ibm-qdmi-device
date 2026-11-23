@@ -42,6 +42,42 @@ if TYPE_CHECKING:
     from qiskit_service import Runtime
 
 
+@pytest.mark.parametrize(
+    ("dt", "pulse_alignment", "expected"),
+    [(0.25, 32, 2.5e-10), (None, 32, None), (0, 32, None), ("0.25", 32, None), (0.25, 0, None)],
+)
+def test_backend_sampling_interval(runtime: Runtime, dt: object, pulse_alignment: int, expected: float | None) -> None:
+    """Convert IBM's nanoseconds once and preserve support for incomplete metadata."""
+    runtime.set_configuration("dt", dt)
+    runtime.set_configuration(
+        "timing_constraints",
+        {"granularity": 16, "min_length": 64, "pulse_alignment": pulse_alignment, "acquire_alignment": 16},
+    )
+    backend = open_backend(runtime)
+    if expected is None:
+        assert backend.dt is None
+    else:
+        assert backend.dt == pytest.approx(expected)
+        assert backend.target.durations().dt == backend.dt
+        assert backend.target.granularity == 16
+        assert backend.target.min_length == 64
+        assert backend.target.pulse_alignment == 32
+        assert backend.target.acquire_alignment == 16
+
+
+@pytest.mark.parametrize(
+    "raw", ["vendor data", '{"schema":"ibm.timing.v1"}', '{"schema":"ibm.timing.v1","dt":2.5e-10,"pulse_alignment":0}']
+)
+def test_backend_ignores_invalid_optional_timing(runtime: Runtime, monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
+    """Keep the ordinary target usable when the custom slot contains other data."""
+    device = Mock(spec=Device)
+    device.query_custom_property.return_value = raw
+    monkeypatch.setattr(IBMBackend, "device", property(lambda _backend: device))
+    backend = open_backend(runtime)
+    assert backend.dt is None
+    assert "x" in backend.target.operation_names
+
+
 def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
     """Send the documented JSON string through MQT Core's direct job API."""
     backend = open_backend(runtime)

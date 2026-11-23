@@ -25,6 +25,7 @@ import sys
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
+from io import BytesIO
 from urllib.parse import urlsplit
 
 import numpy as np
@@ -36,9 +37,9 @@ pytest.importorskip("qiskit_ibm_runtime")
 from mqt.core.mlir import OutputFormat, compile_program
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
-from qiskit import QuantumCircuit, transpile
-from qiskit.circuit import ClassicalRegister, Instruction, Parameter, QuantumRegister
-from qiskit.primitives import BitArray, PrimitiveResult
+from qiskit import QuantumCircuit, qpy, transpile
+from qiskit.circuit import ClassicalRegister, Delay, Instruction, Parameter, QuantumRegister
+from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
@@ -223,22 +224,55 @@ def test_executor_estimator() -> None:
     np.testing.assert_allclose(result[0].data.evs, [1, 1])
 
 
-@pytest.mark.parametrize(
-    ("options", "message"),
-    [
-        ({"max_execution_time": 30}, "max_execution_time"),
-        ({"dynamical_decoupling": {"enable": True}}, "dynamical decoupling"),
-    ],
-)
-def test_executor_primitives_reject_unsupported_options(options: dict[str, object], message: str) -> None:
-    """Reject options the native target cannot honor."""
+def test_backend_run_preserves_scheduled_delay() -> None:
+    """Submit a timed ISA circuit through the native Sampler transport."""
+    backend = IBMBackend(backend_name="fake_manila")
+    circuit = QuantumCircuit(1, 1)
+    circuit.x(0)
+    circuit.delay(32, 0, unit="ns")
+    circuit.measure(0, 0)
+    compiled = transpile(circuit, backend, initial_layout=[2], optimization_level=0)
+    job = backend.run(compiled, shots=4, memory=True)
+    assert job.result().get_memory() == ["1"] * 4
+    submitted = backend.device.retrieve_job_by_id(job.job_id())
+    assert submitted.program_format == ProgramFormat.QPY
+    (restored,) = qpy.load(BytesIO(submitted.get_program(bytes)))
+    (emitted_delay,) = restored.get_instructions("delay")
+    assert emitted_delay.operation == Delay(144)
+    assert restored.find_bit(emitted_delay.qubits[0]).index == 2
+
+
+def test_executor_dynamical_decoupling_on_fake_backend() -> None:
+    """Run scheduled Executor circuits on the ideal simulator."""
     backend = IBMBackend(backend_name="fake_manila")
     circuit = QuantumCircuit(1)
-    circuit.measure_all()
-    compiled = transpile(circuit, backend, seed_transpiler=7)
-    sampler = backend.executor_sampler(options=options)
-    with pytest.raises(ValueError, match=message):
-        sampler.run([compiled])
+    circuit.x(0)
+    circuit.delay(1024, 0)
+    dd = {"enable": True}
+    sampler = backend.executor_sampler(options={"dynamical_decoupling": dd})
+    measured = circuit.copy()
+    measured.measure_all()
+    sample = sampler.run([measured], shots=8).result(timeout=30)[0]
+    assert isinstance(sample, SamplerPubResult)
+    assert sample.join_data().get_counts() == {"1": 8}
+
+    estimator = backend.executor_estimator(options={"dynamical_decoupling": dd, "resilience_level": 0})
+    estimate = estimator.run([(circuit, SparsePauliOp("Z"))], precision=0.5).result(timeout=30)[0]
+    np.testing.assert_allclose(estimate.data.evs, -1.0)
+
+
+def test_executor_mock_rejects_nonclassified_measurements() -> None:
+    """An ideal mock cannot return analog measurement results."""
+    backend = IBMBackend(backend_name="fake_manila")
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    program = QuantumProgram(shots=4, meas_level="avg_kerneled")
+    program.append_circuit_item(circuit)
+    job = backend.executor().run(program)
+
+    with pytest.raises(RuntimeError):
+        job.result(timeout=30)
+    assert job.status() == Job.Status.FAILED
 
 
 def test_mock_concurrent_sessions() -> None:

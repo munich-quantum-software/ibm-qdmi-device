@@ -19,14 +19,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
+from qiskit.circuit import ControlFlowOp, Delay, ParameterExpression
 from qiskit.primitives import BasePrimitiveJob, PrimitiveResult
 from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
 
-try:
+try:  # ruff: ignore[too-many-statements-in-try-clause] -- One install hint for the Executor extra.
     from qiskit_ibm_runtime.decoders.defaults import DEFAULT_DECODERS
+    from qiskit_ibm_runtime.executor_estimator.prepare import prepare as prepare_estimator
+    from qiskit_ibm_runtime.executor_sampler.prepare import prepare as prepare_sampler
     from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
     from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
@@ -35,13 +38,11 @@ except ImportError as error:
     msg = "Install 'ibm-qdmi[executor]' to use Executor."
     raise ImportError(msg) from error
 
-from qiskit_ibm_runtime.executor_estimator.prepare import prepare as prepare_estimator
-from qiskit_ibm_runtime.executor_sampler.prepare import prepare as prepare_sampler
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any, Literal
 
+    from qiskit.circuit import QuantumCircuit
     from qiskit.primitives.containers.estimator_pub import EstimatorPubLike
     from qiskit.primitives.containers.sampler_pub import SamplerPubLike
     from qiskit_ibm_runtime.quantum_program import QuantumProgram
@@ -136,30 +137,14 @@ class Executor:
         self.options = options if options is not None else ExecutorOptions()
 
     def run(self, program: QuantumProgram) -> ExecutorJob:
-        """Encode and submit one program through the native device.
+        """Encode and submit one nonempty program through the native device.
 
         Returns:
             A job that preserves the complete Executor result.
-
-        Raises:
-            ValueError: Unsupported environment or simulator settings, or an empty program.
         """
-        if not program.items:
-            msg = "An Executor program must contain at least one item."
-            raise ValueError(msg)
-        environment = self.options.environment.model_dump(exclude_defaults=True)
-        if environment:
-            msg = "Nondefault Executor environment options are unsupported."
-            raise ValueError(msg)
-        if self.options.experimental.get("local_mode") or "simulator_options" in self.options.experimental:
-            msg = "Local Executor simulation is unsupported by the QDMI transport."
-            raise ValueError(msg)
-        params = QUANTUM_PROGRAM_PARAMS_CONVERTERS["v2.0"].encoder(program, self.options)
-        job = self._backend.device.submit_job(
-            params.model_dump_json(),
-            ProgramFormat.CUSTOM1,
-        )
-        return ExecutorJob(job)
+        options = self.options.model_copy(deep=True)
+        _validate_transport_options(options)
+        return _submit(self._backend, program, options)
 
     def retrieve_job(self, job_id: str) -> ExecutorJob:
         """Open an existing Executor job on this backend.
@@ -221,13 +206,65 @@ class ExecutorPrimitiveJob(BasePrimitiveJob[PrimitiveResult, Job.Status]):
         self._job.cancel()
 
 
-def _validate_primitive_options(backend: IBMBackend, options: SamplerOptions | EstimatorOptions) -> None:
+def _validate_transport_options(options: ExecutorOptions | SamplerOptions | EstimatorOptions) -> None:
     if options.max_execution_time is not None:
-        msg = "Executor primitives use the native execution cap. Custom max_execution_time is unsupported."
+        msg = "Executor uses the native execution cap. Custom max_execution_time is unsupported."
         raise ValueError(msg)
-    if options.dynamical_decoupling.enable and backend.target.dt is None:
-        msg = "Executor dynamical decoupling requires a backend sampling interval (dt)."
+    if options.environment.model_dump(exclude_defaults=True):
+        msg = "Nondefault Executor environment options are unsupported."
         raise ValueError(msg)
+    if (
+        options.simulator.model_dump(exclude_defaults=True)
+        or options.experimental.get("local_mode")
+        or "simulator_options" in options.experimental
+    ):
+        msg = "Local Executor simulation is unsupported by the QDMI transport."
+        raise ValueError(msg)
+
+
+def _validate_qpy_delays(circuit: QuantumCircuit) -> None:
+    # QPY preserves duration expressions, but omits the unit of a numeric Delay.
+    if "delay" not in circuit.count_ops() and not circuit.has_control_flow_op():
+        return
+    for instruction in circuit.data:
+        op = instruction.operation
+        if isinstance(op, Delay) and (op.unit not in {"dt", "expr"} or isinstance(op.duration, ParameterExpression)):
+            msg = "Bind numeric Executor delay durations to backend clock ticks (dt) before submission."
+            raise ValueError(msg)
+        if isinstance(op, ControlFlowOp):
+            for block in op.blocks:
+                _validate_qpy_delays(block)
+
+
+def _submit(backend: IBMBackend, program: QuantumProgram, options: ExecutorOptions) -> ExecutorJob:
+    if not program.items:
+        msg = "An Executor program must contain at least one item."
+        raise ValueError(msg)
+    for item in program.items:
+        _validate_qpy_delays(item.circuit)
+    params = QUANTUM_PROGRAM_PARAMS_CONVERTERS["v2.0"].encoder(program, options)
+    job = backend.device.submit_job(
+        params.model_dump_json(),
+        ProgramFormat.CUSTOM1,
+    )
+    return ExecutorJob(job)
+
+
+_PrimitiveOptions = TypeVar("_PrimitiveOptions", "SamplerOptions", "EstimatorOptions")
+
+
+def _primitive_options(backend: IBMBackend, options: _PrimitiveOptions) -> _PrimitiveOptions:
+    # Runtime consumes user-provided PUB iterables before it finalizes its options.
+    options = options.model_copy(deep=True)
+    _validate_transport_options(options)
+    if options.dynamical_decoupling.enable:
+        if backend.dt is None:
+            msg = "Executor dynamical decoupling requires a backend sampling interval (dt)."
+            raise ValueError(msg)
+        if "delay" not in backend.target.operation_names:
+            msg = "Executor dynamical decoupling requires backend support for delay instructions."
+            raise ValueError(msg)
+    return options
 
 
 def _submit_primitive(
@@ -236,8 +273,8 @@ def _submit_primitive(
     options: ExecutorOptions,
     role: Literal["sampler_v2", "estimator_v2"],
 ) -> ExecutorPrimitiveJob:
-    program._semantic_role = role  # ruff: ignore[private-member-access] -- Runtime's semantic-role contract
-    return ExecutorPrimitiveJob(backend.executor(options=options).run(program))
+    program._semantic_role = role  # ruff: ignore[private-member-access] -- IBM Runtime uses this field for result dispatch
+    return ExecutorPrimitiveJob(_submit(backend, program, options))
 
 
 class ExecutorSampler(BaseSamplerV2):
@@ -255,8 +292,8 @@ class ExecutorSampler(BaseSamplerV2):
         Returns:
             The submitted primitive job.
         """
-        _validate_primitive_options(self._backend, self.options)
-        program, options = prepare_sampler(pubs, self.options, shots, backend=self._backend)
+        sampler_options = _primitive_options(self._backend, self.options)
+        program, options = prepare_sampler(pubs, sampler_options, shots, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "sampler_v2")
 
 
@@ -275,6 +312,6 @@ class ExecutorEstimator(BaseEstimatorV2):
         Returns:
             The submitted primitive job.
         """
-        _validate_primitive_options(self._backend, self.options)
-        program, options = prepare_estimator(pubs, self.options, precision, backend=self._backend)
+        estimator_options = _primitive_options(self._backend, self.options)
+        program, options = prepare_estimator(pubs, estimator_options, precision, backend=self._backend)
         return _submit_primitive(self._backend, program, options, "estimator_v2")

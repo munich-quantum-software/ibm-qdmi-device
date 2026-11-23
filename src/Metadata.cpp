@@ -80,14 +80,16 @@ std::optional<std::uint64_t> duration(const nlohmann::json& parameter) {
   const auto unit = parameter["unit"].get<std::string>();
   double scale = 0;
   if (unit == "s") {
-    scale = 1e12;
+    scale = 1e15;
   } else if (unit == "ms") {
-    scale = 1e9;
+    scale = 1e12;
   } else if (unit == "us" || unit == "µs") {
-    scale = 1e6;
+    scale = 1e9;
   } else if (unit == "ns") {
-    scale = 1e3;
+    scale = 1e6;
   } else if (unit == "ps") {
+    scale = 1e3;
+  } else if (unit == "fs") {
     scale = 1;
   }
   const auto rounded = std::round(value * scale);
@@ -119,6 +121,41 @@ void addSites(Operation& operation, const Sites& sites) {
     operation.sites.push_back(sites);
   }
 }
+
+std::string timing(const nlohmann::json& configuration) {
+  const auto dt = configuration.find("dt");
+  if (dt == configuration.end() || !dt->is_number()) {
+    return {};
+  }
+  const double seconds = dt->get<double>() * 1e-9;
+  if (!std::isfinite(seconds) || seconds <= 0) {
+    return {};
+  }
+  nlohmann::json result{{"schema", "ibm.timing.v1"}, {"dt", seconds}};
+  const auto constraints = configuration.find("timing_constraints");
+  if (constraints != configuration.end() && !constraints->is_null()) {
+    if (!constraints->is_object()) {
+      return {};
+    }
+    for (const auto* key : {
+             "granularity",
+             "min_length",
+             "pulse_alignment",
+             "acquire_alignment",
+         }) {
+      const auto value = constraints->find(key);
+      if (value == constraints->end()) {
+        continue;
+      }
+      if (!value->is_number_integer() || value->get<double>() < 1 ||
+          value->get<double>() > std::numeric_limits<std::uint32_t>::max()) {
+        return {};
+      }
+      result[key] = *value;
+    }
+  }
+  return result.dump();
+}
 } // namespace
 
 Metadata parseMetadata(const nlohmann::json& configuration,
@@ -126,6 +163,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
   Metadata result;
   result.name = configuration.at("backend_name").get<std::string>();
   result.version = configuration.at("backend_version").get<std::string>();
+  result.timing = timing(configuration);
   const auto count = index(configuration.at("n_qubits"));
   if (result.name.empty() || result.version.empty() || count == 0) {
     throw Failure{QDMI_ERROR_FATAL};
@@ -187,8 +225,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
     result.operations.push_back(std::move(operation));
   }
-  // Measurement and reset are instructions, not IBM basis gates. Their
-  // single-qubit signatures are part of the OpenQASM execution contract.
+  // IBM lists these native instructions separately from its basis gates.
   if (configuration.contains("supported_instructions")) {
     const auto& instructions = configuration.at("supported_instructions");
     if (!instructions.is_array()) {
@@ -196,7 +233,8 @@ Metadata parseMetadata(const nlohmann::json& configuration,
     }
     for (const auto& item : instructions) {
       const auto name = item.get<std::string>();
-      if ((name != "measure" && name != "reset" && name != "if_else") ||
+      if ((name != "measure" && name != "reset" && name != "delay" &&
+           name != "if_else") ||
           names.contains(name)) {
         continue;
       }
@@ -208,7 +246,7 @@ Metadata parseMetadata(const nlohmann::json& configuration,
         continue;
       }
       operation.arity = 1;
-      operation.parameters = 0;
+      operation.parameters = name == "delay" ? 1 : 0;
       for (std::size_t i = 0; i < count; ++i) {
         operation.sites.push_back({i});
       }
