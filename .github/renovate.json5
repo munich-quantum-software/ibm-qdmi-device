@@ -33,6 +33,11 @@
       commitMessagePrefix: "⬆\uFE0F\uD83D\uDC0D",
     },
     {
+      matchManagers: ["pep621"],
+      matchPackageNames: ["qiskit-ibm-runtime"],
+      rangeStrategy: "widen",
+    },
+    {
       matchManagers: ["pre-commit"],
       addLabels: ["pre-commit"],
       commitMessagePrefix: "⬆\uFE0F\uD83E\uDE9D",

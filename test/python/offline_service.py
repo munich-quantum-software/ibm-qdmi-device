@@ -92,13 +92,14 @@ def serve() -> Generator[Service, None, None]:
         def respond(self, body: bytes) -> None:
             """Record the request and return the selected fixture response."""
             state.requests.append((self.path, dict(self.headers), body))
+            path = self.path.partition("?")[0]
             if state.before_respond is not None:
-                state.before_respond(self.path)
-            key = self.path.rsplit("/", 1)[-1]
+                state.before_respond(path)
+            key = path.rsplit("/", 1)[-1]
             status = state.errors.get(key, 200 if key in state.data else 404)
             data = state.data.get(key, {})
             if state.respond is not None and "/jobs" in self.path:
-                status, data = state.respond(self.path, body)
+                status, data = state.respond(path, body)
             content = (
                 data
                 if isinstance(data, bytes)

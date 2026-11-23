@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     import numpy as np
     from mqt.core.typing import QDMISessionParameters
     from qiskit import QuantumCircuit
+    from qiskit.transpiler import Target
 
 _CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a:local::"
 _MAX_BODY = 16 * 1024 * 1024
@@ -52,7 +53,7 @@ _SERVICES: dict[str, tuple[HTTPServer, QDMISessionParameters]] = {}
 _LOCK = Lock()
 
 
-def _sample(circuit: QuantumCircuit, shots: int, rng: np.random.Generator) -> dict[str, np.ndarray]:
+def _sample(circuit: QuantumCircuit, shots: int, rng: np.random.Generator, target: Target) -> dict[str, np.ndarray]:
     """Sample ideal circuits with correlated classical registers.
 
     Returns:
@@ -60,15 +61,18 @@ def _sample(circuit: QuantumCircuit, shots: int, rng: np.random.Generator) -> di
     """
     import numpy as np  # ruff: ignore[import-outside-top-level]
     from mqt.core.mlir import sample  # ruff: ignore[import-outside-top-level]
+    from qiskit_ibm_runtime.utils.validations import validate_isa_circuits  # ruff: ignore[import-outside-top-level]
 
+    validate_isa_circuits([circuit], target)
     histogram = sample(circuit, shots=shots, seed=int(rng.integers(1, 2**32)))
-    memory = [bits for bits, count in histogram.items() for _ in range(count)]
-    rng.shuffle(memory)
-    bits = np.array([[bit == "1" for bit in sample[::-1]] for sample in memory], dtype=bool)
+    outcomes = np.array([[bit == "1" for bit in outcome[::-1]] for outcome in histogram], dtype=bool)
+    rows = np.repeat(np.arange(len(outcomes)), list(histogram.values()))
+    rng.shuffle(rows)
+    bits = outcomes[rows]
     return {register.name: bits[:, [circuit.find_bit(bit).index for bit in register]] for register in circuit.cregs}
 
 
-def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
+def _simulate(request: dict[str, Any], target: Target) -> dict[str, Any]:
     """Execute the native Sampler or Executor payload using MQT Core.
 
     Returns:
@@ -80,7 +84,6 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
     import numpy as np  # ruff: ignore[import-outside-top-level]
     from mqt.core.mlir import QCProgram  # ruff: ignore[import-outside-top-level]
     from qiskit import qpy  # ruff: ignore[import-outside-top-level]
-    from qiskit.circuit import Store  # ruff: ignore[import-outside-top-level]
 
     params = request["params"]
     rng = np.random.default_rng(7)
@@ -91,18 +94,7 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
                 circuit = QCProgram.from_openqasm_str(source).to_qiskit()
             else:
                 (circuit,) = qpy.load(io.BytesIO(zlib.decompress(base64.b64decode(source["__value__"], validate=True))))
-            pending = [circuit]
-            while pending:
-                for instruction in pending.pop().data:
-                    if (
-                        instruction.operation.name not in operations
-                        and instruction.operation.name != "barrier"
-                        and not isinstance(instruction.operation, Store)
-                    ):
-                        msg = f"Unsupported native instruction: {instruction.operation.name}"
-                        raise ValueError(msg)
-                    pending.extend(getattr(instruction.operation, "blocks", ()))
-            data = _sample(circuit, shots, rng)
+            data = _sample(circuit, shots, rng, target)
             results.append({
                 "data": {
                     name: {
@@ -123,7 +115,11 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
     from qiskit_ibm_runtime.quantum_program.converters import quantum_program_from_2_0  # ruff: ignore[import-outside-top-level]
     from samplomatic.quantum_program import CircuitItem, SamplexItem  # ruff: ignore[import-outside-top-level]
 
-    program, _ = quantum_program_from_2_0(ParamsModel.model_validate(params))
+    model = ParamsModel.model_validate(params)
+    if not model.options.init_qubits or model.options.scheduler_timing or model.options.stretch_values:
+        msg = "The ideal mock requires shot initialization and cannot report timing or stretch metadata."
+        raise ValueError(msg)
+    program, _ = quantum_program_from_2_0(model)
     if program.meas_level != "classified":
         msg = "The mock supports only classified Executor measurements."
         raise ValueError(msg)
@@ -141,7 +137,7 @@ def _simulate(request: dict[str, Any], operations: set[str]) -> dict[str, Any]:
             data[register.name] = np.empty((*item.shape, program.shots, len(register)), dtype=bool)
         for index in np.ndindex(item.shape):
             circuit = item.circuit.assign_parameters(bindings[index])
-            for name, samples in _sample(circuit, program.shots, rng).items():
+            for name, samples in _sample(circuit, program.shots, rng, target).items():
                 data[name][index] = samples
         outputs.append({
             "results": {name: CompressedTensorModel.from_numpy(value) for name, value in data.items()},
@@ -182,7 +178,7 @@ class _Runtime:
         self.jobs: dict[str, _Job] = {}
         self.executor = ThreadPoolExecutor(max_workers=1)
 
-    def respond(self, method: str, path: str, body: bytes) -> tuple[int, Any]:
+    def respond(self, method: str, path: str, body: bytes, *, exclude_params: bool = False) -> tuple[int, Any]:
         """Handle the REST subset used by the native device.
 
         Returns:
@@ -237,9 +233,7 @@ class _Runtime:
                     ):
                         return 400, {}
             identifier = "mock-" + uuid.uuid4().hex
-            self.jobs[identifier] = _Job(
-                request, self.executor.submit(_simulate, request, set(self.backend.target.operation_names))
-            )
+            self.jobs[identifier] = _Job(request, self.executor.submit(_simulate, request, self.backend.target))
             return 200, {"id": identifier, "backend": self.backend.name}
         parts = path.split("/")
         if len(parts) not in {4, 5} or parts[1:3] != ["v1", "jobs"] or parts[3] not in self.jobs:
@@ -263,7 +257,7 @@ class _Runtime:
             "id": parts[3],
             "backend": self.backend.name,
             "program": {"id": job.request["program_id"]},
-            "params": job.request["params"],
+            **({} if exclude_params else {"params": job.request["params"]}),
             "state": {"status": status},
         }
 
@@ -289,11 +283,16 @@ def _server(name: str, port: int = 0) -> tuple[HTTPServer, QDMISessionParameters
                 if not 0 <= size <= _MAX_BODY or self.headers.get("Transfer-Encoding"):
                     self.send_error(413)
                     return
-                path = urlsplit(self.path).path
-                if path != "/auth" and self.headers.get("Authorization") != f"Bearer {runtime.token}":
+                url = urlsplit(self.path)
+                if url.path != "/auth" and self.headers.get("Authorization") != f"Bearer {runtime.token}":
                     self.send_error(401)
                     return
-                status, data = runtime.respond(self.command, path, self.rfile.read(size))
+                status, data = runtime.respond(
+                    self.command,
+                    url.path,
+                    self.rfile.read(size),
+                    exclude_params=parse_qs(url.query).get("exclude_params") == ["true"],
+                )
                 content = json.dumps(data, cls=RuntimeEncoder).encode()
             except (KeyError, TypeError, ValueError):
                 status, content = 400, b"{}"

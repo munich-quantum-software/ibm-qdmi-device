@@ -856,6 +856,7 @@ test = [
 ]
 test-metadata = [
     { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "pytest-xdist" },
 ]
 
@@ -866,7 +867,7 @@ requires-dist = [
     { name = "mqt-core", extras = ["pennylane"], marker = "extra == 'pennylane'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=ed53afc96a067f541aaf9e1f03b5d991c0d64ed7" },
     { name = "mqt-core", extras = ["qiskit"], marker = "extra == 'qiskit'", git = "https://github.com/munich-quantum-toolkit/core.git?rev=ed53afc96a067f541aaf9e1f03b5d991c0d64ed7" },
     { name = "qiskit", marker = "extra == 'qiskit'", specifier = ">=2.5" },
-    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = ">=0.52,<0.53" },
+    { name = "qiskit-ibm-runtime", marker = "extra == 'executor'", specifier = ">=0.50,<0.53" },
 ]
 provides-extras = ["executor", "mock", "pennylane", "qiskit"]
 
@@ -884,7 +885,7 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "qiskit", extras = ["qasm3-import"], specifier = ">=2.5" },
-    { name = "qiskit-ibm-runtime", specifier = ">=0.52,<0.53" },
+    { name = "qiskit-ibm-runtime", specifier = ">=0.50,<0.53" },
     { name = "scikit-build-core", specifier = ">=1.1" },
 ]
 docs = [
@@ -906,6 +907,7 @@ test = [
 ]
 test-metadata = [
     { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-cov", specifier = ">=7.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
 ]
 

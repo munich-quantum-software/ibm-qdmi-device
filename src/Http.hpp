@@ -49,7 +49,7 @@ struct Response {
 };
 using Transport = std::function<Response(const Request&)>;
 /// Validate an HTTPS endpoint, or an HTTP loopback endpoint for offline tests.
-bool validEndpoint(const std::string& url);
+bool validEndpoint(const std::string& url, bool allowQuery = false);
 Response send(const Request& request);
 namespace internal {
 /// Return the first readable CA bundle, or empty to keep platform defaults.

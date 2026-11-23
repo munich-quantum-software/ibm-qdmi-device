@@ -22,7 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar
 
 from mqt.core.qdmi import CustomProperty, Job, ProgramFormat
-from qiskit.circuit import ControlFlowOp, Delay, ParameterExpression
+from qiskit.circuit import Delay, ParameterExpression
 from qiskit.primitives import BasePrimitiveJob, PrimitiveResult
 from qiskit.primitives.base import BaseEstimatorV2, BaseSamplerV2
 
@@ -227,13 +227,16 @@ def _validate_qpy_delays(circuit: QuantumCircuit) -> None:
     if "delay" not in circuit.count_ops() and not circuit.has_control_flow_op():
         return
     for instruction in circuit.data:
-        op = instruction.operation
-        if isinstance(op, Delay) and (op.unit not in {"dt", "expr"} or isinstance(op.duration, ParameterExpression)):
-            msg = "Bind numeric Executor delay durations to backend clock ticks (dt) before submission."
-            raise ValueError(msg)
-        if isinstance(op, ControlFlowOp):
-            for block in op.blocks:
+        if instruction.is_control_flow():
+            for block in instruction.operation.blocks:
                 _validate_qpy_delays(block)
+        elif instruction.name == "delay":
+            op = instruction.operation
+            if isinstance(op, Delay) and (
+                op.unit not in {"dt", "expr"} or isinstance(op.duration, ParameterExpression)
+            ):
+                msg = "Bind numeric Executor delay durations to backend clock ticks (dt) before submission."
+                raise ValueError(msg)
 
 
 def _submit(backend: IBMBackend, program: QuantumProgram, options: ExecutorOptions) -> ExecutorJob:

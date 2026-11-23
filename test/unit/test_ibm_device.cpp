@@ -616,33 +616,27 @@ protected:
                true);
     ASSERT_EQ(IBM_QDMI_device_job_submit(job), QDMI_SUCCESS);
   }
-  void queueStatus(const std::string& status) {
-    http.queue("/synthetic-job",
-               {
-                   .status = 200,
-                   .body =
-                       nlohmann::json{
-                           {"id", "synthetic-job"},
-                           {"backend", "ibm_test"},
-                           {"program", {{"id", "sampler"}}},
-                           {"state", {{"status", status}}},
-                           {
-                               "params",
-                               {
-                                   {"version", 2},
-                                   {"support_qiskit", false},
-                                   {
-                                       "pubs",
-                                       nlohmann::json::array({
-                                           nlohmann::json::array(
-                                               {PROGRAM, nullptr, 3}),
-                                       }),
-                                   },
-                               },
-                           },
-                       }
-                           .dump(),
-               });
+  void queueStatus(const std::string& status, bool includeParams = false) {
+    nlohmann::json jobData{
+        {"id", "synthetic-job"},
+        {"backend", "ibm_test"},
+        {"state", {{"status", status}}},
+    };
+    if (includeParams) {
+      jobData["program"] = {{"id", "sampler"}};
+      jobData["params"] = {
+          {"version", 2},
+          {"support_qiskit", false},
+          {
+              "pubs",
+              nlohmann::json::array(
+                  {nlohmann::json::array({PROGRAM, nullptr, 3})}),
+          },
+      };
+    }
+    http.queue(includeParams ? "/synthetic-job"
+                             : "/synthetic-job?exclude_params=true",
+               {.status = 200, .body = jobData.dump()});
   }
 };
 
@@ -728,7 +722,7 @@ TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
   EXPECT_EQ(submitted["cost"], 60);
   EXPECT_EQ(submitted["params"]["pubs"][0],
             nlohmann::json::array({PROGRAM, nullptr, 3}));
-  queueStatus("Completed");
+  queueStatus("Completed", true);
   IBM_QDMI_Device_Job retrieved = nullptr;
   ASSERT_EQ(IBM_QDMI_device_session_retrieve_device_job_by_id(
                 session, "synthetic-job", &retrieved),
