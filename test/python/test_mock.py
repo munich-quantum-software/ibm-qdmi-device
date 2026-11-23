@@ -19,7 +19,6 @@
 
 from __future__ import annotations
 
-import io
 import json
 import subprocess
 import sys
@@ -37,7 +36,7 @@ pytest.importorskip("qiskit_ibm_runtime")
 from mqt.core.mlir import OutputFormat, compile_program
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
-from qiskit import QuantumCircuit, qpy, transpile
+from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import ClassicalRegister, Delay, Instruction, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
@@ -236,11 +235,8 @@ def test_native_delay_survives_qiskit_transpilation_and_qpy() -> None:
     (delay,) = compiled.get_instructions("delay")
     assert delay.operation == Delay(144)
     assert compiled.find_bit(delay.qubits[0]).index == 2
-    payload = io.BytesIO()
-    qpy.dump(compiled, payload, version=17)
-    job = backend.device.submit_job(payload.getvalue(), ProgramFormat.QPY, num_shots=4)
-    assert job.wait(10)
-    assert job.get_shots() == ["1"] * 4
+    result = backend.run(compiled, shots=4, memory=True).result(timeout=10)
+    assert result.get_memory() == ["1"] * 4
 
 
 def test_executor_dynamical_decoupling_on_fake_backend() -> None:

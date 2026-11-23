@@ -63,7 +63,7 @@ before they are returned; uninitialized bits have no implicit zero value.
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
 exponentially with circuit size. The mock rejects server-side Sampler decoupling
-and twirling. The ideal simulator ignores top-level QPY and Executor delays. The
+and twirling. Delays advance the circuit without changing its ideal state. The
 mock returns classified Executor measurements. Requests are limited to 16 MiB.
 Pending jobs can be cancelled; running simulations finish normally. One loopback
 service per fake stays alive until process exit, so another backend object can
@@ -101,28 +101,19 @@ submission.
 route them. Qiskit's `transpile(circuit, backend)` uses the same target as the
 Executor primitives, including native `delay` on devices that advertise it.
 
-MQT Core 4.2.1 rejects delays in `backend.compile()`, `backend.run()`, and the
-mock's OpenQASM importer. With that release, use an Executor primitive or submit
-a scheduled Qiskit circuit through the native Sampler. Qiskit converts numeric
-SI durations to backend ticks before QPY encoding. The native job returns
-samples in classical register order.
+Submit scheduled circuits with literal delays through `backend.run()`. Qiskit
+converts numeric SI durations to backend ticks during transpilation.
 
 ```python
-from io import BytesIO
-
-from mqt.core.qdmi import ProgramFormat
-from qiskit import QuantumCircuit, qpy, transpile
+from qiskit import QuantumCircuit, transpile
 
 circuit = QuantumCircuit(1, 1)
 circuit.x(0)
 circuit.delay(32, 0, unit="ns")
 circuit.measure(0, 0)
 scheduled = transpile(circuit, backend, scheduling_method="alap")
-payload = BytesIO()
-qpy.dump(scheduled, payload, version=17)
-job = backend.device.submit_job(payload.getvalue(), ProgramFormat.QPY, num_shots=128)
-if job.wait(300):
-    shots = job.get_shots()
+job = backend.run(scheduled, shots=128, memory=True)
+shots = job.result(timeout=300).get_memory()
 ```
 
 Backends advertising `if_else` support conditional execution through QPY and

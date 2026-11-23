@@ -60,11 +60,7 @@ def _sample(circuit: QuantumCircuit, shots: int, rng: np.random.Generator) -> di
     """
     import numpy as np  # ruff: ignore[import-outside-top-level]
     from mqt.core.mlir import sample  # ruff: ignore[import-outside-top-level]
-    from qiskit.circuit import Delay  # ruff: ignore[import-outside-top-level]
 
-    if "delay" in circuit.count_ops():
-        # Idle time has no effect in the ideal simulator.
-        circuit.data = [entry for entry in circuit.data if not isinstance(entry.operation, Delay)]
     histogram = sample(circuit, shots=shots, seed=int(rng.integers(1, 2**32)))
     memory = [bits for bits, count in histogram.items() for _ in range(count)]
     rng.shuffle(memory)

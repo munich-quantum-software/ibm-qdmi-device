@@ -23,6 +23,10 @@ releases may include breaking changes.
 - 🐛 Reject custom execution caps and nondefault simulator options in the Python
   Executor adapter. ([#117]) ([**@burgholzer**])
 
+### Changed
+
+- ♻️ Use MQT Core to submit scheduled circuits and simulate delays in the mock.
+
 ## [1.1.1] - 2026-11-15
 
 ### Changed
