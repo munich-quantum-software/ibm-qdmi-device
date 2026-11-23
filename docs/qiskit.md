@@ -63,8 +63,9 @@ before they are returned; uninitialized bits have no implicit zero value.
 Fake metadata supplies connectivity and calibration properties; MQT Core samples
 ideal circuits without noise. Use small workloads: simulation can grow
 exponentially with circuit size. The mock rejects server-side Sampler decoupling
-and twirling. Delays advance the circuit without changing its ideal state. The
-mock returns classified Executor measurements. Requests are limited to 16 MiB.
+and twirling. Literal delays advance the circuit without changing its ideal
+state. A mock job fails if its circuit contains a nonliteral delay. The mock
+returns classified Executor measurements. Requests are limited to 16 MiB.
 Pending jobs can be cancelled; running simulations finish normally. One loopback
 service per fake stays alive until process exit, so another backend object can
 retrieve its jobs. The service binds to `127.0.0.1` with a temporary credential;

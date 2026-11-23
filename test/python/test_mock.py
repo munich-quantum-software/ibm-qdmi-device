@@ -25,6 +25,7 @@ import sys
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
+from io import BytesIO
 from urllib.parse import urlsplit
 
 import numpy as np
@@ -36,7 +37,7 @@ pytest.importorskip("qiskit_ibm_runtime")
 from mqt.core.mlir import OutputFormat, compile_program
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
-from qiskit import QuantumCircuit, transpile
+from qiskit import QuantumCircuit, qpy, transpile
 from qiskit.circuit import ClassicalRegister, Delay, Instruction, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
@@ -223,20 +224,22 @@ def test_executor_estimator() -> None:
     np.testing.assert_allclose(result[0].data.evs, [1, 1])
 
 
-def test_native_delay_survives_qiskit_transpilation_and_qpy() -> None:
+def test_backend_run_preserves_scheduled_delay() -> None:
     """Submit a timed ISA circuit through the native Sampler transport."""
     backend = IBMBackend(backend_name="fake_manila")
-    assert isinstance(backend.target.operation_from_name("delay"), Delay)
     circuit = QuantumCircuit(1, 1)
     circuit.x(0)
     circuit.delay(32, 0, unit="ns")
     circuit.measure(0, 0)
     compiled = transpile(circuit, backend, initial_layout=[2], optimization_level=0)
-    (delay,) = compiled.get_instructions("delay")
-    assert delay.operation == Delay(144)
-    assert compiled.find_bit(delay.qubits[0]).index == 2
-    result = backend.run(compiled, shots=4, memory=True).result(timeout=10)
-    assert result.get_memory() == ["1"] * 4
+    job = backend.run(compiled, shots=4, memory=True)
+    assert job.result(timeout=10).get_memory() == ["1"] * 4
+    submitted = backend.device.retrieve_job_by_id(job.job_id())
+    assert submitted.program_format == ProgramFormat.QPY
+    (restored,) = qpy.load(BytesIO(submitted.get_program(bytes)))
+    (emitted_delay,) = restored.get_instructions("delay")
+    assert emitted_delay.operation == Delay(144)
+    assert restored.find_bit(emitted_delay.qubits[0]).index == 2
 
 
 def test_executor_dynamical_decoupling_on_fake_backend() -> None:
