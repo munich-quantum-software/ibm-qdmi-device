@@ -46,7 +46,7 @@ library without Python, build it from a source checkout as described below.
 
 ## Building from source
 
-Building requires a C++20 compiler, CMake 3.24 or newer, Git, and Python 3.11.5
+Building requires a C++20 compiler, CMake 3.28 or newer, Git, and Python 3.11.5
 or newer for Python packaging. Linux builds require OpenSSL development headers.
 Dependency downloads need network access.
 

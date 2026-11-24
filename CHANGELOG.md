@@ -19,6 +19,10 @@ releases may include breaking changes.
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
 
+### Changed
+
+- ⬆️ Require CMake 3.28 or newer for source builds ([**@denialhaag**])
+
 ### Fixed
 
 - 🐛 Reject custom execution caps and nondefault simulator options in the Python
