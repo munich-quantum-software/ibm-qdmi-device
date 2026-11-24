@@ -46,7 +46,7 @@ their supported versions; [package metadata] records all dependency bounds. See
 
 ## Build dependencies
 
-Native builds require a C++20 compiler, CMake 3.24 or newer, and Git. Linux
+Native builds require a C++20 compiler, CMake 3.28 or newer, and Git. Linux
 builds also require OpenSSL development headers. Python packaging uses
 `scikit-build-core`; building the documentation uses Sphinx and Doxygen. The
 `build`, `test`, and `docs` dependency groups install tools for their respective

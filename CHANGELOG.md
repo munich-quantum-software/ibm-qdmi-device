@@ -19,6 +19,10 @@ releases may include breaking changes.
 - ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
   Executor path. ([#107]) ([**@marcelwa**])
 
+### Changed
+
+- ⬆️ Require CMake 3.28 or newer for source builds ([#128]) ([**@denialhaag**])
+
 ### Fixed
 
 - 🐛 Reject custom execution caps and nondefault simulator options in the Python
@@ -156,6 +160,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#128]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/128
 [#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
 [#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
