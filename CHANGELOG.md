@@ -21,7 +21,7 @@ releases may include breaking changes.
 
 ### Changed
 
-- ⬆️ Require CMake 3.28 or newer for source builds ([**@denialhaag**])
+- ⬆️ Require CMake 3.28 or newer for source builds ([#128]) ([**@denialhaag**])
 
 ### Fixed
 
@@ -160,6 +160,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#128]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/128
 [#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
 [#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
