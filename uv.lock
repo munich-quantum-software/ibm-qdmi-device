@@ -854,9 +854,13 @@ test = [
     { name = "pytest-xdist" },
     { name = "qiskit", extra = ["qasm3-import"] },
 ]
-test-metadata = [
+test-integration = [
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-xdist" },
+]
+test-metadata = [
+    { name = "pytest" },
     { name = "pytest-xdist" },
 ]
 
@@ -905,9 +909,13 @@ test = [
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "qiskit", extras = ["qasm3-import"], specifier = ">=2.5" },
 ]
-test-metadata = [
+test-integration = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1" },
+    { name = "pytest-xdist", specifier = ">=3.8" },
+]
+test-metadata = [
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8" },
 ]
 

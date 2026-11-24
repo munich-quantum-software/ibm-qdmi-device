@@ -92,6 +92,7 @@ dev = [
 test = [
   { include-group = "test-metadata" },
   "mqt-core[pennylane,qiskit]>=4.2.2.dev84",
+  "pytest-cov>=7.1",
   "pytest-sugar>=1.1.1",
   "qiskit[qasm3-import]>=2.5",
 ]
@@ -108,7 +109,8 @@ build = [
   "build>=1.2.2",
   "scikit-build-core>=1.1",
 ]
-test-metadata = [ "pytest>=9.1.1", "pytest-cov>=7.1", "pytest-xdist>=3.8" ]
+test-integration = [ { include-group = "test-metadata" }, "pytest-cov>=7.1" ]
+test-metadata = [ "pytest>=9.1.1", "pytest-xdist>=3.8" ]
 
 
 [tool.scikit-build]
