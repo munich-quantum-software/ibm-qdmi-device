@@ -26,6 +26,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
 from io import BytesIO
+from typing import Literal
 from urllib.parse import urlsplit
 
 import numpy as np
@@ -38,11 +39,12 @@ from mqt.core.mlir import OutputFormat, compile_program
 from mqt.core.qdmi import Job, ProgramFormat
 from mqt.core.qdmi.builtin_driver import open_device
 from qiskit import QuantumCircuit, qpy, transpile
-from qiskit.circuit import ClassicalRegister, Delay, Instruction, Parameter, QuantumRegister
+from qiskit.circuit import ClassicalRegister, Delay, Parameter, QuantumRegister
 from qiskit.primitives import BitArray, PrimitiveResult, SamplerPubResult
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_ibm_runtime import QuantumProgram
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
+from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
 from qiskit_ibm_runtime.results import QuantumProgramResult
 from samplomatic import build
 from samplomatic.transpiler import generate_boxing_pass_manager
@@ -177,6 +179,8 @@ def test_executor_simulates_circuit_and_samplex_items() -> None:
     assert result[1]["c"].shape == (2, 2, 8, 1)
     assert "measurement_flips.c" in result[1]
     assert result.passthrough_data == {"experiment": "local"}
+    stored = backend.device.retrieve_job_by_id(job.job_id()).get_program()
+    assert json.loads(stored)["quantum_program"]["passthrough_data"] == {"experiment": "local"}
     retrieved = IBMBackend(backend_name="fake_manila").executor().retrieve_job(job.job_id()).result(timeout=30)
     np.testing.assert_array_equal(retrieved[1]["c"], result[1]["c"])
 
@@ -261,14 +265,26 @@ def test_executor_dynamical_decoupling_on_fake_backend() -> None:
     np.testing.assert_allclose(estimate.data.evs, -1.0)
 
 
-def test_executor_mock_rejects_nonclassified_measurements() -> None:
-    """An ideal mock cannot return analog measurement results."""
+@pytest.mark.parametrize(
+    ("meas_level", "execution"),
+    [
+        ("avg_kerneled", {}),
+        ("classified", {"init_qubits": False}),
+        ("classified", {"scheduler_timing": True}),
+        ("classified", {"stretch_values": True}),
+    ],
+)
+def test_executor_mock_rejects_unsupported_execution(
+    meas_level: Literal["avg_kerneled", "classified"], execution: dict[str, bool]
+) -> None:
+    """Fail jobs whose requested results or shot initialization the mock cannot provide."""
     backend = IBMBackend(backend_name="fake_manila")
     circuit = QuantumCircuit(1, 1)
     circuit.measure(0, 0)
-    program = QuantumProgram(shots=4, meas_level="avg_kerneled")
+    program = QuantumProgram(shots=4, meas_level=meas_level)
     program.append_circuit_item(circuit)
-    job = backend.executor().run(program)
+    options = ExecutorOptions.model_validate({"execution": execution})
+    job = backend.executor(options=options).run(program)
 
     with pytest.raises(RuntimeError):
         job.result(timeout=30)
@@ -295,7 +311,7 @@ def test_executor_failure_and_cancellation() -> None:
     """Simulator errors fail native jobs; cancellation follows the real local job state."""
     backend = IBMBackend(backend_name="fake_manila")
     circuit = QuantumCircuit(1, 1)
-    circuit.append(Instruction("invalid_mock_instruction", 1, 0, []), [0])
+    circuit.h(0)  # Simulatable, but outside Fake Manila's native gate set.
     circuit.measure(0, 0)
     program = QuantumProgram(shots=8)
     program.append_circuit_item(circuit)

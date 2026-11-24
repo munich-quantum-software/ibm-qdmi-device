@@ -21,6 +21,12 @@ releases may include breaking changes.
 
 ### Changed
 
+- ⬆️ Support Qiskit IBM Runtime 0.50, 0.51, and 0.52 with the `executor` and
+  `mock` extras. Local execution validates bound circuits against the selected
+  device and reports unsupported Executor options. ([#126]) ([**@burgholzer**])
+- ⚡ Reduce submission overhead for scheduled Executor circuits and skip
+  downloading program inputs when polling job status. Local sampling decodes
+  each distinct outcome once across repeated shots. ([#126]) ([**@burgholzer**])
 - ⬆️ Require CMake 3.28 or newer for source builds ([#128]) ([**@denialhaag**])
 
 ### Fixed
@@ -161,6 +167,7 @@ _This is the initial release of the IBM QDMI Device._
 <!-- PR links -->
 
 [#128]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/128
+[#126]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/126
 [#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
 [#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
 [#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113

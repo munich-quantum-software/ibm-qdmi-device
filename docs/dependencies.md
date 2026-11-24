@@ -5,7 +5,7 @@ Versions below follow
 and
 [pyproject.toml](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/pyproject.toml).
 `uv.lock` records the resolved Python environment. The `executor` and `mock`
-extras support Qiskit IBM Runtime `>=0.50.0,<0.52`.
+extras support Qiskit IBM Runtime `>=0.50,<0.53`.
 
 ## Runtime dependencies
 

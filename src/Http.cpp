@@ -143,7 +143,7 @@ internal::Hooks& internal::hooks() {
   return value;
 }
 
-bool validEndpoint(const std::string& url) {
+bool validEndpoint(const std::string& url, bool allowQuery) {
   constexpr auto flags = CURLU_DISALLOW_USER; // NOLINT(bugprone-signed-bitwise)
                                               // -- libcurl flag macro
   const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(
@@ -160,7 +160,7 @@ bool validEndpoint(const std::string& url) {
   };
   const auto scheme = part(CURLUPART_SCHEME);
   const auto host = part(CURLUPART_HOST);
-  return !host.empty() && part(CURLUPART_QUERY).empty() &&
+  return !host.empty() && (allowQuery || part(CURLUPART_QUERY).empty()) &&
          part(CURLUPART_FRAGMENT).empty() &&
          (scheme == "https" ||
           (scheme == "http" &&
@@ -168,7 +168,7 @@ bool validEndpoint(const std::string& url) {
 }
 
 Response send(const Request& request) {
-  if (!validEndpoint(request.url)) {
+  if (!validEndpoint(request.url, true)) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   cpr::Session client;

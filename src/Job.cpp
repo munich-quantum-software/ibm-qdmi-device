@@ -256,49 +256,46 @@ void Job::setDynamicalDecoupling(const std::string& options) {
   dynamicalDecoupling = std::move(configured);
   samplerOptionsSet = true;
 }
-void Job::submit() {
-  require(configurable() && format.has_value() && !programs.empty(),
-          QDMI_ERROR_BADSTATE);
-  nlohmann::json payload{
-      {"program_id", "sampler"},
-      {"backend", backend},
-      {"cost", maxExecutionTime},
+nlohmann::json Job::samplerParams() const {
+  nlohmann::json pubs = nlohmann::json::array();
+  for (const auto& source : programs) {
+    nlohmann::json circuit =
+        format == QDMI_PROGRAM_FORMAT_QPY
+            ? nlohmann::json{
+                  {"__type__", "QuantumCircuit"},
+                  {"__value__", encodeQpy(source)},
+              }
+            : nlohmann::json(declareNativeGates(source));
+    pubs.push_back(nlohmann::json::array({std::move(circuit), nullptr, shots}));
+  }
+  return {
+      {"version", 2},
+      {"support_qiskit", false},
+      {"pubs", std::move(pubs)},
       {
-          "params",
+          "options",
           {
-              {"version", 2},
-              {"support_qiskit", false},
-              {"pubs", nlohmann::json::array()},
+              {"execution", {{"meas_type", "classified"}}},
+              {"dynamical_decoupling", dynamicalDecoupling},
               {
-                  "options",
-                  {
-                      {"execution", {{"meas_type", "classified"}}},
-                      {"dynamical_decoupling", dynamicalDecoupling},
-                      {
-                          "twirling",
-                          {{"enable_gates", false}, {"enable_measure", false}},
-                      },
-                  },
+                  "twirling",
+                  {{"enable_gates", false}, {"enable_measure", false}},
               },
           },
       },
   };
-  if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
-    payload["program_id"] = "executor";
-    payload["params"] = nlohmann::json::parse(programs.front());
-  } else {
-    for (const auto& source : programs) {
-      nlohmann::json circuit =
-          format == QDMI_PROGRAM_FORMAT_QPY
-              ? nlohmann::json{
-                    {"__type__", "QuantumCircuit"},
-                    {"__value__", encodeQpy(source)},
-                }
-                           : nlohmann::json(declareNativeGates(source));
-      payload["params"]["pubs"].push_back(
-          nlohmann::json::array({std::move(circuit), nullptr, shots}));
-    }
-  }
+}
+void Job::submit() {
+  require(configurable() && format.has_value() && !programs.empty(),
+          QDMI_ERROR_BADSTATE);
+  const bool executor = format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
+  nlohmann::json payload{
+      {"program_id", executor ? "executor" : "sampler"},
+      {"backend", backend},
+      {"cost", maxExecutionTime},
+  };
+  payload["params"] =
+      executor ? nlohmann::json::parse(programs.front()) : samplerParams();
   const auto body = payload.dump();
   // Once submission starts, even a lost response must never permit a duplicate.
   attempted = true;
@@ -375,8 +372,8 @@ void Job::retrieve(const std::string& remoteId) {
 }
 QDMI_Job_Status Job::check(Deadline deadline) {
   if (!id.empty() && !terminal(status)) {
-    const auto data =
-        nlohmann::json::parse(auth->get("/v1/jobs/" + id, deadline));
+    const auto data = nlohmann::json::parse(
+        auth->get("/v1/jobs/" + id + "?exclude_params=true", deadline));
     require(data.at("id") == id && data.at("backend") == backend);
     status = parseJobStatus(data);
   }

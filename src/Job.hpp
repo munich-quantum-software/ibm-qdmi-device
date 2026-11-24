@@ -81,6 +81,7 @@ public:
   QDMI_Job_Status status = QDMI_JOB_STATUS_CREATED;
 
 private:
+  [[nodiscard]] nlohmann::json samplerParams() const;
   Auth* auth;
   std::string backend;
   std::size_t qubits;
