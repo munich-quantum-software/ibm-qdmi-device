@@ -96,7 +96,7 @@ test = [
   "qiskit[qasm3-import]>=2.5",
 ]
 docs = [
-  "cmake>=3.24",
+  "cmake>=3.28",
   "furo>=2025.12.19",
   "myst-parser>=5",
   "sphinx>=9",

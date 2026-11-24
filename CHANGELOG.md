@@ -27,6 +27,7 @@ releases may include breaking changes.
 - ⚡ Reduce submission overhead for scheduled Executor circuits and skip
   downloading program inputs when polling job status. Local sampling decodes
   each distinct outcome once across repeated shots. ([#126]) ([**@burgholzer**])
+- ⬆️ Require CMake 3.28 or newer for source builds ([#128]) ([**@denialhaag**])
 
 ### Fixed
 
@@ -165,6 +166,7 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#128]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/128
 [#126]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/126
 [#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
 [#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
