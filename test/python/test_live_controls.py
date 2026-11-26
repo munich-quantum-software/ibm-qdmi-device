@@ -102,10 +102,18 @@ def test_default_skips_before_credentials(
     assert f"{skipped} skipped" in result.stdout
 
 
-@pytest.mark.parametrize("selection", ["both", "ibm_berlin", "ibm_aachen"])
-@pytest.mark.parametrize("color", ["yes", "no"])
-@pytest.mark.parametrize("option", ["--run-live", "--run-quantum"])
-def test_live_selection_and_redaction(tmp_path: Path, selection: str, color: str, option: str) -> None:
+@pytest.mark.parametrize(
+    ("option", "selection", "color"),
+    [
+        ("--run-live", "both", "yes"),
+        ("--run-live", "ibm_berlin", "no"),
+        ("--run-live", "ibm_aachen", "yes"),
+        ("--run-quantum", "both", "no"),
+        ("--run-quantum", "ibm_berlin", "yes"),
+        ("--run-quantum", "ibm_aachen", "no"),
+    ],
+)
+def test_live_selection_and_redaction(tmp_path: Path, option: str, selection: str, color: str) -> None:
     """Selected backends fail safely without exposing exception values or locals."""
     result = run_live_tests(
         tmp_path,

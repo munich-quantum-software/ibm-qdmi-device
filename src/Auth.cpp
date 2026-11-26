@@ -19,8 +19,13 @@
 
 #include "Auth.hpp"
 
+#include "ibm_qdmi/constants.h"
+
 #include "Http.hpp"
 #include "Storage.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -32,13 +37,10 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <ibm_qdmi/constants.h>
 #include <ios>
 #include <iterator>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -207,7 +209,8 @@ std::string Auth::storageGet(const std::string& key, Deadline deadline) {
   }
   deadline = std::min(deadline, clock() + configuration.requestTimeout);
   const auto response =
-      transport({.url = storageUrl(*configuration.storage, key, false),
+      transport({.url = storageUrl(*configuration.storage, key, false, false,
+                                   remaining(deadline)),
                  .headers = {},
                  .form = {},
                  .body = {},
@@ -222,7 +225,8 @@ void Auth::storagePut(const std::string& key, const std::string& body) {
   }
   const auto deadline = clock() + configuration.requestTimeout;
   const auto response =
-      transport({.url = storageUrl(*configuration.storage, key, true),
+      transport({.url = storageUrl(*configuration.storage, key, true, false,
+                                   remaining(deadline)),
                  .headers = {{"Content-Type", "application/json"}},
                  .form = {},
                  .body = body,
@@ -243,13 +247,17 @@ std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
 
 std::shared_ptr<Auth::Token> Auth::refresh(Deadline deadline) {
   const auto started = clock();
-  const auto response = transport(
-      {.url = configuration.authUrl,
-       .headers = {},
-       .form = {{"grant_type", "urn:ibm:params:oauth:grant-type:apikey"},
-                {"apikey", configuration.apiKey}},
-       .body = {},
-       .timeout = remaining(deadline)});
+  const auto response = transport({
+      .url = configuration.authUrl,
+      .headers = {},
+      .form =
+          {
+              {"grant_type", "urn:ibm:params:oauth:grant-type:apikey"},
+              {"apikey", configuration.apiKey},
+          },
+      .body = {},
+      .timeout = remaining(deadline),
+  });
   // IAM reports invalid API keys as 400 as well as 401/403.
   if (!response.failed && !response.timedOut && response.status == 400) {
     throw Failure{QDMI_ERROR_PERMISSIONDENIED};
@@ -291,19 +299,24 @@ Response Auth::request(const std::string& resource, bool post,
   deadline = std::min(deadline, clock() + configuration.requestTimeout);
   auto token = acquireToken(deadline);
   const auto request = [&] {
-    return transport({.url = configuration.baseUrl + resource,
-                      .headers = {{"Accept", "application/json"},
-                                  {"Authorization", "Bearer " + token->bearer},
-                                  {"Service-CRN", configuration.crn},
-                                  {"IBM-API-Version", "2026-04-15"},
-                                  {"Content-Type", "application/json"}},
-                      .form = {},
-                      .post = post,
-                      .body = body,
-                      .timeout = remaining(deadline)});
+    return transport({
+        .url = configuration.baseUrl + resource,
+        .headers =
+            {
+                {"Accept", "application/json"},
+                {"Authorization", "Bearer " + token->bearer},
+                {"Service-CRN", configuration.crn},
+                {"IBM-API-Version", "2026-04-15"},
+                {"Content-Type", "application/json"},
+            },
+        .form = {},
+        .post = post,
+        .body = body,
+        .timeout = remaining(deadline),
+    });
   };
   bool refreshed = false;
-  for (int retries = 0;;) {
+  for (unsigned retries = 0;;) {
     auto response = request();
     if (!response.failed && !response.timedOut && response.status == 401) {
       // A late response invalidates only the token used for that request.
@@ -323,7 +336,7 @@ Response Auth::request(const std::string& resource, bool post,
       return response;
     }
     const auto delay = std::max(
-        std::chrono::milliseconds{100 << retries},
+        std::chrono::milliseconds{100U << retries},
         response.retryAfter.value_or(std::chrono::milliseconds::zero()));
     if (delay >= remaining(deadline)) {
       return response;
@@ -334,8 +347,8 @@ Response Auth::request(const std::string& resource, bool post,
 }
 
 std::string Auth::get(const std::string& resource, Deadline deadline) {
-  const auto response = request(resource, false, {}, deadline);
+  auto response = request(resource, false, {}, deadline);
   checkResponse(response);
-  return response.body;
+  return std::move(response.body);
 }
 } // namespace ibm

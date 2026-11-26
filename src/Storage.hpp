@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <chrono>
+#include <optional>
 #include <string>
 
 namespace ibm {
@@ -34,7 +36,9 @@ struct StorageConfiguration {
 /// Read a private configuration snapshot without implicit AWS discovery.
 StorageConfiguration readStorageConfiguration(const std::string& path);
 /// Sign the final endpoint and object path; all transfers use our HTTP layer.
-std::string storageUrl(const StorageConfiguration& configuration,
-                       const std::string& key, bool put, bool service = false);
+std::string
+storageUrl(const StorageConfiguration& configuration, const std::string& key,
+           bool put, bool service = false,
+           std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 std::string newJobId();
 } // namespace ibm

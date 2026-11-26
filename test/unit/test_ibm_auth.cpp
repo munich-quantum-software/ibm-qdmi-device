@@ -17,17 +17,19 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
+
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <atomic>
 #include <chrono>
 #include <fstream>
 #include <future>
-#include <gtest/gtest.h>
-#include <ibm_qdmi/constants.h>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <thread>
 #include <utility>
@@ -39,12 +41,14 @@ nlohmann::json fixture() {
   return nlohmann::json::parse(input);
 }
 ibm::Configuration configuration() {
-  return {.apiKey = "synthetic-key",
-          .backend = "ibm_test",
-          .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
-          .apiKeyConfigured = true,
-          .backendConfigured = true,
-          .crnConfigured = true};
+  return {
+      .apiKey = "synthetic-key",
+      .backend = "ibm_test",
+      .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
+      .apiKeyConfigured = true,
+      .backendConfigured = true,
+      .crnConfigured = true,
+  };
 }
 template <class Function> void expectFailure(Function&& function, int status) {
   try {
@@ -70,8 +74,10 @@ TEST(Auth, RequestTimeoutBoundsRefreshAndRetry) {
         [&](const ibm::Request& request) {
           timeouts.push_back(request.timeout);
           if (!request.form.empty()) {
-            return ibm::Response{.status = 200,
-                                 .body = fixture()["auth"].dump()};
+            return ibm::Response{
+                .status = 200,
+                .body = fixture()["auth"].dump(),
+            };
           }
           if (++backendRequests == 1) {
             now += timeout - std::chrono::milliseconds{50};
@@ -212,8 +218,10 @@ TEST(Auth, LateUnauthorizedResponsesPreserveRefreshedToken) {
           if (!request.form.empty()) {
             ++exchanges;
             // Equal bearer strings still represent separate IAM exchanges.
-            return ibm::Response{.status = 200,
-                                 .body = fixture()["auth"].dump()};
+            return ibm::Response{
+                .status = 200,
+                .body = fixture()["auth"].dump(),
+            };
           }
           if (request.url.ends_with("/slow") && ++slowRequests == 1) {
             entered.set_value();
@@ -319,16 +327,20 @@ TEST(Auth, RetriesTransientReadsWithOneBudget) {
           timeouts.push_back(request.timeout);
           if (!request.form.empty()) {
             now += std::chrono::milliseconds{50};
-            return ibm::Response{.status = 200,
-                                 .body = fixture()["auth"].dump()};
+            return ibm::Response{
+                .status = 200,
+                .body = fixture()["auth"].dump(),
+            };
           }
           if (++reads < 3) {
             now += std::chrono::milliseconds{50};
-            return ibm::Response{.status = status,
-                                 .body = {},
-                                 .failed = status == 0,
-                                 .transient = status == 0,
-                                 .retryAfter = std::chrono::milliseconds{150}};
+            return ibm::Response{
+                .status = status,
+                .body = {},
+                .failed = status == 0,
+                .transient = status == 0,
+                .retryAfter = std::chrono::milliseconds{150},
+            };
           }
           return ibm::Response{.status = 200, .body = "{}"};
         },
@@ -383,11 +395,16 @@ TEST(Auth, DoesNotRetryPermanentFailuresOrPosts) {
           [&](const ibm::Request& request) {
             ++calls;
             if (!request.form.empty()) {
-              return ibm::Response{.status = 200,
-                                   .body = fixture()["auth"].dump()};
+              return ibm::Response{
+                  .status = 200,
+                  .body = fixture()["auth"].dump(),
+              };
             }
             return ibm::Response{
-                .status = status, .body = {}, .failed = status == 0};
+                .status = status,
+                .body = {},
+                .failed = status == 0,
+            };
           },
           ibm::internal::hooks().now,
           [](ibm::Deadline) { ADD_FAILURE() << "Unexpected retry"; });
@@ -408,17 +425,21 @@ TEST(Auth, DoesNotRetryAuthenticationExchange) {
 }
 
 TEST(Auth, BackoffRespectsDeadlineAndServerDelay) {
-  for (const auto delay :
-       {std::chrono::milliseconds{100}, std::chrono::milliseconds{1000},
-        std::chrono::milliseconds::max()}) {
+  for (const auto delay : {
+           std::chrono::milliseconds{100},
+           std::chrono::milliseconds{1000},
+           std::chrono::milliseconds::max(),
+       }) {
     auto now = ibm::Deadline{};
     int reads = 0;
     ibm::Auth auth(
         ibm::resolve(configuration()),
         [&](const ibm::Request& request) {
           if (!request.form.empty()) {
-            return ibm::Response{.status = 200,
-                                 .body = fixture()["auth"].dump()};
+            return ibm::Response{
+                .status = 200,
+                .body = fixture()["auth"].dump(),
+            };
           }
           ++reads;
           return ibm::Response{.status = 429, .body = {}, .retryAfter = delay};

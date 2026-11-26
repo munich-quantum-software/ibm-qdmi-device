@@ -3,7 +3,7 @@
 ## Python package
 
 Install the `ibm-qdmi` distribution from
-[PyPI](https://pypi.org/project/ibm-qdmi/) with Python 3.11 or newer:
+[PyPI](https://pypi.org/project/ibm-qdmi/) with Python 3.11.5 or newer:
 
 ```console
 uv venv
@@ -18,9 +18,13 @@ uv pip install "ibm-qdmi[executor]"
 uv pip install "ibm-qdmi[pennylane]"
 ```
 
+For local IBM device simulation without Cloud access, install `ibm-qdmi[mock]`.
+See [backend selection](qiskit.md#select-a-backend) for configuration and
+platform requirements.
+
 The `executor` extra adds `qiskit-ibm-runtime` for
-[Executor programs](qiskit.md#optional-executor-primitive). The `pennylane`
-extra also installs Qiskit for circuit serialization. See the
+[Executor programs](qiskit.md#optional-executor-primitive). The `qiskit` and
+`pennylane` extras install their respective framework independently. See the
 [dependency overview](dependencies.md) for native libraries and Python extras.
 
 Prebuilt wheels are available for Linux (x86_64, aarch64; glibc 2.28 or newer),
@@ -42,8 +46,8 @@ library without Python, build it from a source checkout as described below.
 
 ## Building from source
 
-Building requires a C++20 compiler, CMake 3.24 or newer, Git, and Python 3.11 or
-newer for Python packaging. Linux builds require OpenSSL development headers.
+Building requires a C++20 compiler, CMake 3.28 or newer, Git, and Python 3.11.5
+or newer for Python packaging. Linux builds require OpenSSL development headers.
 Dependency downloads need network access. On Windows, enable long paths in Git
 with `git config --global core.longpaths true` before downloading the SDK.
 
@@ -108,5 +112,15 @@ Move the catalogue and library together when relocating a native installation.
 device or contacting IBM. See the
 [information CLI](python_package.md#command-line-interface) for the remaining
 options and the equivalent `python -m ibm.qdmi` interface.
+
+For Slurm deployments, follow
+[MQSC Orchestrator's deployment guide](https://github.com/munich-quantum-software/orchestrator/blob/main/docs/deployment.md).
+Install `ibm-qdmi` in the workload environment on quantum access nodes and use
+its QDMI catalogue IDs, such as `ibm.berlin`, as Slurm resource names.
+
+Supply `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the site's
+credential mechanism, or use a private `auth-file` readable by the job user.
+Keep credentials out of Slurm configuration and job scripts. Slurm controls
+local access; IBM queues, quotas, and charges still apply.
 
 See [development](development.md) for wheel and source-distribution checks.

@@ -35,15 +35,18 @@
 #include <aws/s3/S3ClientConfiguration.h>
 #include <aws/s3/S3EndpointProvider.h>
 #include <cctype>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <ibm-qdmi-device/diagnostics.h>
 #include <ibm_qdmi/constants.h>
 #include <ios>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string>
 
 namespace ibm {
@@ -57,8 +60,8 @@ struct Runtime {
   }
   ~Runtime() { Aws::ShutdownAPI(options); }
 };
-std::mutex& signingMutex() {
-  static std::mutex mutex;
+std::timed_mutex& signingMutex() {
+  static std::timed_mutex mutex;
   return mutex;
 }
 void require(bool condition) {
@@ -128,9 +131,15 @@ StorageConfiguration readStorageConfiguration(const std::string& path) {
   return config;
 }
 std::string storageUrl(const StorageConfiguration& configuration,
-                       const std::string& key, bool put, bool service) {
+                       const std::string& key, bool put, bool service,
+                       std::optional<std::chrono::milliseconds> timeout) {
   // SDK shutdown must run on its initializing thread, outside DLL teardown.
-  const std::scoped_lock lock(signingMutex());
+  std::unique_lock lock(signingMutex(), std::defer_lock);
+  if (!timeout) {
+    lock.lock();
+  } else if (!lock.try_lock_for(*timeout)) {
+    throw Failure{QDMI_ERROR_TIMEOUT, IBM_QDMI_DIAGNOSTIC_TIMEOUT};
+  }
   const Runtime runtime;
   Aws::Client::ClientConfiguration config(
       Aws::Client::ClientConfigurationInitValues{.shouldDisableIMDS = true});

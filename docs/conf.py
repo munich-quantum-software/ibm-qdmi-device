@@ -19,15 +19,11 @@
 
 from __future__ import annotations
 
-import sys
 from importlib import metadata
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 try:
     version = metadata.version("ibm-qdmi")
-except metadata.PackageNotFoundError:
+except ModuleNotFoundError:
     msg = "ibm-qdmi must be installed to build the documentation"
     raise ModuleNotFoundError(msg) from None
 
@@ -38,12 +34,11 @@ author = "Munich Quantum Software Company GmbH"
 copyright = "2025 - 2026 Munich Quantum Software Company GmbH"  # ruff: ignore[builtin-variable-shadowing]
 language = "en"
 master_doc = "index"
+nitpicky = True
 
 extensions = [
     "autoapi.extension",
-    "breathe",
-    "native_api",
-    "myst_nb",
+    "myst_parser",
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx.ext.intersphinx",
@@ -61,28 +56,28 @@ autoapi_options = ["members", "imported-members", "undoc-members", "show-inherit
 # MQT Core uses this type alias in signatures but does not publish it in its inventory.
 nitpick_ignore = [
     ("py:class", "mqt.core.plugins.qiskit.backend.ParametersType"),
-    # IBM indexes this as py:pydantic_model, which cannot resolve a class role.
+    # IBM indexes these as py:pydantic_model, which cannot resolve a class role.
+    ("py:class", "qiskit_ibm_runtime.options_models.estimator.EstimatorOptions"),
     ("py:class", "qiskit_ibm_runtime.options_models.executor.ExecutorOptions"),
-    ("cpp:identifier", "size_t"),
-    ("cpp:identifier", "uint32_t"),
+    ("py:class", "qiskit_ibm_runtime.options_models.sampler.SamplerOptions"),
+    # Qiskit's inventory omits these internal paths and type aliases.
+    ("py:obj", "qiskit.primitives.base.BaseEstimatorV2"),
+    ("py:obj", "qiskit.primitives.base.BaseSamplerV2"),
+    ("py:class", "qiskit.primitives.containers.estimator_pub.EstimatorPubLike"),
+    ("py:class", "qiskit.primitives.containers.sampler_pub.SamplerPubLike"),
 ]
-
-# Opaque QDMI handles intentionally have no public struct definitions.
-nitpick_ignore_regex = [("cpp:identifier", r"(?:IBM_)?QDMI_\w+_impl_d")]
 
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
     "_build",
     "_static/README.md",
-    "**.ipynb_checkpoints",
-    "**.jupyter_cache",
-    "**.jupyter_execute",
     "Thumbs.db",
     ".DS_Store",
 ]
 
 html_theme = "furo"
 html_static_path = ["_static"]
+html_extra_path = ["_build/doxygen"]
 html_theme_options = {
     "light_logo": "logo-mqsc-light.svg",
     "dark_logo": "logo-mqsc-dark.svg",
@@ -105,7 +100,6 @@ intersphinx_mapping = {
     "mqt-core": ("https://mqt.readthedocs.io/projects/core/en/stable", None),
     "qiskit": ("https://docs.quantum.ibm.com/api/qiskit", None),
     "qiskit-ibm-runtime": ("https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime", None),
-    "qiskit-algorithms": ("https://qiskit-community.github.io/qiskit-algorithms", None),
     "pennylane": ("https://docs.pennylane.ai/en/stable", None),
 }
 
@@ -125,13 +119,6 @@ toc_object_entries_show_parents = "hide"
 python_use_unqualified_type_names = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-
-breathe_projects = {"IBM QDMI Device": "_build/doxygen/xml"}
-breathe_default_project = "IBM QDMI Device"
-
-nb_execution_mode = "cache"
-nb_execution_timeout = 300
-nb_execution_raise_on_error = True
 
 copybutton_prompt_text = r"(?:\(\.?venv\) )?(?:\[.*\] )?\$ "
 copybutton_prompt_is_regexp = True

@@ -24,35 +24,35 @@ from collections import Counter
 from typing import TYPE_CHECKING
 
 import pytest
-from mqt.core.plugins.qiskit.exceptions import UnsupportedOperationError
-from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qasm3
+from mqt.core.mlir import CompilerTarget
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit import Parameter
-from qiskit.quantum_info import Operator
-from qiskit_service import open_backend
+from qiskit_service import open_backend, submitted_circuit
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> None:
+def test_classical_registers_batch_and_ordered_memory(runtime: Runtime) -> None:
     """Register names, declaration order, memory, and experiments survive a batch."""
     backend = open_backend(runtime)
-    circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
+    circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(3, "z"), ClassicalRegister(1, "a"))
     circuit.name = "first"
     circuit.x(4)
     circuit.measure(4, 0)
-    circuit.measure(0, 2)
+    circuit.measure(4, 2)
+    circuit.measure(0, 3)
     other = circuit.copy(name="second")
     other.x(0)
-    other.measure(0, 2)
+    other.measure(0, 3)
     result = backend.run([circuit, other], shots=9, memory=True).result()
     assert result.results is not None
-    assert result.get_memory(0) == ["0 01"] * 9
-    assert result.get_memory(1) == ["1 01"] * 9
-    assert result.get_counts(0) == {"0 01": 9}
-    assert result.get_counts(1) == {"1 01": 9}
+    assert result.get_memory(0) == ["0 101"] * 9
+    assert result.get_memory(1) == ["1 101"] * 9
+    assert result.get_counts(0) == {"0 101": 9}
+    assert result.get_counts(1) == {"1 101": 9}
     assert [experiment.header["name"] for experiment in result.results] == ["first", "second"]
-    assert result.results[0].header["creg_sizes"] == [["z", 2], ["a", 1]]
+    assert result.results[0].header["creg_sizes"] == [["z", 3], ["a", 1]]
     submissions = runtime.snapshot()["submissions"]
     assert len(submissions) == 1
     pubs = submissions[0]["params"]["pubs"]
@@ -60,7 +60,7 @@ def test_classical_registers_batch_and_ordered_memory(runtime: RuntimeProxy) -> 
     assert [pub[2] for pub in pubs] == [9, 9]
 
 
-def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
+def test_parameter_binding_and_classical_q_name(runtime: Runtime) -> None:
     """Binding preserves an independently named classical register."""
     backend = open_backend(runtime)
     theta = Parameter("theta")
@@ -73,14 +73,21 @@ def test_parameter_binding_and_classical_q_name(runtime: RuntimeProxy) -> None:
     assert job.result().get_counts(0) == {"1": 7}
     assert job.result().get_counts(1) == {"0": 7}
     pubs = [pub for request in runtime.snapshot()["submissions"] for pub in request["params"]["pubs"]]
-    assert all("bit[1] c0;" in pub[0] for pub in pubs)
+    for pub in pubs:
+        emitted = submitted_circuit(pub[0])
+        assert emitted.num_clbits == 1
+        assert all(emitted.find_bit(bit).index == 0 for item in emitted.data for bit in item.qubits)
 
 
 @pytest.mark.parametrize("name", ["ecr", "rzz"])
-def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str) -> None:
-    """Native nonstandard gates remain named operations with importable declarations."""
+def test_native_gates_preserve_physical_sites(runtime: Runtime, name: str) -> None:
+    """QPY preserves named ECR/RZZ gates and their physical sites."""
     config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": name, "parameters": ["theta"] if name == "rzz" else [], "coupling_map": [[3, 4]]})
+    config["gates"].append({
+        "name": name,
+        "parameters": ["theta"] if name == "rzz" else [],
+        "coupling_map": config["coupling_map"] if name == "rzz" else [[3, 4]],
+    })
     runtime.set_configuration("gates", config["gates"])
     runtime.set_configuration("basis_gates", [*config["basis_gates"], name])
     backend = open_backend(runtime)
@@ -89,94 +96,16 @@ def test_native_gates_outside_standard_include(runtime: RuntimeProxy, name: str)
         circuit.ecr(3, 4)
     else:
         circuit.rzz(math.pi / 4, 3, 4)
+        target = CompilerTarget.from_device(backend.device)
+        for angle, supported in [(0.0, True), (math.pi / 2, True), (-math.pi / 4, False), (math.pi, False)]:
+            assert target.supports_operation("rzz", 2, 1, [3, 4], parameters=[angle]) is supported
+            assert backend.target.instruction_supported("rzz", (3, 4), parameters=[angle]) is supported
     circuit.measure([3, 4], [0, 1])
     result = backend.run(circuit, shots=32, memory=True).result()
     assert sum(result.get_counts().values()) == 32
     assert Counter(result.get_memory()) == result.get_counts()
     source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    assert f"gate {name}" in source
-    assert "q[3], q[4]" in source
-
-
-@pytest.mark.parametrize(
-    "angle",
-    [
-        -3 * math.pi,
-        -math.pi,
-        -3 * math.pi / 4,
-        -math.pi / 2,
-        -0.1,
-        0,
-        0.1,
-        math.pi / 2,
-        3 * math.pi / 4,
-        math.pi,
-        2 * math.pi,
-        3 * math.pi,
-    ],
-)
-def test_rzz_angle_folding(runtime: RuntimeProxy, angle: float) -> None:
-    """Bound parameters serialize in the calibrated interval without changing the input."""
-    config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
-    runtime.set_configuration("gates", config["gates"])
-    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
-    backend = open_backend(runtime)
-    theta = Parameter("theta")
-    circuit = QuantumCircuit(5, 2)
-    circuit.rzz(theta, 3, 4)
-    circuit.measure([3, 4], [1, 0])
-    original = circuit.copy()
-    backend.run(circuit, parameter_values=[{theta: angle}], shots=1).result()
-    assert circuit == original
-    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
-    emitted = qasm3.loads(source)
-    assert all(
-        0 <= float(item.operation.params[0]) <= math.pi / 2 for item in emitted.data if item.operation.name == "rzz"
-    )
-    assert [
-        (emitted.find_bit(item.qubits[0]).index, emitted.find_bit(item.clbits[0]).index)
-        for item in emitted.data
-        if item.operation.name == "measure"
-    ] == [(3, 1), (4, 0)]
-    expected = circuit.assign_parameters({theta: angle})
-    expected.remove_final_measurements()
-    emitted.remove_final_measurements()
-    assert Operator(emitted).equiv(Operator(expected))
-
-
-def test_rzz_corrections_validate_placement(runtime: RuntimeProxy) -> None:
-    """Reject unsupported correction gates before any member of a batch is submitted."""
-    config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
-    for gate in config["gates"]:
-        if gate["name"] == "x":
-            gate["coupling_map"] = [[0], [1], [2], [4]]
-    runtime.set_configuration("gates", config["gates"])
-    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
-    backend = open_backend(runtime)
-    circuits = []
-    for angle in (math.pi / 4, -math.pi / 4):
-        circuit = QuantumCircuit(5, 2)
-        circuit.rzz(angle, 3, 4)
-        circuit.measure([3, 4], [0, 1])
-        circuits.append(circuit)
-    with pytest.raises(UnsupportedOperationError):
-        backend.run(circuits, shots=1)
-    assert not runtime.snapshot()["submissions"]
-
-
-@pytest.mark.parametrize("angle", [None, 0, math.pi / 4, math.pi / 2])
-def test_calibrated_circuits_need_no_copy(runtime: RuntimeProxy, angle: float | None) -> None:
-    """Preprocessing allocates a new circuit only when an angle needs correction."""
-    config = runtime.snapshot()["configuration"]
-    config["gates"].append({"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]})
-    runtime.set_configuration("gates", config["gates"])
-    runtime.set_configuration("basis_gates", [*config["basis_gates"], "rzz"])
-    backend = open_backend(runtime)
-    circuit = QuantumCircuit(5, 2)
-    if angle is not None:
-        circuit.rzz(angle, 3, 4)
-    circuit.measure([3, 4], [0, 1])
-    # The Core hook's allocation behavior is not exposed by run().
-    assert backend._preprocess_circuit(circuit) is circuit  # ruff: ignore[private-member-access]
+    emitted = submitted_circuit(source)
+    assert emitted.count_ops()[name] == 1
+    instruction = next(item for item in emitted.data if item.operation.name == name)
+    assert [emitted.find_bit(bit).index for bit in instruction.qubits] == [3, 4]

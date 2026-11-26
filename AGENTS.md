@@ -26,8 +26,12 @@ commands. Keep this file focused on repository-specific guardrails.
 - Prefer the smallest change that fully solves the problem. Reuse existing code
   and C++20 facilities before adding abstractions or settings.
 - Follow documented policy. Neighboring code does not override instructions.
-- Write comments, documentation, tests, diagnostics, and public text for the
-  final design. Remove review chronology and abandoned approaches.
+- Do not leak conversation, prompt, or iteration history into code comments,
+  pull request descriptions, or other maintainer-facing prose. Write for readers
+  who have not seen the conversation.
+- Prefer comments that explain the current behavior and rationale. Avoid
+  past-facing wording such as "preserve the existing behavior"; explain the
+  actual backwards-compatibility constraint instead.
 - Use short sentences, active voice, and one established term per concept.
   Preserve the capitalization of IBM, QDMI, OpenQASM, CMake, and Python.
 - Add tests for changed behavior or concrete regressions. Keep tests in `test/`
@@ -35,9 +39,9 @@ commands. Keep this file focused on repository-specific guardrails.
 - Keep cleanup separate from behavior changes unless correctness requires both.
   Retain only narrow, justified suppressions.
 - Keep documentation at its existing source of truth and link to it.
-- Keep project documentation and configuration self-contained. Do not name or
-  link other device implementations. Preserve required copyright and license
-  notices in copied material.
+- Document IBM-specific setup and behavior; link to MQT Core for shared QDMI,
+  framework, and Slurm usage. Do not duplicate application examples, offloaders,
+  or cluster playgrounds in device repositories.
 - Group related changes in a concise changelog entry. Once a PR exists, include
   its reference and every contributing author as `([#123]) ([**@username**])`
   and define their links at the bottom of `CHANGELOG.md`. Do not invent PRs.
@@ -57,6 +61,10 @@ checks. Jobs retain their session resources until freed. Never retry a job
 submission automatically or treat local handle cleanup as remote cancellation.
 Preserve physical qubit indices and classical-bit ordering through execution.
 Keep framework imports and package information commands free of live access.
+Keep native program readers limited to result layout extraction and missing
+ECR/RZZ declarations. Preserve authored gate definitions, include directives,
+and stored source bytes. Compilation, routing, and instruction validation belong
+in MQT Core and the IBM service.
 
 ## Build and Validation
 
@@ -64,13 +72,16 @@ Run offline tests by default. Collect coverage without IBM credentials or QPU
 submissions; never spend hardware time to improve coverage. Separate native,
 wheel, documentation, and installed-consumer build directories under `build/`.
 Do not run package builds concurrently in the same build directory. For
-dependency-only setup, use `uv sync --locked --only-group dev`.
+dependency-only setup, use `uv sync --locked --only-group dev`. Keep Runtime
+dependencies out of the shared test group; feature-test sessions install the
+appropriate optional extra. Runtime mock tests run in the regular test sessions
+and use ideal MQT Core simulation with official fake-device metadata.
 
 - Run `uvx nox -s lint` after each completed batch of changes. Inspect formatter
   changes, keep only relevant changes, and rerun the check.
-- For C++ changes, reproduce `.github/workflows/cpp-linter.yml` against every
-  line of each changed file. Report existing diagnostics rather than hiding them
-  with broad suppressions.
+- For C++ changes, use the shared Clang 23 linter configured in
+  `.github/workflows/ci.yml` against every line of each changed file. Report
+  existing diagnostics rather than hiding them with broad suppressions.
 - Run focused Python tests with `uvx nox -s tests-3.14 -- <test path>`. Use
   `uvx nox -s tests minimums` for the supported Python matrix.
 - Use Google-style Python docstrings. Preserve the `ibm.qdmi` namespace. Fix
@@ -80,32 +91,33 @@ dependency-only setup, use `uv sync --locked --only-group dev`.
 ### Live Access
 
 Never print, store, or commit credentials, tokens, account identifiers, or
-private backend details. Live IBM access requires explicit authorization for the
-service, backend, and spending scope. The opt-in metadata checks submit no jobs.
-The manual metadata workflow runs from merged `main` in the branch-restricted
-`ibm-quantum` environment. Never dispatch from a PR or merge to enable a live
-run without human approval. Keep credentials confined to the live test step,
-after wheel installation. Follow `docs/development.md` for commands.
+private backend details. CI checks read-only metadata on Berlin and Aachen for
+same-repository PRs, merge queues, and `main`, using the `ibm-quantum`
+environment. Metadata requests submit no jobs and consume no QPU time. Fork PRs
+receive no credentials. Keep credentials confined to the live test step after
+wheel installation. Local tests remain offline unless `--run-live` is explicit;
+follow `docs/development.md` for commands.
 
 Keep live tests marked `live` and skipped before credential access unless
 `--run-live` is explicit. Preserve sequential execution and fixed diagnostic
 categories. Never retain raw responses, topology, or calibration snapshots in
 logs or artifacts. Reproduce compatibility failures with synthetic fixtures
-before fixing them. Quantum checks require the separate `quantum` marker and
-`--run-quantum` opt-in. Run them only after the offline CI gates on merged
-`main` or same-repository PRs labeled `live-qpu-tests`. Applying that label
-requires human authorization and also opts subsequent PR updates into hardware
-checks. Label additions reuse the exact merge commit's successful offline CI and
-retained candidate. Unrelated label changes must not start jobs, cancel CI, or
-publish a skipped `🚦 Check`. Fork PRs remain offline. The authorized CI budget
-is one job each on Berlin and Aachen, two programs with 64 shots each (128
-total) per job, and at most 60 seconds of QPU execution per job. Do not make
-paid local submissions or automatically retry hardware tests. Preserve the
-tested candidate wheel across offline and hardware jobs. The `🚦 Check`
-aggregate covers every Actions prerequisite on `main`. Pre-commit.ci and Read
-the Docs are required before merging; hardware execution uses the Actions
-prerequisites on the tested commit. Hardware results and job IDs must not be
-uploaded as artifacts.
+before fixing them. Quantum checks require `--run-quantum` and a new explicit
+request: dispatch `live-tests.yml` on `main` with `suite=quantum`. The hardware
+job tests the C++ device and installed candidate wheel offline before running
+that wheel on hardware. Credentials are scoped to the final step. Ordinary CI,
+PR labels, fork PRs, and workflow/job reruns must never authorize hardware
+execution.
+
+The budget is one job each on Berlin and Aachen, two programs with 64 shots each
+per job, and at most 60 seconds of QPU execution per job. Never retry a
+submission automatically or upload hardware results or job IDs as artifacts.
+
+Keep ordinary CI as change detection, reusable workflow calls, and one
+`🚦 Check` aggregate. Use the shared MQT workflows and CMake presets instead of
+copying runner setup. Keep hardware triggers separate; do not add check history
+lookups, artifact reuse, or a custom workflow-expression test harness.
+Pre-commit.ci and Read the Docs are also required before merging.
 
 ## Git and GitHub
 

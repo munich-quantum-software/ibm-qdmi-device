@@ -19,14 +19,15 @@
 
 #pragma once
 
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
+
+#include "nlohmann/json.hpp" // IWYU pragma: keep
+#include "nlohmann/json_fwd.hpp"
 
 #include <cstddef>
 #include <cstdint>
-#include <ibm_qdmi/constants.h>
-// The stored JSON member requires the complete type, not just the json alias.
-#include <nlohmann/json.hpp> // IWYU pragma: keep
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,9 +37,17 @@ struct Register {
   std::string name;
   std::size_t width;
 };
-/// Extract the output layout of a static, bound OpenQASM 3 program.
-std::vector<Register> outputRegisters(const std::string& program,
-                                      std::size_t qubits);
+/// Supply definitions for undeclared ECR and RZZ calls.
+std::string declareNativeGates(std::string program);
+/// Extract top-level classical declarations in source order.
+std::vector<Register> outputRegisters(const std::string& program);
+/// Read the output layout of one QPY 17 circuit without interpreting gates.
+std::vector<Register> qpyRegisters(const std::string& program,
+                                   std::size_t qubits);
+/// Encode QPY using IBM's zlib-compressed, base64 transport.
+std::string encodeQpy(const std::string& program);
+/// Decode IBM's transport back to the original QPY bytes.
+std::string decodeQpy(const std::string& encoded);
 struct Results {
   std::string shots;
   std::string keys;
@@ -72,6 +81,7 @@ public:
   QDMI_Job_Status status = QDMI_JOB_STATUS_CREATED;
 
 private:
+  [[nodiscard]] nlohmann::json samplerParams() const;
   Auth* auth;
   std::string backend;
   std::size_t qubits;

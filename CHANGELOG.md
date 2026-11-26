@@ -15,17 +15,108 @@ releases may include breaking changes.
 - ✨ Add native Quantum System API access with S3 storage beside cloud access,
   with offline simulator execution and retrieval checks. ([#81])
   ([**@marcelwa**])
+- ✨ Expose native delays and femtosecond calibration through QDMI. The Qiskit
+  target supplies timing for Executor Sampler and Estimator dynamical
+  decoupling. Submit scheduled circuits with literal delays through
+  `backend.run()`. ([#117], [#125]) ([**@marcelwa**], [**@burgholzer**])
+- ✨ Expose IBM Runtime's client-side Sampler and Estimator through the native
+  Executor path. ([#107]) ([**@marcelwa**])
 
 ### Changed
 
+- ⬆️ Support Qiskit IBM Runtime 0.50, 0.51, and 0.52 with the `executor` and
+  `mock` extras. Local execution validates bound circuits against the selected
+  device and reports unsupported Executor options. ([#126]) ([**@burgholzer**])
+- ⚡ Reduce submission overhead for scheduled Executor circuits and skip
+  downloading program inputs when polling job status. Local sampling decodes
+  each distinct outcome once across repeated shots. ([#126]) ([**@burgholzer**])
+- ⬆️ Require CMake 3.28 or newer for source builds ([#128]) ([**@denialhaag**])
+
+### Fixed
+
+- 🐛 Reject custom execution caps and nondefault simulator options in the Python
+  Executor adapter. ([#117]) ([**@burgholzer**])
+
+## [1.1.1] - 2026-11-15
+
+### Changed
+
+- ⬆️ Update MQT Core to 4.2.1 ([#113]) ([**@marcelwa**], [**@burgholzer**]).
+- ⬆️ Require Python 3.11.5 or newer ([#113]) ([**@burgholzer**]).
+
+## [1.1.0] - 2026-11-10
+
+### Added
+
+- ✨ Advertise conditional payload capabilities through device `CUSTOM3` when
+  the backend supports `if_else`. ([#94]) ([**@burgholzer**])
+- ✨ Expose fractional RZZ angle bounds through an experimental QDMI operation
+  property consumed by MQT Core. ([#94]) ([**@burgholzer**])
+- ✨ Run official Runtime fake backends through native QDMI without IBM Cloud
+  access using `IBMBackend(backend_name="fake_manila")` and `ibm-qdmi[mock]`.
+  ([#72]) ([**@marcelwa**], [**@burgholzer**])
+- ✨ Support binary QPY 17 submission and retrieval. ([#71]) ([**@marcelwa**],
+  [**@burgholzer**])
+- ✨ Support measurement-based `if_else` conditions through QPY and OpenQASM 3.
+  ([#71]) ([**@marcelwa**], [**@burgholzer**])
+
+### Changed
+
+- ⬆️ Update MQT Core to 4.2.0 ([#108]) ([**@denialhaag**]).
+- ♻️ Use MQSC Orchestrator for Slurm deployment and monitoring, and remove
+  duplicated offloading code and application examples ([#92], [#108])
+  ([**@burgholzer**], [**@denialhaag**]).
+- ♻️ Parse mock OpenQASM with MQT Core and require initialized classical
+  outputs. ([#102]) ([**@burgholzer**])
+- ⚡ Run metadata CI in parallel with offline checks using a lightweight test
+  environment. ([#101]) ([**@burgholzer**])
+- ⬆️ Support Qiskit IBM Runtime 0.50 and 0.51 for Executor encoding and result
+  decoding. ([#98]) ([**@burgholzer**])
+- 💥 Report non-finite circuit parameters as MQT Core `TranslationError`
+  exceptions. ([#94]) ([**@burgholzer**])
+- ♻️ Use MQT Core for PennyLane compilation and result decoding. ([#94])
+  ([**@burgholzer**])
+- ♻️ Prefer MQT Core's QPY serializer for Qiskit circuits. ([#71])
+  ([**@marcelwa**], [**@burgholzer**])
+- ♻️ Limit native OpenQASM parsing to classical result layout extraction.
+  ([#71]) ([**@burgholzer**])
+- 🧪 Use MQT Core's decision-diagram simulator for offline execution tests.
+  ([#71]) ([**@burgholzer**])
+- ♻️ Simplify native dependency setup with CPR 1.15.1 and GoogleTest 1.18.0.
+  ([#92]) ([**@burgholzer**])
+- 📝 Consolidate usage and development guidance and publish the native API
+  directly with Doxygen. ([#92]) ([**@burgholzer**])
+- 🔧 Simplify package license metadata and configuration. ([#92])
+  ([**@burgholzer**])
+- 👷 Run hardware checks independently on explicit requests after fresh offline
+  validation. ([#92]) ([**@burgholzer**])
+- 👷 Run selected Python sessions for draft PRs and the full range when ready
+  for review. ([#92]) ([**@burgholzer**])
+- 👷 Separate native coverage from Python test coverage uploads. ([#92])
+  ([**@burgholzer**])
+- 👷 Use Clang 23 to lint whole changed files on PRs and all files on `main`.
+  ([#92]) ([**@burgholzer**])
+- 👷 Use shared native CI workflows with MSVC on Windows and one check
+  aggregate. ([#92]) ([**@burgholzer**])
+- 👷 Check IBM metadata automatically in trusted CI. ([#92])
+  ([**@burgholzer**])
 - ⬆️ Update the Python certificate bundle to 2026.10.19. ([#82])
   ([**@marcelwa**])
 
 ### Fixed
 
-- 🐛 Fold bound Qiskit RZZ angles into IBM's calibrated range before submission.
-  ([#81]) ([**@marcelwa**])
-
+- 🐛 Preserve authored OpenQASM gate definitions and includes when supplying
+  missing ECR/RZZ definitions. ([#94]) ([**@burgholzer**])
+- 🐛 Reject explicit OpenQASM output qualifiers that the Runtime importer does
+  not support. ([#94]) ([**@burgholzer**])
+- 🐛 Build Windows Debug binaries with embedded debug information. ([#92])
+  ([**@burgholzer**])
+- 🐛 Use the PennyLane adapter without requiring Qiskit. ([#92])
+  ([**@burgholzer**])
+- 🐛 Select OpenSSL 3 when building Linux wheels. ([#92])
+  ([**@burgholzer**])
+- 🐛 Create the documentation output directory before running Doxygen. ([#92])
+  ([**@burgholzer**])
 - 🐛 Reserve static TLS space for PySCF in chemistry tests. ([#80])
   ([**@marcelwa**])
 
@@ -78,9 +169,23 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- PR links -->
 
+[#128]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/128
+[#126]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/126
+[#125]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/125
+[#117]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/117
+[#113]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/113
+[#108]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/108
+[#107]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/107
+[#102]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/102
+[#101]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/101
+[#98]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/98
+[#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
+[#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
 [#81]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/81
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
+[#72]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/72
+[#71]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/71
 [#66]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/66
 [#63]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/63
 [#62]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/62
@@ -89,7 +194,9 @@ _This is the initial release of the IBM QDMI Device._
 
 <!-- Version links -->
 
-[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/munich-quantum-software/ibm-qdmi-device/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.1.1
+[1.1.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.1.0
 [1.0.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v1.0.0
 [0.1.1]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.1
 [0.1.0]: https://github.com/munich-quantum-software/ibm-qdmi-device/releases/tag/v0.1.0

@@ -1,0 +1,202 @@
+# Copyright (c) 2026 Munich Quantum Software Company GmbH
+# All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+#
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+"""QPY serialization and measurement feedforward through the native device."""
+
+from __future__ import annotations
+
+import io
+from typing import TYPE_CHECKING
+
+import pytest
+from mqt.core.mlir import TargetEnvironment, serialize_program
+from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, TranslationError, UnsupportedOperationError
+from mqt.core.qdmi import ProgramFormat
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, qasm3, qpy
+from qiskit.circuit.classical import expr
+from qiskit_service import open_backend, submitted_circuit
+
+if TYPE_CHECKING:
+    from qiskit_service import Runtime
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_angles_submit_nothing(runtime: Runtime, value: float) -> None:
+    """Native gate parameters must be finite before QPY serialization."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 1)
+    circuit.rz(value, 4)
+    circuit.measure(4, 0)
+    with pytest.raises(TranslationError, match="finite"):
+        backend.run(circuit)
+    assert not runtime.snapshot()["submissions"]
+
+
+def test_native_binary_batch_and_retrieval(runtime: Runtime) -> None:
+    """Binary programs and register ordering survive submission and retrieval."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
+    circuit.x(4)
+    circuit.measure(4, 0)
+    circuit.measure(0, 2)
+    stream = io.BytesIO()
+    qpy.dump(circuit, stream, version=17)
+    encoded = stream.getvalue()
+    job = backend.device.submit_job([encoded, encoded], ProgramFormat.QPY, num_shots=7)
+    assert job.wait(10)
+    assert job.get_shots(0) == ["001"] * 7
+    assert job.get_shots(1) == ["001"] * 7
+    assert job.get_program(bytes, 0) == encoded
+    retrieved = backend.device.retrieve_job_by_id(job.id)
+    assert retrieved.program_format == ProgramFormat.QPY
+    assert retrieved.get_program(bytes, 0) == encoded
+    assert retrieved.get_shots(1) == ["001"] * 7
+
+
+def test_overlapping_registers_reject_before_submission(runtime: Runtime) -> None:
+    """Reject QPY register aliases before an unrepresentable result reaches IBM."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(QuantumRegister(5, "physical"), ClassicalRegister(2, "z"), ClassicalRegister(1, "a"))
+    circuit.add_register(ClassicalRegister(bits=[circuit.clbits[2], circuit.clbits[0]], name="mix"))
+    stream = io.BytesIO()
+    qpy.dump(circuit, stream, version=17)
+    assert backend.device.try_submit_job(stream.getvalue(), ProgramFormat.QPY, num_shots=7) is None
+    assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("initial", [0, 1])
+@pytest.mark.parametrize("register_condition", [False, True])
+@pytest.mark.parametrize("transport", ["qpy", "qiskit-qasm", "core-qasm"])
+def test_dynamic_feedforward(runtime: Runtime, initial: int, transport: str, *, register_condition: bool) -> None:
+    """Native transports preserve conditional bit indices and physical branch sites."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(
+        QuantumRegister(5, "physical"), ClassicalRegister(2, "z_flag"), ClassicalRegister(2, "a_out")
+    )
+    if initial:
+        circuit.x(3)
+    circuit.measure(0, 0)
+    circuit.measure(3, 1)
+    operand = circuit.cregs[0] if register_condition else circuit.clbits[1]
+    with circuit.if_test((operand, 2 if register_condition else 1)) as otherwise:
+        circuit.x(4)
+    with otherwise:
+        circuit.x(2)
+    circuit.measure(4, 2)
+    circuit.measure(2, 3)
+    expected = "0110" if initial else "1000"
+    if transport == "qpy":
+        job = backend.run(circuit, shots=9, memory=True)
+        assert job.result().get_counts() == {f"{expected[:2]} {expected[2:]}": 9}
+    else:
+        if transport == "core-qasm":
+            environment = TargetEnvironment.from_device(backend.device, program_format=ProgramFormat.QASM3)
+            program = serialize_program(circuit, target=environment).payload
+            assert isinstance(program, str)
+            assert "output " not in program
+            assert "if (true)" not in program
+        else:
+            program = qasm3.dumps(circuit)
+        native_job = backend.device.submit_job(program, ProgramFormat.QASM3, num_shots=9)
+        assert native_job.wait(10)
+        assert native_job.get_shots() == [expected] * 9
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    assert submitted_circuit(source).count_ops()["if_else"] == 1
+
+
+@pytest.mark.parametrize("invalid", ["nested", "measure", "reset", "loop", "wide", "expression", "sites"])
+def test_dynamic_validation_prevents_batch_submission(runtime: Runtime, invalid: str) -> None:
+    """Unsupported control flow or invalid physical placements reject the whole batch."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 33 if invalid == "wide" else 2)
+    circuit.measure(3, 0)
+    circuit.measure(4, 1)
+    operand = circuit.cregs[0] if invalid == "wide" else circuit.clbits[0]
+    if invalid == "expression":
+        operand = expr.logic_and(circuit.clbits[0], circuit.clbits[1])
+    if invalid == "loop":
+        with circuit.while_loop((circuit.clbits[0], True), body=None, qubits=None, clbits=None, label=None):
+            circuit.x(4)
+    else:
+        condition = operand if invalid == "expression" else (operand, 1)
+        with circuit.if_test(condition):
+            if invalid == "nested":
+                with circuit.if_test((circuit.clbits[1], True)):
+                    circuit.x(4)
+            elif invalid == "measure":
+                circuit.measure(4, 1)
+            elif invalid == "reset":
+                circuit.reset(4)
+            elif invalid == "sites":
+                circuit.cx(4, 3)
+            else:
+                circuit.x(4)
+    valid = QuantumCircuit(1, 1)
+    valid.measure(0, 0)
+    with pytest.raises((CircuitValidationError, TranslationError, UnsupportedOperationError)):
+        backend.run([valid, circuit])
+    assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("custom", [False, True])
+def test_self_defined_standard_gate_transport(runtime: Runtime, *, custom: bool) -> None:
+    """Submitted gate definitions retain their declared semantics."""
+    backend = open_backend(runtime)
+    if custom:
+        program = "OPENQASM 3; gate x a { U(0,0,0) a; } bit[1] c; x $0; c[0] = measure $0;"
+        expected = "0"
+    else:
+        circuit = QuantumCircuit(5, 2)
+        circuit.x(3)
+        circuit.cx(3, 4)
+        circuit.measure([3, 4], [0, 1])
+        program = qasm3.dumps(circuit, includes=())
+        expected = "11"
+    job = backend.device.submit_job(program, ProgramFormat.QASM3, num_shots=9)
+    assert job.wait(10)
+    assert job.get_shots() == [expected] * 9
+    assert job.get_program() == program
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    assert source == program
+
+
+@pytest.mark.parametrize("width", [3, 32])
+@pytest.mark.parametrize("compile_first", [False, True])
+def test_register_condition_widths(runtime: Runtime, width: int, *, compile_first: bool) -> None:
+    """Receiver limits count classical register bits, including compiled QPY inputs."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, width)
+    circuit.x(3)
+    circuit.measure(3, 0)
+    with circuit.if_test((circuit.cregs[0], 1)):
+        circuit.x(4)
+    circuit.measure(4, width - 1)
+    program = backend.compile(circuit) if compile_first else circuit
+    expected = "1" + "0" * (width - 2) + "1"
+    assert backend.run(program, shots=2).result().get_counts() == {expected: 2}
+
+
+def test_compilation_checks_receiver_conditions(runtime: Runtime) -> None:
+    """Compilation rejects nested conditions before an artifact can be submitted."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 2)
+    circuit.measure([3, 4], [0, 1])
+    with circuit.if_test((circuit.clbits[0], True)), circuit.if_test((circuit.clbits[1], True)):
+        circuit.x(4)
+    with pytest.raises(ValueError, match="legalize"):
+        backend.compile(circuit)
+    assert not runtime.snapshot()["submissions"]

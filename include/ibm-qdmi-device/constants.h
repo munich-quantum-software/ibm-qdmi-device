@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <ibm_qdmi/constants.h>
+#include "ibm_qdmi/constants.h"
 
 /// Null-terminated Executor v2.0 params JSON, including quantum_program.shots.
 /// Pass this format to IBM_QDMI_device_job_set_programs. SHOTSNUM and the
@@ -49,6 +49,18 @@
 /// Path to a JSON S3 configuration file, required for quantum-system.
 #define IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG                       \
   QDMI_DEVICE_SESSION_PARAMETER_CUSTOM5
+
+/// Null-terminated JSON with schema ibm.timing.v1 and dt in seconds.
+/// May include granularity, min_length, pulse_alignment, and acquire_alignment
+/// in samples. Returns QDMI_ERROR_NOTSUPPORTED when timing is unavailable.
+#define IBM_QDMI_DEVICE_PROPERTY_TIMING QDMI_DEVICE_PROPERTY_CUSTOM4
+
+/// Null-terminated UTF-8 JSON with schema mqt.operation-parameters.v1.
+/// Advertised RZZ gates report alternatives: [{bounds: [[0, pi/2]]}] in
+/// radians, with inclusive bounds. Other operations return NOTSUPPORTED.
+/// This experimental custom-property contract is not part of standard QDMI.
+#define IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS                             \
+  QDMI_OPERATION_PROPERTY_CUSTOM2
 
 /// Maximum QPU execution time in seconds (uint64_t, 1..10800); default: 60.
 #define IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME                       \

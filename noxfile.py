@@ -28,7 +28,6 @@ import argparse
 import contextlib
 import os
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -71,23 +70,24 @@ def lint(session: nox.Session) -> None:
 def _run_tests(
     session: nox.Session,
     *,
+    group: str = "test",
     install_args: Sequence[str] = (),
-    dependency_groups: Sequence[str] = (),
-    extra_command: Sequence[str] = (),
     pytest_run_args: Sequence[str] = (),
 ) -> None:
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
+    env = {
+        "UV_PROJECT_ENVIRONMENT": session.virtualenv.location,
+        "IBM_QUANTUM_API_KEY": "",
+        "IBM_QUANTUM_INSTANCE_CRN": "",
+    }
     run_args = [
         "uv",
         "run",
+        "--no-editable",
         "--no-dev",
         "--group",
-        "test",
-        *(argument for group in dependency_groups for argument in ("--group", group)),
+        group,
         *install_args,
     ]
-    if extra_command:
-        session.run(*run_args, *extra_command, env=env)
     session.run(
         *run_args,
         "pytest",
@@ -101,13 +101,13 @@ def _run_tests(
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, default=True)
 def tests(session: nox.Session) -> None:
     """Run the test suite."""
-    _run_tests(session)
+    _run_tests(session, install_args=("--extra", "executor"))
 
 
 @nox.session(python="3.14", reuse_venv=True)
-def native_tests(session: nox.Session) -> None:
-    """Test the native transport in a process independent of framework drivers."""
-    _run_tests(session, pytest_run_args=("-m", "integration", "-n", "0"))
+def integration_tests(session: nox.Session) -> None:
+    """Test the C ABI and loopback transport independently of framework drivers."""
+    _run_tests(session, group="test-metadata", pytest_run_args=("test/integration", "-m", "integration", "-n", "0"))
 
 
 @nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, venv_backend="uv", default=True)
@@ -116,7 +116,7 @@ def minimums(session: nox.Session) -> None:
     with preserve_lockfile():
         _run_tests(
             session,
-            install_args=["--resolution=lowest-direct"],
+            install_args=["--extra", "executor", "--resolution=lowest-direct"],
             pytest_run_args=["-Wdefault"],
         )
         env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
@@ -124,59 +124,50 @@ def minimums(session: nox.Session) -> None:
 
 
 @nox.session(python="3.14", reuse_venv=True)
-def examples(session: nox.Session) -> None:
-    """Exercise the runnable examples with local simulators and loopback IBM."""
-    _run_tests(
-        session,
-        dependency_groups=["examples"],
-        extra_command=["python", "test/examples/build_native.py"],
-        pytest_run_args=["test/examples", "-n", "0"],
-    )
-
-
-@nox.session(python="3.13", reuse_venv=True, default=False)
-def chemistry(session: nox.Session) -> None:
-    """Exercise the complete H2 chemistry workflow on the local simulator."""
-    if sys.platform == "win32":
-        session.skip("PySCF requires Linux or macOS.")
-    # PySCF's OpenMP library needs static TLS space after the other native imports.
-    session.env["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=16384"
-    _run_tests(
-        session,
-        dependency_groups=["chemistry"],
-        pytest_run_args=["test/chemistry", "-n", "0"],
-    )
-
-
-@nox.session(python="3.14", reuse_venv=True)
 def docs(session: nox.Session) -> None:
-    """Build the documentation. Pass ``-b linkcheck`` to check links."""
+    """Build documentation.
+
+    Pass ``-b linkcheck`` to check links.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", dest="builder", default="html", help="Build target (default: html)")
     args, posargs = parser.parse_known_args(session.posargs)
 
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
     session.run(
         "uv",
-        "run",
+        "sync",
+        "--locked",
         "--no-dev",
         "--group",
         "docs",
-        "--group",
-        "examples",
         "--config-settings-package",
-        "ibm-qdmi:build-dir=build/docs",
-        "--config-settings-package",
-        "ibm-qdmi:cmake.define.BUILD_IBM_QDMI_DOCS=ON",
+        "ibm-qdmi:wheel.cmake=false",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run(
+        "cmake",
+        "-S",
+        ".",
+        "-B",
+        "build/docs",
+        "-DBUILD_IBM_QDMI_TESTS=OFF",
+        "-DBUILD_IBM_QDMI_DOCS=ON",
+    )
+    session.run(
+        "cmake",
+        "--build",
+        "build/docs",
+        "--target",
+        "ibm-qdmi-device-docs",
+    )
+    session.run(
         "sphinx-build",
-        "-n",
         "-T",
         "-W",
         f"-b={args.builder}",
         "docs",
         f"docs/_build/{args.builder}",
         *posargs,
-        env=env,
     )
 
 
@@ -203,7 +194,7 @@ def live_metadata(session: nox.Session) -> None:
             "--python",
             session.virtualenv.location,
             "--group",
-            "test",
+            "test-metadata",
             "--reinstall-package",
             "ibm-qdmi",
             str(wheel),

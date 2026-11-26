@@ -19,10 +19,12 @@
 
 #pragma once
 
+#include "ibm-qdmi-device/diagnostics.h"
+
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include <functional>
-#include <ibm-qdmi-device/diagnostics.h>
 #include <map>
 #include <optional>
 #include <span>
@@ -49,7 +51,7 @@ struct Response {
 };
 using Transport = std::function<Response(const Request&)>;
 /// Validate an HTTPS endpoint, or an HTTP loopback endpoint for offline tests.
-bool validEndpoint(const std::string& url);
+bool validEndpoint(const std::string& url, bool allowQuery = false);
 Response send(const Request& request);
 namespace internal {
 /// Return the first readable CA bundle, or empty to keep platform defaults.
@@ -70,7 +72,7 @@ struct Hooks {
 Hooks& hooks();
 } // namespace internal
 /// An internal status-only exception; never carries server text or credentials.
-struct Failure {
+struct Failure : std::exception {
   explicit Failure(int result,
                    IBM_QDMI_Diagnostic reason = IBM_QDMI_DIAGNOSTIC_NONE)
       : status(result), diagnostic(reason) {}

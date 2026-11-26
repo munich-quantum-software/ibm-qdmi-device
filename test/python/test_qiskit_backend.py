@@ -20,32 +20,65 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
+from mqt.core.mlir import TargetEnvironment, serialize_program
 from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, JobSubmissionError, UnsupportedOperationError
-from mqt.core.qdmi import ProgramFormat
+from mqt.core.qdmi import Device, ProgramFormat
 from offline_service import CRN
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
 from qiskit.providers import JobStatus
-from qiskit_service import open_backend
+from qiskit.quantum_info import Operator
+from qiskit_service import open_backend, submitted_circuit
 
-from ibm import qdmi
 from ibm.qdmi import qiskit as adapter
 from ibm.qdmi.qiskit import IBMBackend
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
-def test_direct_qdmi_dynamical_decoupling(runtime: RuntimeProxy) -> None:
+@pytest.mark.parametrize(
+    ("dt", "pulse_alignment", "expected"),
+    [(0.25, 32, 2.5e-10), (None, 32, None), (0, 32, None), ("0.25", 32, None), (0.25, 0, None)],
+)
+def test_backend_sampling_interval(runtime: Runtime, dt: object, pulse_alignment: int, expected: float | None) -> None:
+    """Convert IBM's nanoseconds once and preserve support for incomplete metadata."""
+    runtime.set_configuration("dt", dt)
+    runtime.set_configuration(
+        "timing_constraints",
+        {"granularity": 16, "min_length": 64, "pulse_alignment": pulse_alignment, "acquire_alignment": 16},
+    )
+    backend = open_backend(runtime)
+    if expected is None:
+        assert backend.dt is None
+    else:
+        assert backend.dt == pytest.approx(expected)
+        assert backend.target.durations().dt == backend.dt
+        assert backend.target.granularity == 16
+        assert backend.target.min_length == 64
+        assert backend.target.pulse_alignment == 32
+        assert backend.target.acquire_alignment == 16
+
+
+@pytest.mark.parametrize(
+    "raw", ["vendor data", '{"schema":"ibm.timing.v1"}', '{"schema":"ibm.timing.v1","dt":2.5e-10,"pulse_alignment":0}']
+)
+def test_backend_ignores_invalid_optional_timing(runtime: Runtime, monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
+    """Keep the ordinary target usable when the custom slot contains other data."""
+    device = Mock(spec=Device)
+    device.query_custom_property.return_value = raw
+    monkeypatch.setattr(IBMBackend, "device", property(lambda _backend: device))
+    backend = open_backend(runtime)
+    assert backend.dt is None
+    assert "x" in backend.target.operation_names
+
+
+def test_direct_qdmi_dynamical_decoupling(runtime: Runtime) -> None:
     """Send the documented JSON string through MQT Core's direct job API."""
     backend = open_backend(runtime)
     program = 'OPENQASM 3; include "stdgates.inc"; qubit[5] q; bit[1] c; x q[4]; c[0] = measure q[4];'
@@ -63,8 +96,59 @@ def test_direct_qdmi_dynamical_decoupling(runtime: RuntimeProxy) -> None:
     assert submitted[0]["params"]["options"]["dynamical_decoupling"]["sequence_type"] == "XpXm"
 
 
+@pytest.mark.parametrize("standard_include", [False, True])
+def test_native_compiler_qasm_import(runtime: Runtime, *, standard_include: bool) -> None:
+    """ECR/RZZ declarations preserve qubit placement and measurement results."""
+    config = runtime.snapshot()["configuration"]
+    runtime.set_configuration("basis_gates", [*config["basis_gates"], "ecr", "rzz"])
+    runtime.set_configuration(
+        "gates",
+        [
+            *config["gates"],
+            {"name": "ecr", "parameters": [], "coupling_map": [[3, 4]]},
+            {"name": "rzz", "parameters": ["theta"], "coupling_map": [[3, 4]]},
+        ],
+    )
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(5, 4)
+    circuit.x(4)
+    circuit.ecr(3, 4)
+    circuit.rzz(0.25, 3, 4)
+    circuit.measure([3, 4, 3], [0, 2, 3])
+    program = serialize_program(
+        circuit, target=TargetEnvironment.from_device(backend.device, program_format=ProgramFormat.QASM3)
+    )
+    assert isinstance(program.payload, str)
+    assert 'include "stdgates.inc";' in program.payload
+    assert "gate ecr" not in program.payload
+    assert "$3" in program.payload
+    assert "$4" in program.payload
+    source = program.payload
+    if not standard_include:
+        source = source.replace('include "stdgates.inc";', "").replace("x $4;", "U(pi,0,pi) $4;")
+    job = backend.device.submit_job(source, program.program_format, num_shots=16)
+    assert job.wait(10)
+    source = runtime.snapshot()["submissions"][0]["params"]["pubs"][0][0]
+    emitted = submitted_circuit(source)
+    emitted.remove_final_measurements()
+    circuit.remove_final_measurements()
+    np.testing.assert_allclose(
+        Operator(emitted).data,
+        Operator(circuit).data,
+        atol=1e-12,
+    )
+    assert program.result_layout is not None
+    shots = job.get_shots()
+    assert len(shots) == 16
+    for raw in shots:
+        decoded = program.result_layout.decode_bits(raw)
+        assert len(decoded) == 4
+        assert decoded[2] == "0"
+        assert decoded[0] == decoded[3]
+
+
 @pytest.mark.parametrize("shots", [0, -1, True, 1.5])
-def test_invalid_shots_submit_nothing(runtime: RuntimeProxy, shots: object) -> None:
+def test_invalid_shots_submit_nothing(runtime: Runtime, shots: object) -> None:
     """Invalid shots never reach the native submission endpoint."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
@@ -74,8 +158,8 @@ def test_invalid_shots_submit_nothing(runtime: RuntimeProxy, shots: object) -> N
     assert not runtime.snapshot()["submissions"]
 
 
-@pytest.mark.parametrize("invalid", ["gate", "control", "sites", "unbound", "unmeasured"])
-def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid: str) -> None:
+@pytest.mark.parametrize("invalid", ["gate", "sites", "unbound", "unmeasured"])
+def test_entire_batch_validated_before_submission(runtime: Runtime, invalid: str) -> None:
     """A later invalid circuit prevents even the first batch submission."""
     backend = open_backend(runtime)
     valid = QuantumCircuit(2, 2)
@@ -83,9 +167,6 @@ def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid
     circuit = QuantumCircuit(2, 2)
     if invalid == "gate":
         circuit.h(0)
-    elif invalid == "control":
-        with circuit.if_test((circuit.clbits[0], True)):
-            circuit.x(0)
     elif invalid == "sites":
         circuit.cx(1, 0)
     elif invalid == "unbound":
@@ -97,7 +178,7 @@ def test_entire_batch_validated_before_submission(runtime: RuntimeProxy, invalid
     assert not runtime.snapshot()["submissions"]
 
 
-def test_multi_program_submission_and_indexed_results(runtime: RuntimeProxy) -> None:
+def test_multi_program_submission_and_indexed_results(runtime: Runtime) -> None:
     """Distinct circuits share one request and retain their input order."""
     backend = open_backend(runtime)
     zero = QuantumCircuit(1, 1, name="zero", metadata={"index": 0})
@@ -121,7 +202,7 @@ def test_multi_program_submission_and_indexed_results(runtime: RuntimeProxy) -> 
     assert retrieved.get_shots(1) == ["1"] * 4
 
 
-def test_failed_multi_program_submission_is_not_retried(runtime: RuntimeProxy) -> None:
+def test_failed_multi_program_submission_is_not_retried(runtime: Runtime) -> None:
     """An uncertain native submission never creates a replacement execution."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
@@ -133,7 +214,7 @@ def test_failed_multi_program_submission_is_not_retried(runtime: RuntimeProxy) -
     assert not runtime.snapshot()["cancellations"]
 
 
-def test_status_cancellation_and_retrieval(runtime: RuntimeProxy) -> None:
+def test_status_cancellation_and_retrieval(runtime: Runtime) -> None:
     """Job state and genuine results remain accessible through a fresh session."""
     backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
@@ -155,7 +236,7 @@ def test_status_cancellation_and_retrieval(runtime: RuntimeProxy) -> None:
 @pytest.mark.parametrize("use_environment", [False, True])
 def test_session_overrides_and_existing_device(monkeypatch: pytest.MonkeyPatch, *, use_environment: bool) -> None:
     """Forward explicit overrides and leave environment defaults to the native device."""
-    device = Mock(spec=adapter.Device)
+    device = Mock(spec=Device)
     opened = Mock(return_value=device)
     initialized = Mock(return_value=None)
     monkeypatch.setattr(adapter, "open_device", opened)
@@ -188,7 +269,7 @@ def test_session_overrides_and_existing_device(monkeypatch: pytest.MonkeyPatch, 
 
 @pytest.mark.parametrize(("device_id", "backend_name"), [("ibm.berlin", "ibm_berlin"), ("ibm.aachen", "ibm_aachen")])
 def test_concrete_catalogue_selection(
-    runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch, device_id: str, backend_name: str
+    runtime: Runtime, monkeypatch: pytest.MonkeyPatch, device_id: str, backend_name: str
 ) -> None:
     """Concrete IDs select their backend despite the generic environment default."""
     monkeypatch.setenv("IBM_QUANTUM_BACKEND", "wrong-backend")
@@ -199,7 +280,7 @@ def test_concrete_catalogue_selection(
     assert any(f"/backends/{backend_name}/configuration" in path for path, _, _ in runtime.snapshot()["requests"])
 
 
-def test_generic_selection_required(runtime: RuntimeProxy, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generic_selection_required(runtime: Runtime, monkeypatch: pytest.MonkeyPatch) -> None:
     """Missing backend selection fails before authentication or metadata access."""
     monkeypatch.delenv("IBM_QUANTUM_BACKEND", raising=False)
     url = runtime.snapshot()["url"]
@@ -208,73 +289,46 @@ def test_generic_selection_required(runtime: RuntimeProxy, monkeypatch: pytest.M
     assert not runtime.snapshot()["requests"]
 
 
-def test_inherited_factory(runtime: RuntimeProxy) -> None:
-    """The shared factory can pass provider and registry metadata to the subclass."""
-    registered = open_backend(runtime)
-    url = runtime.snapshot()["url"]
-    backend = IBMBackend.from_device_id(
-        "ibm.default",
-        token="synthetic-key",  # ruff: ignore[hardcoded-password-func-arg] -- synthetic test credential
-        custom1="ibm_test",
-        custom2=CRN,
-        base_url=url,
-        auth_url=url + "/auth",
-    )
-    assert isinstance(backend, IBMBackend)
-    assert backend.device_id == "ibm.default"
-    assert backend.device is not registered.device
+def test_compiled_zero_output_rejects_whole_batch(runtime: Runtime) -> None:
+    """A zero-output compiled artifact prevents submission of the entire batch."""
+    backend = open_backend(runtime)
+    unmeasured = QuantumCircuit(1)
+    unmeasured.x(0)
+    program = serialize_program(unmeasured, target=TargetEnvironment.from_device(backend.device))
+    assert not isinstance(program, list)
+    measured = QuantumCircuit(1, 1)
+    measured.measure(0, 0)
+    with pytest.raises(CircuitValidationError, match="measured output"):
+        backend.run([measured, program], shots=2)
+    assert not runtime.snapshot()["submissions"]
+
+
+@pytest.mark.parametrize("classical_width", [0, 2])
+def test_compile_requires_measurement(runtime: Runtime, classical_width: int) -> None:
+    """Compilation enforces the same measurement requirement as native run."""
+    backend = open_backend(runtime)
+    circuit = QuantumCircuit(1, classical_width)
+    circuit.x(0)
+    with pytest.raises(CircuitValidationError, match="At least one measurement"):
+        backend.compile(circuit)
+    assert not runtime.snapshot()["submissions"]
+
+
+def test_run_materializes_generator_once(runtime: Runtime) -> None:
+    """A generator survives provider validation and reaches shared submission."""
+    backend = open_backend(runtime)
     circuit = QuantumCircuit(1, 1)
     circuit.x(0)
     circuit.measure(0, 0)
-    assert backend.run(circuit, shots=3).result().get_counts() == {"1": 3}
+    result = backend.run((circuit for _ in range(2)), shots=4).result()
+    assert result.get_counts() == [{"1": 4}, {"1": 4}]
 
 
-def test_administrator_default(runtime: RuntimeProxy, tmp_path: Path) -> None:
-    """An isolated registry keeps configured defaults and explicit precedence."""
-    catalogue = tmp_path / "administrator.qdmi.json"
-    catalogue.write_text(
-        json.dumps({
-            "schema-version": 1,
-            "qdmi": {
-                "devices": [
-                    {
-                        "id": "site.ibm",
-                        "library": str(qdmi.IBM_QDMI_LIBRARY_PATH),
-                        "prefix": "IBM",
-                        "enabled": True,
-                        "session": {
-                            "custom1": "ibm_test",
-                            "token": "synthetic-key",
-                            "custom2": CRN,
-                            "base-url": runtime.snapshot()["url"],
-                            "auth-url": runtime.snapshot()["url"] + "/auth",
-                        },
-                    }
-                ]
-            },
-        }),
-        encoding="utf-8",
+def test_fractional_backend_omits_branching(runtime: Runtime) -> None:
+    """Backend metadata must advertise if_else before exposing control flow."""
+    config = runtime.snapshot()["configuration"]
+    runtime.set_configuration(
+        "supported_instructions", [name for name in config["supported_instructions"] if name != "if_else"]
     )
-    script = """
-import os
-from ibm.qdmi.qiskit import IBMBackend
-assert IBMBackend(device_id="site.ibm").device.name() == 'ibm_test'
-os.environ['IBM_QUANTUM_BACKEND'] = 'wrong-backend'
-assert IBMBackend(device_id="site.ibm", backend_name='ibm_test').device.name() == 'ibm_test'
-del os.environ['IBM_QUANTUM_BACKEND']
-assert IBMBackend(device_id="site.ibm").device.name() == 'ibm_test'
-"""
-    env = {
-        key: value for key, value in os.environ.items() if not key.startswith(("IBM_QUANTUM_", "MQT_CORE_QDMI_CONFIG_"))
-    }
-    env["MQT_CORE_QDMI_CONFIG_FILE"] = str(catalogue)
-    result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed script and loopback inputs
-        [sys.executable, "-c", script, runtime.snapshot()["url"], CRN],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
-    assert not runtime.snapshot()["submissions"]
+    backend = open_backend(runtime)
+    assert "if_else" not in backend.target.operation_names

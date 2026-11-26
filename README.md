@@ -12,7 +12,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache--2.0_w%2F_LLVM--exception-blue?logo=apache&style=flat-square)](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue?logo=cplusplus&style=flat-square)](https://isocpp.org/)
-[![CMake](https://img.shields.io/badge/CMake-3.24%2B-blue?logo=cmake&style=flat-square)](https://cmake.org/)
+[![CMake](https://img.shields.io/badge/CMake-3.28%2B-blue?logo=cmake&style=flat-square)](https://cmake.org/)
 [![CI](https://img.shields.io/github/actions/workflow/status/munich-quantum-software/ibm-qdmi-device/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/munich-quantum-software/ibm-qdmi-device/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/munich-quantum-software/ibm-qdmi-device?style=flat-square&logo=codecov)](https://codecov.io/gh/munich-quantum-software/ibm-qdmi-device)
 
@@ -24,8 +24,10 @@ authentication, calibration queries, and the job lifecycle. It submits OpenQASM
 3 circuits and returns ordered shots and histograms. Optional Qiskit and
 PennyLane integrations use the same native interface.
 
-Live metadata validation has passed; quantum execution has not yet been
-validated on hardware. Examples default to local simulation.
+Use
+[MQT Core's QDMI guides](https://mqt.readthedocs.io/projects/core/en/latest/qdmi/)
+for application workflows and local simulation. This documentation covers IBM
+configuration and device behavior.
 
 <p align="center">
   <a href="https://ibm-qdmi-device.readthedocs.io/en/latest/">
@@ -37,7 +39,7 @@ validated on hardware. Examples default to local simulation.
 ## Installation
 
 Install the package from [PyPI](https://pypi.org/project/ibm-qdmi/) with Python
-3.11 or newer:
+3.11.5 or newer:
 
 ```console
 uv venv
@@ -65,7 +67,7 @@ through the process environment or a secret manager; the device does not load
 | :------------------------------------------- | :--------------------------------------------------------------------------------------- |
 | Run circuits from **Python / Qiskit**        | [Qiskit Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/qiskit.html)       |
 | Execute **PennyLane** QNodes                 | [PennyLane Integration](https://ibm-qdmi-device.readthedocs.io/en/latest/pennylane.html) |
-| Walk through end-to-end workloads            | [Examples](https://ibm-qdmi-device.readthedocs.io/en/latest/examples.html)               |
+| Coordinate workloads with Slurm              | [MQSC Orchestrator](https://github.com/munich-quantum-software/orchestrator)             |
 | Integrate the **C++ library** directly       | [Usage Guide](https://ibm-qdmi-device.readthedocs.io/en/latest/api.html)                 |
 | Understand the Python package's entry points | [Python Package](https://ibm-qdmi-device.readthedocs.io/en/latest/python_package.html)   |
 | Contribute to the project                    | [Contributing](https://ibm-qdmi-device.readthedocs.io/en/latest/contributing.html)       |
@@ -83,7 +85,3 @@ The core C++ library and Python package are licensed under the
 **Apache License 2.0 with LLVM exception**. See
 [LICENSE](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/LICENSE)
 for the license text.
-
-Binary wheels statically link libcurl, cpr, and nlohmann/json; Linux wheels also
-bundle OpenSSL. Their license texts ship with each wheel and are available in
-[`licenses/`](https://github.com/munich-quantum-software/ibm-qdmi-device/tree/main/licenses).

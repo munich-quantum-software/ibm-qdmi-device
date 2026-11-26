@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <ibm_qdmi/export.h>
+#include "ibm_qdmi/export.h"
 
 #ifdef __cplusplus
 extern "C" {

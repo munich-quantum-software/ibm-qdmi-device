@@ -19,21 +19,23 @@
 
 #include "Job.hpp"
 
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Storage.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/constants.h>
 #include <limits>
 #include <map>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -47,11 +49,13 @@ void require(bool condition, int code = QDMI_ERROR_FATAL) {
   }
 }
 nlohmann::json defaultDynamicalDecoupling() {
-  return {{"enable", false},
-          {"sequence_type", "XX"},
-          {"extra_slack_distribution", "middle"},
-          {"scheduling_method", "alap"},
-          {"skip_reset_qubits", false}};
+  return {
+      {"enable", false},
+      {"sequence_type", "XX"},
+      {"extra_slack_distribution", "middle"},
+      {"scheduling_method", "alap"},
+      {"skip_reset_qubits", false},
+  };
 }
 bool identifier(const std::string& text) {
   return !text.empty() && text.size() <= 255 &&
@@ -102,7 +106,7 @@ std::string bitstring(const std::string& sample, std::size_t width) {
                            .find(static_cast<char>(std::tolower(
                                static_cast<unsigned char>(character))));
     require(value != std::string::npos);
-    for (int shift = 3; shift >= 0; --shift) {
+    for (const auto shift : {3U, 2U, 1U, 0U}) {
       bits += ((value >> shift) & 1U) != 0 ? '1' : '0';
     }
   }
@@ -172,15 +176,16 @@ bool terminal(QDMI_Job_Status status) {
 void Job::checkProgramSupport(QDMI_Program_Format value,
                               std::size_t count) const {
   require(count != 0, QDMI_ERROR_INVALIDARGUMENT);
-  require(!auth->quantumSystem() || value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+  require(!auth->quantumSystem() || value == QDMI_PROGRAM_FORMAT_QASM3,
           QDMI_ERROR_NOTSUPPORTED);
   require(value == QDMI_PROGRAM_FORMAT_QASM3 ||
+              value == QDMI_PROGRAM_FORMAT_QPY ||
               value == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
           QDMI_ERROR_NOTSUPPORTED);
   require(value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR ||
               (count == 1 && !samplerOptionsSet),
           QDMI_ERROR_NOTSUPPORTED);
-  if (value == QDMI_PROGRAM_FORMAT_QASM3) {
+  if (value != IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
     checkSamplerExecutions(count, shots);
   }
 }
@@ -216,7 +221,9 @@ void Job::setPrograms(QDMI_Program_Format value,
   } else {
     layouts.reserve(sources.size());
     for (const auto& source : sources) {
-      layouts.push_back(outputRegisters(source, qubits));
+      layouts.push_back(value == QDMI_PROGRAM_FORMAT_QPY
+                            ? qpyRegisters(source, qubits)
+                            : outputRegisters(source));
     }
   }
   programs = std::move(sources);
@@ -256,36 +263,52 @@ void Job::setDynamicalDecoupling(const std::string& options) {
   dynamicalDecoupling = std::move(configured);
   samplerOptionsSet = true;
 }
+nlohmann::json Job::samplerParams() const {
+  nlohmann::json pubs = nlohmann::json::array();
+  for (const auto& source : programs) {
+    nlohmann::json circuit =
+        format == QDMI_PROGRAM_FORMAT_QPY
+            ? nlohmann::json{
+                  {"__type__", "QuantumCircuit"},
+                  {"__value__", encodeQpy(source)},
+              }
+            : nlohmann::json(declareNativeGates(source));
+    pubs.push_back(nlohmann::json::array({std::move(circuit), nullptr, shots}));
+  }
+  return {
+      {"version", 2},
+      {"support_qiskit", false},
+      {"pubs", std::move(pubs)},
+      {
+          "options",
+          {
+              {"execution", {{"meas_type", "classified"}}},
+              {"dynamical_decoupling", dynamicalDecoupling},
+              {
+                  "twirling",
+                  {{"enable_gates", false}, {"enable_measure", false}},
+              },
+          },
+      },
+  };
+}
 void Job::submit() {
   require(configurable() && format.has_value() && !programs.empty(),
           QDMI_ERROR_BADSTATE);
+  const bool executor = format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
   nlohmann::json payload{
-      {"program_id", "sampler"},
+      {"program_id", executor ? "executor" : "sampler"},
       {"backend", backend},
       {"cost", maxExecutionTime},
-      {"params",
-       {{"version", 2},
-        {"support_qiskit", false},
-        {"pubs", nlohmann::json::array()},
-        {"options",
-         {{"execution", {{"meas_type", "classified"}}},
-          {"dynamical_decoupling", dynamicalDecoupling},
-          {"twirling",
-           {{"enable_gates", false}, {"enable_measure", false}}}}}}}};
-  if (format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR) {
-    payload["program_id"] = "executor";
-    payload["params"] = nlohmann::json::parse(programs.front());
-  }
-  if (format == QDMI_PROGRAM_FORMAT_QASM3) {
-    for (const auto& source : programs) {
-      payload["params"]["pubs"].push_back(
-          nlohmann::json::array({source, nullptr, shots}));
-    }
-  }
+  };
+  payload["params"] =
+      executor ? nlohmann::json::parse(programs.front()) : samplerParams();
+  const bool system = auth->quantumSystem();
+  auto body = system ? payload.at("params").dump() : payload.dump();
   // Once submission starts, even a lost response must never permit a duplicate.
   attempted = true;
   status = QDMI_JOB_STATUS_FAILED;
-  if (auth->quantumSystem()) {
+  if (system) {
     id = newJobId();
     nlohmann::json storage;
     for (const auto* kind : {"input", "results", "logs"}) {
@@ -295,15 +318,16 @@ void Job::submit() {
            auth->serviceStorageUrl(std::string(kind) + "_" + id + ".json",
                                    std::string_view(kind) != "input")}};
     }
-    auth->storagePut("input_" + id + ".json", payload.at("params").dump());
-    payload = {{"id", id},
-               {"backend", backend},
-               {"program_id", "sampler"},
-               {"timeout_secs", maxExecutionTime},
-               {"storage", storage}};
+    auth->storagePut("input_" + id + ".json", body);
+    body = nlohmann::json{{"id", id},
+                          {"backend", backend},
+                          {"program_id", "sampler"},
+                          {"timeout_secs", maxExecutionTime},
+                          {"storage", std::move(storage)}}
+               .dump();
   }
-  const auto response = auth->request("/v1/jobs", true, payload.dump());
-  if (auth->quantumSystem()) {
+  const auto response = auth->request("/v1/jobs", true, body);
+  if (system) {
     if (response.failed || response.timedOut || response.status != 204) {
       checkResponse(response);
       throw Failure{QDMI_ERROR_FATAL};
@@ -321,7 +345,7 @@ void Job::submit() {
 }
 void Job::retrieve(const std::string& remoteId) {
   require(identifier(remoteId), QDMI_ERROR_INVALIDARGUMENT);
-  const auto data = nlohmann::json::parse(auth->get("/v1/jobs/" + remoteId));
+  auto data = nlohmann::json::parse(auth->get("/v1/jobs/" + remoteId));
   require(data.at("id") == remoteId && data.at("backend") == backend,
           QDMI_ERROR_INVALIDARGUMENT);
   const auto programId = auth->quantumSystem() ? data.at("program_id")
@@ -333,9 +357,10 @@ void Job::retrieve(const std::string& remoteId) {
   auto parameters = auth->quantumSystem()
                         ? nlohmann::json::parse(
                               auth->storageGet("input_" + remoteId + ".json"))
-                        : data.at("params");
+                        : std::move(data.at("params"));
   if (parameters.is_string()) {
-    parameters = nlohmann::json::parse(parameters.get<std::string>());
+    parameters =
+        nlohmann::json::parse(parameters.get_ref<const std::string&>());
   }
   if (programId == "executor") {
     setPrograms(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, {parameters.dump()});
@@ -350,28 +375,48 @@ void Job::retrieve(const std::string& remoteId) {
   const auto& pubs = parameters.at("pubs");
   require(pubs.is_array() && !pubs.empty(), QDMI_ERROR_NOTSUPPORTED);
   std::vector<std::string> sources;
-  std::size_t commonShots = 0;
+  const auto& first = pubs.front();
+  require(first.is_array() && first.size() == 3, QDMI_ERROR_NOTSUPPORTED);
+  const auto retrievedFormat = first.at(0).is_string()
+                                   ? QDMI_PROGRAM_FORMAT_QASM3
+                                   : QDMI_PROGRAM_FORMAT_QPY;
+  require(!auth->quantumSystem() ||
+              retrievedFormat == QDMI_PROGRAM_FORMAT_QASM3,
+          QDMI_ERROR_NOTSUPPORTED);
+  const auto commonShots = positiveInteger(first.at(2));
+  checkSamplerExecutions(pubs.size(), commonShots);
   for (const auto& pub : pubs) {
-    require(pub.is_array() && pub.size() == 3 && pub.at(0).is_string() &&
+    require(pub.is_array() && pub.size() == 3 &&
+                (pub.at(0).is_string() || pub.at(0).is_object()) &&
                 (pub.at(1).is_null() || pub.at(1).empty()),
             QDMI_ERROR_NOTSUPPORTED);
-    const auto pubShots = positiveInteger(pub.at(2));
-    if (sources.empty()) {
-      commonShots = pubShots;
+    require(positiveInteger(pub.at(2)) == commonShots, QDMI_ERROR_NOTSUPPORTED);
+    const auto& circuit = pub.at(0);
+    const auto sourceFormat = circuit.is_string() ? QDMI_PROGRAM_FORMAT_QASM3
+                                                  : QDMI_PROGRAM_FORMAT_QPY;
+    require(retrievedFormat == sourceFormat, QDMI_ERROR_NOTSUPPORTED);
+    if (circuit.is_object()) {
+      require(circuit.value("__type__", "") == "QuantumCircuit" &&
+                  circuit.contains("__value__") &&
+                  circuit["__value__"].is_string(),
+              QDMI_ERROR_NOTSUPPORTED);
+      sources.push_back(
+          decodeQpy(circuit["__value__"].get_ref<const std::string&>()));
+    } else {
+      sources.push_back(circuit.get<std::string>());
     }
-    require(pubShots == commonShots, QDMI_ERROR_NOTSUPPORTED);
-    sources.push_back(pub.at(0).get<std::string>());
   }
   setShots(commonShots);
-  setPrograms(QDMI_PROGRAM_FORMAT_QASM3, std::move(sources));
+  setPrograms(retrievedFormat, std::move(sources));
   id = remoteId;
   attempted = true;
   status = parseJobStatus(data, auth->quantumSystem());
 }
 QDMI_Job_Status Job::check(Deadline deadline) {
   if (!id.empty() && !terminal(status)) {
-    const auto data =
-        nlohmann::json::parse(auth->get("/v1/jobs/" + id, deadline));
+    const auto resource = "/v1/jobs/" + id +
+                          (auth->quantumSystem() ? "" : "?exclude_params=true");
+    const auto data = nlohmann::json::parse(auth->get(resource, deadline));
     require(data.at("id") == id && data.at("backend") == backend);
     status = parseJobStatus(data, auth->quantumSystem());
   }

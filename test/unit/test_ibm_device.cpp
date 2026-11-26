@@ -17,8 +17,16 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/device.h"
+
 #include "Http.hpp"
 #include "http_stub.hpp"
+
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <array>
@@ -27,14 +35,11 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <gtest/gtest.h>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/device.h>
+#include <ios>
+#include <iterator>
 #include <limits>
 #include <new>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -42,8 +47,10 @@
 #include <vector>
 
 namespace {
-const std::string PROGRAM = "OPENQASM 3; qubit[2] q; bit[2] z; bit a; "
-                            "z[0] = measure q[1]; a = measure q[0];";
+constexpr auto* PROGRAM =
+    "OPENQASM 3; include \"stdgates.inc\"; qubit[2] q; bit[2] z; bit a; "
+    "z[0] = measure q[1]; a = measure q[0];";
+constexpr auto PROGRAM_SIZE = std::char_traits<char>::length(PROGRAM);
 class DeviceTest : public testing::Test {
 protected:
   ibm::test_support::HttpStub http;
@@ -147,7 +154,7 @@ TEST_F(DeviceTest, QueryContractAndDirectedCalibration) {
                 session, sites[0], QDMI_SITE_PROPERTY_T1, sizeof(value), &value,
                 nullptr),
             QDMI_SUCCESS);
-  EXPECT_EQ(value, 100500000);
+  EXPECT_EQ(value, 100'500'000'000ULL);
   EXPECT_EQ(IBM_QDMI_device_session_query_site_property(
                 session, sites[1], QDMI_SITE_PROPERTY_T1, 0, nullptr, nullptr),
             QDMI_ERROR_NOTSUPPORTED);
@@ -156,7 +163,7 @@ TEST_F(DeviceTest, QueryContractAndDirectedCalibration) {
                 QDMI_OPERATION_PROPERTY_DURATION, sizeof(value), &value,
                 nullptr),
             QDMI_SUCCESS);
-  EXPECT_EQ(value, 35556);
+  EXPECT_EQ(value, 35'555'500);
   const std::array reverse{sites[1], sites[0]};
   EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
                 session, operations[2], 2, reverse.data(), 0, nullptr,
@@ -204,11 +211,14 @@ TEST_F(DeviceTest, DiagnosticClearsAfterSuccess) {
 }
 
 TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
+  data["configuration"]["supported_instructions"] = {"x", "measure", "if_else"};
   initialize();
   const auto before = http.requests().size();
-  for (const auto property :
-       {QDMI_DEVICE_PROPERTY_VERSION, QDMI_DEVICE_PROPERTY_LIBRARYVERSION,
-        QDMI_DEVICE_PROPERTY_DURATIONUNIT}) {
+  for (const auto property : {
+           QDMI_DEVICE_PROPERTY_VERSION,
+           QDMI_DEVICE_PROPERTY_LIBRARYVERSION,
+           QDMI_DEVICE_PROPERTY_DURATIONUNIT,
+       }) {
     std::array<char, 32> value{};
     EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                   session, property, value.size(), value.data(), nullptr),
@@ -232,8 +242,17 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
   EXPECT_EQ(qubits, 2);
   EXPECT_EQ(handles<QDMI_Program_Format>(
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
-            (std::vector{QDMI_PROGRAM_FORMAT_QASM3,
+            (std::vector{QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY,
                          IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
+  const auto capabilityText = handles<char>(QDMI_DEVICE_PROPERTY_CUSTOM3);
+  const auto capabilities = nlohmann::json::parse(capabilityText.data());
+  EXPECT_EQ(capabilities.at("schema"), "mqt.payload-capabilities.v1");
+  const auto& branch = capabilities.at("capabilities").at(0);
+  EXPECT_EQ(branch.at("id"), "forward-branching");
+  EXPECT_EQ(branch.at("constraints").at("max-condition-width"), 32);
+  EXPECT_EQ(branch.at("constraints").at("max-control-flow-nesting-depth"), 1);
+  EXPECT_EQ(branch.at("constraints").at("requires-register-equality"), 1);
+  EXPECT_EQ(branch.at("constraints").at("unitary-only-branches"), 1);
   for (const auto reserved : {8, 9}) {
     EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                   session, static_cast<QDMI_Device_Property>(reserved), 0,
@@ -246,14 +265,56 @@ TEST_F(DeviceTest, StaticPropertiesUseCorrectTypesWithoutRequests) {
   EXPECT_EQ(http.requests().size(), before);
 }
 
+TEST_F(DeviceTest, OmitsBranchingWithoutConditionalInstructions) {
+  data["configuration"]["supported_instructions"] = {"x", "measure"};
+  initialize();
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, QDMI_DEVICE_PROPERTY_CUSTOM3, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+}
+
+TEST_F(DeviceTest, ExposesBackendTimingWithoutAnotherRequest) {
+  auto& configuration = data["configuration"];
+  configuration["supported_instructions"] = {"x", "measure", "delay"};
+  configuration["dt"] = 0.25;
+  configuration["timing_constraints"] = {{"pulse_alignment", 16}};
+  initialize();
+
+  const auto before = http.requests().size();
+  const auto text = handles<char>(IBM_QDMI_DEVICE_PROPERTY_TIMING);
+  const auto timing = nlohmann::json::parse(text.data());
+  EXPECT_EQ(timing.at("schema"), "ibm.timing.v1");
+  EXPECT_DOUBLE_EQ(timing.at("dt").get<double>(), 2.5e-10);
+  EXPECT_EQ(timing.at("pulse_alignment"), 16);
+  char tooSmall{};
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, IBM_QDMI_DEVICE_PROPERTY_TIMING, sizeof(tooSmall),
+                &tooSmall, nullptr),
+            QDMI_ERROR_INVALIDARGUMENT);
+  EXPECT_EQ(http.requests().size(), before);
+}
+
+TEST_F(DeviceTest, LeavesTimingUnsupportedWithInvalidAlignment) {
+  data["configuration"]["dt"] = 0.25;
+  data["configuration"]["timing_constraints"] = {{"pulse_alignment", 0}};
+  initialize();
+
+  EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
+                session, IBM_QDMI_DEVICE_PROPERTY_TIMING, 0, nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+}
+
 TEST_F(DeviceTest, StatusAndQueueLengthRefreshFromBackend) {
   initialize();
   for (const auto& [body, expected] :
        std::vector<std::pair<nlohmann::json, QDMI_Device_Status>>{
            {{{"state", true}, {"length_queue", 2}}, QDMI_DEVICE_STATUS_BUSY},
            {{{"state", true}, {"length_queue", 0}}, QDMI_DEVICE_STATUS_IDLE},
-           {{{"state", false}, {"length_queue", 0}},
-            QDMI_DEVICE_STATUS_OFFLINE}}) {
+           {
+               {{"state", false}, {"length_queue", 0}},
+               QDMI_DEVICE_STATUS_OFFLINE,
+           },
+       }) {
     http.queue("/status", {.status = 200, .body = body.dump()});
     QDMI_Device_Status status{};
     EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
@@ -405,8 +466,10 @@ TEST_F(DeviceTest, MissingCalibrationStillInitializes) {
 }
 
 TEST_F(DeviceTest, InitializationContainsExceptionsAndAllowsRecovery) {
-  for (const auto& body : {std::string("not json"),
-                           std::string(R"({"backend_name":"ibm_test"})")}) {
+  for (const auto& body : {
+           std::string("not json"),
+           std::string(R"({"backend_name":"ibm_test"})"),
+       }) {
     http.queue("/auth", {.status = 200, .body = data["auth"].dump()}, true);
     http.queue("/configuration", {.status = 200, .body = body});
     if (body.front() == '{') {
@@ -429,13 +492,14 @@ TEST_F(DeviceTest, InitializationContainsExceptionsAndAllowsRecovery) {
 }
 
 TEST_F(DeviceTest, AuthenticationAndBackendErrorsRemainConfigurable) {
-  for (const auto& [status, expected] :
-       std::vector<std::pair<int, int>>{{401, QDMI_ERROR_PERMISSIONDENIED},
-                                        {403, QDMI_ERROR_PERMISSIONDENIED},
-                                        {404, QDMI_ERROR_NOTFOUND},
-                                        {429, QDMI_ERROR_FATAL},
-                                        {500, QDMI_ERROR_FATAL},
-                                        {302, QDMI_ERROR_FATAL}}) {
+  for (const auto& [status, expected] : std::vector<std::pair<int, int>>{
+           {401, QDMI_ERROR_PERMISSIONDENIED},
+           {403, QDMI_ERROR_PERMISSIONDENIED},
+           {404, QDMI_ERROR_NOTFOUND},
+           {429, QDMI_ERROR_FATAL},
+           {500, QDMI_ERROR_FATAL},
+           {302, QDMI_ERROR_FATAL},
+       }) {
     http.queue("/auth", {.status = 200, .body = data["auth"].dump()}, true);
     http.queue("/configuration", {.status = status, .body = "{}"});
     if (status == 401) {
@@ -460,9 +524,11 @@ TEST_F(DeviceTest, AuthenticationAndBackendErrorsRemainConfigurable) {
 }
 
 TEST_F(DeviceTest, MalformedAuthenticationStopsBeforeBackendRequests) {
-  for (const auto& body :
-       {std::string("not json"), std::string("{}"),
-        std::string(R"({"access_token":"x","expires_in":"bad"})")}) {
+  for (const auto& body : {
+           std::string("not json"),
+           std::string("{}"),
+           std::string(R"({"access_token":"x","expires_in":"bad"})"),
+       }) {
     const auto before = http.requests().size();
     http.queue("/auth", {.status = 200, .body = body}, true);
     EXPECT_EQ(IBM_QDMI_device_session_init(session), QDMI_ERROR_FATAL);
@@ -486,13 +552,15 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
       IBM_QDMI_device_session_query_site_property(
           session, sites[0], QDMI_SITE_PROPERTY_T2, sizeof(t2), &t2, nullptr),
       QDMI_SUCCESS);
-  EXPECT_EQ(t2, 200000000);
+  EXPECT_EQ(t2, 200'000'000'000ULL);
   EXPECT_EQ(
       IBM_QDMI_device_session_query_site_property(
           session, sites[0], QDMI_SITE_PROPERTY_CUSTOM1, 0, nullptr, nullptr),
       QDMI_ERROR_NOTSUPPORTED);
-  for (const auto property : {QDMI_OPERATION_PROPERTY_QUBITSNUM,
-                              QDMI_OPERATION_PROPERTY_PARAMETERSNUM}) {
+  for (const auto property : {
+           QDMI_OPERATION_PROPERTY_QUBITSNUM,
+           QDMI_OPERATION_PROPERTY_PARAMETERSNUM,
+       }) {
     std::size_t value = 0;
     EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
                   session, operations[1], 0, nullptr, 0, nullptr, property,
@@ -542,6 +610,45 @@ TEST_F(DeviceTest, OperationAndSitePropertiesValidateBuffersAndParameters) {
             QDMI_ERROR_NOTSUPPORTED);
 }
 
+TEST_F(DeviceTest, FractionalRzzReportsInclusiveParameterBounds) {
+  for (const std::string name : {"rx", "rzz"}) {
+    const auto coupling =
+        name == "rx" ? nlohmann::json{{0}, {1}} : nlohmann::json{{0, 1}};
+    data.at("configuration").at("basis_gates").push_back(name);
+    data.at("configuration")
+        .at("gates")
+        .push_back({
+            {"name", name},
+            {"parameters", {"theta"}},
+            {"coupling_map", coupling},
+        });
+  }
+  initialize();
+  const auto operations =
+      handles<IBM_QDMI_Operation>(QDMI_DEVICE_PROPERTY_OPERATIONS);
+  const auto property = IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS;
+  EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(3), 0, nullptr, 0, nullptr, property, 0,
+                nullptr, nullptr),
+            QDMI_ERROR_NOTSUPPORTED);
+  std::size_t required = 0;
+  ASSERT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(4), 0, nullptr, 0, nullptr, property, 0,
+                nullptr, &required),
+            QDMI_SUCCESS);
+  std::vector<char> buffer(required, 'x');
+  ASSERT_EQ(IBM_QDMI_device_session_query_operation_property(
+                session, operations.at(4), 0, nullptr, 0, nullptr, property,
+                buffer.size(), buffer.data(), nullptr),
+            QDMI_SUCCESS);
+  EXPECT_EQ(buffer.back(), '\0');
+  const auto domains = nlohmann::json::parse(buffer.data());
+  EXPECT_EQ(domains.at("schema"), "mqt.operation-parameters.v1");
+  EXPECT_EQ(
+      domains.at("alternatives"),
+      nlohmann::json::array({{{"bounds", {{0.0, std::numbers::pi / 2}}}}}));
+}
+
 int setProgram(IBM_QDMI_Device_Job job, QDMI_Program_Format format,
                std::size_t size, const void* program) {
   const std::array<const void*, 1> programs{program};
@@ -562,8 +669,7 @@ protected:
   void configure() {
     const auto format = QDMI_PROGRAM_FORMAT_QASM3;
     const std::size_t shots = 3;
-    ASSERT_EQ(setProgram(job, format, PROGRAM.size() + 1, PROGRAM.c_str()),
-              QDMI_SUCCESS);
+    ASSERT_EQ(setProgram(job, format, PROGRAM_SIZE + 1, PROGRAM), QDMI_SUCCESS);
     ASSERT_EQ(
         IBM_QDMI_device_job_set_parameter(
             job, QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM, sizeof(shots), &shots),
@@ -571,28 +677,71 @@ protected:
   }
   void submit() {
     http.queue("/jobs",
-               {.status = 200,
-                .body = R"({"id":"synthetic-job","backend":"ibm_test"})"},
+               {
+                   .status = 200,
+                   .body = R"({"id":"synthetic-job","backend":"ibm_test"})",
+               },
                true);
     ASSERT_EQ(IBM_QDMI_device_job_submit(job), QDMI_SUCCESS);
   }
-  void queueStatus(const std::string& status) {
-    http.queue("/synthetic-job",
-               {.status = 200,
-                .body =
-                    nlohmann::json{
-                        {"id", "synthetic-job"},
-                        {"backend", "ibm_test"},
-                        {"program", {{"id", "sampler"}}},
-                        {"state", {{"status", status}}},
-                        {"params",
-                         {{"version", 2},
-                          {"support_qiskit", false},
-                          {"pubs", nlohmann::json::array({nlohmann::json::array(
-                                       {PROGRAM, nullptr, 3})})}}}}
-                        .dump()});
+  void queueStatus(const std::string& status, bool includeParams = false) {
+    nlohmann::json jobData{
+        {"id", "synthetic-job"},
+        {"backend", "ibm_test"},
+        {"state", {{"status", status}}},
+    };
+    if (includeParams) {
+      jobData["program"] = {{"id", "sampler"}};
+      jobData["params"] = {
+          {"version", 2},
+          {"support_qiskit", false},
+          {
+              "pubs",
+              nlohmann::json::array(
+                  {nlohmann::json::array({PROGRAM, nullptr, 3})}),
+          },
+      };
+    }
+    http.queue(includeParams ? "/synthetic-job"
+                             : "/synthetic-job?exclude_params=true",
+               {.status = 200, .body = jobData.dump()});
   }
 };
+
+TEST_F(DeviceJobMockTest, QpyBinaryProgramsProbeAndReplaceAtomically) {
+  std::ifstream file(std::string(IBM_QDMI_QPY_FIXTURES) + "/native.qpy",
+                     std::ios::binary);
+  const std::string program{std::istreambuf_iterator<char>(file), {}};
+  ASSERT_FALSE(program.empty());
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, QDMI_PROGRAM_FORMAT_QPY, 2,
+                                             nullptr, nullptr),
+            QDMI_SUCCESS);
+  ASSERT_EQ(
+      setProgram(job, QDMI_PROGRAM_FORMAT_QPY, program.size(), program.data()),
+      QDMI_SUCCESS);
+  std::size_t size = 0;
+  ASSERT_EQ(IBM_QDMI_device_job_get_program(job, 0, 0, nullptr, &size),
+            QDMI_SUCCESS);
+  ASSERT_EQ(size, program.size());
+  std::string copied(size, '\0');
+  EXPECT_EQ(
+      IBM_QDMI_device_job_get_program(job, 0, size - 1, copied.data(), nullptr),
+      QDMI_ERROR_INVALIDARGUMENT);
+  ASSERT_EQ(
+      IBM_QDMI_device_job_get_program(job, 0, size, copied.data(), nullptr),
+      QDMI_SUCCESS);
+  EXPECT_EQ(copied, program);
+  const std::array<std::size_t, 2> sizes{program.size(), 3};
+  const std::array<const void*, 2> programs{program.data(), "bad"};
+  EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, QDMI_PROGRAM_FORMAT_QPY, 2,
+                                             sizes.data(), programs.data()),
+            QDMI_ERROR_INVALIDARGUMENT);
+  copied.assign(size, '\0');
+  ASSERT_EQ(
+      IBM_QDMI_device_job_get_program(job, 0, size, copied.data(), nullptr),
+      QDMI_SUCCESS);
+  EXPECT_EQ(copied, program);
+}
 
 TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
   configure();
@@ -600,9 +749,12 @@ TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
   queueStatus("Completed");
   EXPECT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
-  http.queue("/results", {.status = 200, .body = R"({"results":[{"data":{
+  http.queue("/results", {
+                             .status = 200,
+                             .body = R"({"results":[{"data":{
       "z":{"num_bits":2,"samples":["0x1","0x0","0x1"]},
-      "a":{"num_bits":1,"samples":["0x1","0x0","0x1"]}}}]})"});
+      "a":{"num_bits":1,"samples":["0x1","0x0","0x1"]}}}]})",
+                         });
   std::size_t required = 0;
   EXPECT_EQ(IBM_QDMI_device_job_get_results(job, 0, QDMI_JOB_RESULT_SHOTS, 0,
                                             nullptr, &required),
@@ -638,7 +790,7 @@ TEST_F(DeviceJobMockTest, LifecycleResultsAndRetrievalPreserveRegisterOrder) {
   EXPECT_EQ(submitted["cost"], 60);
   EXPECT_EQ(submitted["params"]["pubs"][0],
             nlohmann::json::array({PROGRAM, nullptr, 3}));
-  queueStatus("Completed");
+  queueStatus("Completed", true);
   IBM_QDMI_Device_Job retrieved = nullptr;
   ASSERT_EQ(IBM_QDMI_device_session_retrieve_device_job_by_id(
                 session, "synthetic-job", &retrieved),
@@ -677,10 +829,11 @@ TEST_F(DeviceJobMockTest, ParameterAndPropertyContracts) {
           job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT, 0, nullptr, nullptr),
       QDMI_ERROR_BADSTATE);
   const std::size_t one = 1;
-  for (const auto parameter :
-       {QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
-        IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME,
-        IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING}) {
+  for (const auto parameter : {
+           QDMI_DEVICE_JOB_PARAMETER_SHOTSNUM,
+           IBM_QDMI_DEVICE_JOB_PARAMETER_MAX_EXECUTION_TIME,
+           IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING,
+       }) {
     EXPECT_EQ(IBM_QDMI_device_job_set_parameter(job, parameter, 0, &one),
               QDMI_ERROR_INVALIDARGUMENT);
     EXPECT_EQ(IBM_QDMI_device_job_set_parameter(job, parameter, 0, nullptr),
@@ -714,11 +867,13 @@ TEST_F(DeviceJobMockTest, ParameterAndPropertyContracts) {
       QDMI_ERROR_NOTSUPPORTED);
   configure();
   const auto format = QDMI_PROGRAM_FORMAT_QASM3;
-  EXPECT_EQ(setProgram(job, format, PROGRAM.size(), PROGRAM.c_str()),
+  EXPECT_EQ(setProgram(job, format, PROGRAM_SIZE, PROGRAM),
             QDMI_ERROR_INVALIDARGUMENT);
-  for (const auto property : {QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT,
-                              QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM,
-                              QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM}) {
+  for (const auto property : {
+           QDMI_DEVICE_JOB_PROPERTY_PROGRAMFORMAT,
+           QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM,
+           QDMI_DEVICE_JOB_PROPERTY_SHOTSNUM,
+       }) {
     std::size_t size = 0;
     EXPECT_EQ(
         IBM_QDMI_device_job_query_property(job, property, 0, nullptr, &size),
@@ -784,12 +939,19 @@ TEST_F(DeviceJobMockTest, SubmissionFailureAndTimeoutNeverRetry) {
 TEST_F(DeviceTest, FaultyOperationSitesRespectBooleanAndIntegerFlags) {
   const auto original = data;
   for (const auto* kind : {"qubit", "gate"}) {
-    for (const auto& flag : {nlohmann::json(0), nlohmann::json(false),
-                             nlohmann::json(1), nlohmann::json(true)}) {
+    for (const auto& flag : {
+             nlohmann::json(0),
+             nlohmann::json(false),
+             nlohmann::json(1),
+             nlohmann::json(true),
+         }) {
       data = original;
       session = allocate();
       const nlohmann::json parameter = {
-          {"name", "operational"}, {"value", flag}, {"unit", ""}};
+          {"name", "operational"},
+          {"value", flag},
+          {"unit", ""},
+      };
       const bool qubit = std::string(kind) == "qubit";
       if (qubit) {
         data["properties"]["qubits"][0].push_back(parameter);
@@ -801,8 +963,10 @@ TEST_F(DeviceTest, FaultyOperationSitesRespectBooleanAndIntegerFlags) {
       const auto operations =
           handles<IBM_QDMI_Operation>(QDMI_DEVICE_PROPERTY_OPERATIONS);
       const bool enabled = flag == true || flag == 1;
-      for (const auto property : {QDMI_OPERATION_PROPERTY_DURATION,
-                                  QDMI_OPERATION_PROPERTY_FIDELITY}) {
+      for (const auto property : {
+               QDMI_OPERATION_PROPERTY_DURATION,
+               QDMI_OPERATION_PROPERTY_FIDELITY,
+           }) {
         EXPECT_EQ(IBM_QDMI_device_session_query_operation_property(
                       session, operations[2], 2, sites.data(), 0, nullptr,
                       property, 0, nullptr, nullptr),
@@ -852,9 +1016,11 @@ TEST_F(DeviceJobMockTest, DynamicalDecouplingReplacesOptionsWithoutSubmission) {
   const std::string initial =
       R"({"enable":true,"sequence_type":"XpXm","skip_reset_qubits":true})";
   const auto before = http.requests().size();
-  for (const auto& options :
-       {nlohmann::json::object(), nlohmann::json{{"enable", true}},
-        nlohmann::json{{"enable", false}, {"sequence_type", "XY4"}}}) {
+  for (const auto& options : {
+           nlohmann::json::object(),
+           nlohmann::json{{"enable", true}},
+           nlohmann::json{{"enable", false}, {"sequence_type", "XY4"}},
+       }) {
     IBM_QDMI_Device_Job next = nullptr;
     ASSERT_EQ(IBM_QDMI_device_session_create_device_job(session, &next),
               QDMI_SUCCESS);
@@ -880,11 +1046,13 @@ TEST_F(DeviceJobMockTest, DynamicalDecouplingReplacesOptionsWithoutSubmission) {
                   encoded.size() + 1, encoded.c_str()),
               QDMI_ERROR_BADSTATE);
     EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
-    nlohmann::json expected = {{"enable", false},
-                               {"sequence_type", "XX"},
-                               {"extra_slack_distribution", "middle"},
-                               {"scheduling_method", "alap"},
-                               {"skip_reset_qubits", false}};
+    nlohmann::json expected = {
+        {"enable", false},
+        {"sequence_type", "XX"},
+        {"extra_slack_distribution", "middle"},
+        {"scheduling_method", "alap"},
+        {"skip_reset_qubits", false},
+    };
     expected.update(options);
     const auto payload = nlohmann::json::parse(http.requests().back().body);
     EXPECT_EQ(payload["params"]["options"]["dynamical_decoupling"], expected);
@@ -904,9 +1072,14 @@ TEST_F(DeviceJobMockTest, InvalidDynamicalDecouplingPreservesLastValidOptions) {
                 options.size() + 1, options.c_str()),
             QDMI_SUCCESS);
   const auto before = http.requests().size();
-  for (const std::string invalid :
-       {"{", "[]", "null", R"({"unknown":true})", R"({"enable":1})",
-        R"({"sequence_type":"ZZ"})"}) {
+  for (const std::string invalid : {
+           "{",
+           "[]",
+           "null",
+           R"({"unknown":true})",
+           R"({"enable":1})",
+           R"({"sequence_type":"ZZ"})",
+       }) {
     EXPECT_EQ(IBM_QDMI_device_job_set_parameter(
                   job, IBM_QDMI_DEVICE_JOB_PARAMETER_DYNAMICAL_DECOUPLING,
                   invalid.size() + 1, invalid.c_str()),
@@ -959,7 +1132,8 @@ TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
   EXPECT_EQ(IBM_QDMI_device_job_submit(job), QDMI_ERROR_BADSTATE);
   queueStatus("Completed");
   ASSERT_EQ(IBM_QDMI_device_job_wait(job, 1), QDMI_SUCCESS);
-  const auto output = nlohmann::json::parse(R"({"schema_version":"v2.0","data":[
+  const auto output =
+      nlohmann::json::parse(R"({"schema_version":"v2.0","data":[
     {"results":{"meas":{"shape":[2,3,1],"data":"synthetic"},
     "measurement_flips.meas":{"shape":[2,1,1],"data":"corrections"}}}],
     "metadata":{"chunk_timing":[]}})");
@@ -984,14 +1158,18 @@ TEST_F(DeviceJobMockTest, ExecutorPreservesPayloadResultsAndRetrieval) {
             QDMI_ERROR_NOTSUPPORTED);
   EXPECT_EQ(http.requests().size(), requests);
 
-  http.queue("/synthetic-job",
-             {.status = 200,
-              .body = nlohmann::json{{"id", "synthetic-job"},
-                                     {"backend", "ibm_test"},
-                                     {"program", {{"id", "executor"}}},
-                                     {"params", params},
-                                     {"state", {{"status", "Completed"}}}}
-                          .dump()});
+  http.queue("/synthetic-job", {
+                                   .status = 200,
+                                   .body =
+                                       nlohmann::json{
+                                           {"id", "synthetic-job"},
+                                           {"backend", "ibm_test"},
+                                           {"program", {{"id", "executor"}}},
+                                           {"params", params},
+                                           {"state", {{"status", "Completed"}}},
+                                       }
+                                           .dump(),
+                               });
   IBM_QDMI_Device_Job retrieved = nullptr;
   ASSERT_EQ(IBM_QDMI_device_session_retrieve_device_job_by_id(
                 session, "synthetic-job", &retrieved),
@@ -1016,10 +1194,13 @@ TEST_F(DeviceJobMockTest, ExecutorRejectsInvalidInputsWithoutSubmission) {
   const auto format = IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
   const auto before = http.requests().size();
   for (
-      const auto* params :
-      {"not json", "[]", "{}",
-       R"({"schema_version":"v2.0","quantum_program":{"shots":-1,"circuits":{},"items":[{}]}})",
-       R"({"schema_version":"v2.0","quantum_program":{"shots":3,"circuits":{},"items":[]}})"}) {
+      const auto* params : {
+          "not json",
+          "[]",
+          "{}",
+          R"({"schema_version":"v2.0","quantum_program":{"shots":-1,"circuits":{},"items":[{}]}})",
+          R"({"schema_version":"v2.0","quantum_program":{"shots":3,"circuits":{},"items":[]}})",
+      }) {
     const std::string text = params;
     EXPECT_EQ(setProgram(job, format, text.size() + 1, text.c_str()),
               QDMI_ERROR_INVALIDARGUMENT);
@@ -1082,20 +1263,20 @@ TEST_F(DeviceJobMockTest, ProgramListsValidateCopyAndProbeWithoutMutation) {
                 job, QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM, 0, nullptr, nullptr),
             QDMI_ERROR_BADSTATE);
   std::string second = "OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];";
-  const std::array sizes{PROGRAM.size() + 1, second.size() + 1};
-  const std::array<const void*, 2> programs{PROGRAM.c_str(), second.c_str()};
+  const std::array sizes{PROGRAM_SIZE + 1, second.size() + 1};
+  const std::array<const void*, 2> programs{PROGRAM, second.c_str()};
   EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, nullptr,
                                              programs.data()),
             QDMI_ERROR_INVALIDARGUMENT);
-  const std::array<const void*, 2> nullProgram{PROGRAM.c_str(), nullptr};
+  const std::array<const void*, 2> nullProgram{PROGRAM, nullptr};
   EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, sizes.data(),
                                              nullProgram.data()),
             QDMI_ERROR_INVALIDARGUMENT);
-  const std::array zeroSizes{PROGRAM.size() + 1, std::size_t{0}};
+  const std::array zeroSizes{PROGRAM_SIZE + 1, std::size_t{0}};
   EXPECT_EQ(IBM_QDMI_device_job_set_programs(job, format, 2, zeroSizes.data(),
                                              programs.data()),
             QDMI_ERROR_INVALIDARGUMENT);
-  EXPECT_EQ(setProgram(job, format, PROGRAM.size(), PROGRAM.c_str()),
+  EXPECT_EQ(setProgram(job, format, PROGRAM_SIZE, PROGRAM),
             QDMI_ERROR_INVALIDARGUMENT);
   const std::array<char, 3> embeddedNull{'x', '\0', '\0'};
   EXPECT_EQ(setProgram(job, format, embeddedNull.size(), embeddedNull.data()),
@@ -1121,9 +1302,11 @@ TEST_F(DeviceJobMockTest, ProgramListsValidateCopyAndProbeWithoutMutation) {
   EXPECT_STREQ(buffer.data(),
                "OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];");
   const std::string invalid = "invalid";
-  const std::array invalidSizes{PROGRAM.size() + 1, invalid.size() + 1};
-  const std::array<const void*, 2> invalidPrograms{PROGRAM.c_str(),
-                                                   invalid.c_str()};
+  const std::array invalidSizes{PROGRAM_SIZE + 1, invalid.size() + 1};
+  const std::array<const void*, 2> invalidPrograms{
+      PROGRAM,
+      invalid.c_str(),
+  };
   EXPECT_EQ(IBM_QDMI_device_job_set_programs(
                 job, format, 2, invalidSizes.data(), invalidPrograms.data()),
             QDMI_ERROR_INVALIDARGUMENT);

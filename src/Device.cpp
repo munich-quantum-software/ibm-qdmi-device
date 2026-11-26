@@ -17,24 +17,27 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/device.h"
+
+#include "ibm-qdmi-device/constants.h"
+#include "ibm-qdmi-device/diagnostics.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Job.hpp"
 #include "Metadata.hpp"
+
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/device.h>
 #include <memory>
 #include <mutex>
 #include <new>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -258,7 +261,7 @@ int IBM_QDMI_device_session_set_parameter(
     IBM_QDMI_Device_Session handle, QDMI_Device_Session_Parameter parameter,
     std::size_t size, const void* value) {
   return boundary([&]() -> int {
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     const std::scoped_lock lock(session->mutex);
     require(validEnum(parameter, QDMI_DEVICE_SESSION_PARAMETER_MAX));
     require(!session->auth, QDMI_ERROR_BADSTATE);
@@ -317,7 +320,7 @@ int IBM_QDMI_device_session_set_parameter(
 }
 int IBM_QDMI_device_session_init(IBM_QDMI_Device_Session handle) {
   return boundary([&]() -> int {
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     const std::scoped_lock lock(session->mutex);
     require(!session->auth, QDMI_ERROR_BADSTATE);
     auto configuration = ibm::resolve(session->configuration);
@@ -358,7 +361,7 @@ int IBM_QDMI_device_session_query_device_property(
     IBM_QDMI_Device_Session handle, QDMI_Device_Property property,
     std::size_t size, void* value, std::size_t* sizeRet) {
   return boundary([&]() -> int {
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     std::unique_lock lock(session->mutex);
     require(validEnum(property, QDMI_DEVICE_PROPERTY_MAX));
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
@@ -370,18 +373,36 @@ int IBM_QDMI_device_session_query_device_property(
       return copyString(metadata.version, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_LIBRARYVERSION:
       return copyString(QDMI_VERSION, size, value, sizeRet);
-    case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS: {
-      auto formats = std::vector{QDMI_PROGRAM_FORMAT_QASM3,
-                                 IBM_QDMI_PROGRAM_FORMAT_EXECUTOR};
-      if (session->auth->quantumSystem()) {
-        std::erase(formats, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR);
+    case IBM_QDMI_DEVICE_PROPERTY_TIMING:
+      if (metadata.timing.empty()) {
+        return QDMI_ERROR_NOTSUPPORTED;
       }
-      return copyList(formats, size, value, sizeRet);
-    }
+      return copyString(metadata.timing, size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS:
+      if (session->auth->quantumSystem()) {
+        return copyList(std::vector{QDMI_PROGRAM_FORMAT_QASM3}, size, value,
+                        sizeRet);
+      }
+      return copyList(
+          std::vector{
+              QDMI_PROGRAM_FORMAT_QASM3,
+              QDMI_PROGRAM_FORMAT_QPY,
+              IBM_QDMI_PROGRAM_FORMAT_EXECUTOR,
+          },
+          size, value, sizeRet);
+    case QDMI_DEVICE_PROPERTY_CUSTOM3:
+      if (std::ranges::none_of(metadata.operations, [](const auto& operation) {
+            return operation.name == "if_else";
+          })) {
+        return QDMI_ERROR_NOTSUPPORTED;
+      }
+      return copyString(
+          R"({"schema":"mqt.payload-capabilities.v1","capabilities":[{"id":"forward-branching","constraints":{"max-control-flow-nesting-depth":1,"max-condition-width":32,"requires-register-equality":1,"unitary-only-branches":1}}]})",
+          size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_QUBITSNUM:
       return copyValue(metadata.sites.size(), size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONUNIT:
-      return copyString("ps", size, value, sizeRet);
+      return copyString("fs", size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_DURATIONSCALEFACTOR:
       return copyValue(1.0, size, value, sizeRet);
     case QDMI_DEVICE_PROPERTY_SITES: {
@@ -448,7 +469,7 @@ int IBM_QDMI_device_session_create_device_job(IBM_QDMI_Device_Session handle,
                                               IBM_QDMI_Device_Job* result) {
   return boundary([&] {
     require(result != nullptr);
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     const std::scoped_lock sessionLock(session->mutex);
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
     auto allocated = std::make_shared<IBM_QDMI_Device_Job_impl_d>(session);
@@ -465,7 +486,7 @@ int IBM_QDMI_device_session_retrieve_device_job_by_id(
     IBM_QDMI_Device_Job* result) {
   return boundary([&] {
     require(result != nullptr && id != nullptr);
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     std::unique_lock sessionLock(session->mutex);
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
     auto allocated = std::make_shared<IBM_QDMI_Device_Job_impl_d>(session);
@@ -483,7 +504,7 @@ int IBM_QDMI_device_job_set_parameter(IBM_QDMI_Device_Job handle,
                                       QDMI_Device_Job_Parameter parameter,
                                       std::size_t size, const void* value) {
   return boundary([&]() -> int {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     auto& job = owned->job;
     require(validEnum(parameter, QDMI_DEVICE_JOB_PARAMETER_MAX));
@@ -524,7 +545,7 @@ int IBM_QDMI_device_job_set_programs(IBM_QDMI_Device_Job handle,
                                      const std::size_t* sizes,
                                      const void* const* programs) {
   return boundary([&] {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     require(validEnum(format, QDMI_PROGRAM_FORMAT_MAX));
     require(count != 0);
@@ -538,7 +559,13 @@ int IBM_QDMI_device_job_set_programs(IBM_QDMI_Device_Job handle,
     sources.reserve(count);
     for (std::size_t index = 0; index < count; ++index) {
       require(programs[index] != nullptr);
-      sources.push_back(readString(sizes[index], programs[index]));
+      if (format == QDMI_PROGRAM_FORMAT_QPY) {
+        require(sizes[index] != 0);
+        sources.emplace_back(static_cast<const char*>(programs[index]),
+                             sizes[index]);
+      } else {
+        sources.push_back(readString(sizes[index], programs[index]));
+      }
     }
     owned->job.setPrograms(format, std::move(sources));
     return QDMI_SUCCESS;
@@ -548,18 +575,22 @@ int IBM_QDMI_device_job_get_program(IBM_QDMI_Device_Job handle,
                                     std::size_t index, std::size_t size,
                                     void* data, std::size_t* sizeRet) {
   return boundary([&] {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     require(!owned->job.programs.empty(), QDMI_ERROR_BADSTATE);
     require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
-    return copyString(owned->job.programs[index], size, data, sizeRet);
+    const auto& program = owned->job.programs[index];
+    if (owned->job.format == QDMI_PROGRAM_FORMAT_QPY) {
+      return copyBytes(program.data(), program.size(), size, data, sizeRet);
+    }
+    return copyString(program, size, data, sizeRet);
   });
 }
 int IBM_QDMI_device_job_get_program_status(IBM_QDMI_Device_Job handle,
                                            std::size_t index,
                                            QDMI_Job_Status* /*status*/) {
   return boundary([&] {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     require(!owned->job.programs.empty(), QDMI_ERROR_BADSTATE);
     require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
@@ -571,7 +602,7 @@ int IBM_QDMI_device_job_query_property(IBM_QDMI_Device_Job handle,
                                        std::size_t size, void* value,
                                        std::size_t* sizeRet) {
   return boundary([&]() -> int {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     const auto& job = owned->job;
     require(validEnum(property, QDMI_DEVICE_JOB_PROPERTY_MAX));
@@ -594,7 +625,7 @@ int IBM_QDMI_device_job_query_property(IBM_QDMI_Device_Job handle,
 }
 int IBM_QDMI_device_job_submit(IBM_QDMI_Device_Job handle) {
   return boundary([&] {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     owned->job.submit();
     return QDMI_SUCCESS;
@@ -604,7 +635,7 @@ int IBM_QDMI_device_job_check(IBM_QDMI_Device_Job handle,
                               QDMI_Job_Status* status) {
   return boundary([&] {
     require(status != nullptr);
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     *status = owned->job.check();
     return QDMI_SUCCESS;
@@ -612,7 +643,7 @@ int IBM_QDMI_device_job_check(IBM_QDMI_Device_Job handle,
 }
 int IBM_QDMI_device_job_cancel(IBM_QDMI_Device_Job handle) {
   return boundary([&] {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     owned->job.cancel();
     return QDMI_SUCCESS;
@@ -628,7 +659,7 @@ int IBM_QDMI_device_job_wait(IBM_QDMI_Device_Job handle, std::size_t timeout) {
         timeout == 0 || std::cmp_greater_equal(timeout, maximum)
             ? ibm::Deadline::max()
             : started + std::chrono::seconds(timeout);
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     for (;;) {
       std::unique_lock lock(owned->mutex, std::defer_lock);
       require(lock.try_lock_until(deadline), QDMI_ERROR_TIMEOUT);
@@ -650,7 +681,7 @@ int IBM_QDMI_device_job_get_results(IBM_QDMI_Device_Job handle,
                                     std::size_t size, void* value,
                                     std::size_t* sizeRet) {
   return boundary([&]() -> int {
-    auto owned = jobFor(handle);
+    const auto owned = jobFor(handle);
     const std::scoped_lock lock(owned->mutex);
     require(validEnum(result, QDMI_JOB_RESULT_MAX));
     require(index < owned->job.programs.size(), QDMI_ERROR_OUTOFRANGE);
@@ -685,7 +716,7 @@ int IBM_QDMI_device_session_query_site_property(IBM_QDMI_Device_Session handle,
                                                 std::size_t size, void* value,
                                                 std::size_t* sizeRet) {
   return boundary([&]() -> int {
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     const std::scoped_lock lock(session->mutex);
     require(validEnum(property, QDMI_SITE_PROPERTY_MAX));
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
@@ -708,7 +739,7 @@ int IBM_QDMI_device_session_query_operation_property(
     const double* params, QDMI_Operation_Property property, std::size_t size,
     void* value, std::size_t* sizeRet) {
   return boundary([&]() -> int {
-    auto session = sessionFor(handle);
+    const auto session = sessionFor(handle);
     const std::scoped_lock lock(session->mutex);
     require(validEnum(property, QDMI_OPERATION_PROPERTY_MAX));
     require(session->auth != nullptr, QDMI_ERROR_BADSTATE);
@@ -739,6 +770,13 @@ int IBM_QDMI_device_session_query_operation_property(
       return copyOptional(data.arity, size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_PARAMETERSNUM:
       return copyOptional(data.parameters, size, value, sizeRet);
+    case IBM_QDMI_OPERATION_PROPERTY_MQT_PARAMETERS:
+      require(data.name == "rzz" && data.parameters == 1,
+              QDMI_ERROR_NOTSUPPORTED);
+      return copyString(
+          R"({"schema":"mqt.operation-parameters.v1","alternatives":)"
+          R"([{"bounds":[[0,1.5707963267948966]]}]})",
+          size, value, sizeRet);
     case QDMI_OPERATION_PROPERTY_SITES: {
       require(!data.sites.empty(), QDMI_ERROR_NOTSUPPORTED);
       std::vector<IBM_QDMI_Site> supported;

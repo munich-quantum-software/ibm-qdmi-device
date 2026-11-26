@@ -20,24 +20,26 @@
 
 #include "Http.hpp"
 
+#include "ibm-qdmi-device/diagnostics.h"
+#include "ibm_qdmi/constants.h"
+
+#include "cpr/body_view.h"
+#include "cpr/connection_pool.h"
+#include "cpr/cprtypes.h"
+#include "cpr/error.h"
+#include "cpr/payload.h"
+#include "cpr/response.h"
+#include "cpr/session.h"
+#include "curl/curl.h"
+#include "curl/urlapi.h"
+
 #include <algorithm>
 #include <charconv>
 #include <chrono>
-#include <cpr/body.h>
-#include <cpr/connection_pool.h>
-#include <cpr/cprtypes.h>
-#include <cpr/error.h>
-#include <cpr/payload.h>
-#include <cpr/response.h>
-#include <cpr/session.h>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
-#include <curl/curl.h>
-#include <curl/urlapi.h>
 #include <fstream>
-#include <ibm-qdmi-device/diagnostics.h>
-#include <ibm_qdmi/constants.h>
 #include <memory>
 #include <optional>
 #include <span>
@@ -58,7 +60,7 @@
 
 // libcurl exposes a macro in curl.h on some platforms and a function otherwise.
 #ifndef curl_easy_setopt
-#include <curl/easy.h>
+#include "curl/easy.h"
 #endif
 
 namespace ibm {
@@ -112,8 +114,8 @@ internal::parseRetryAfter(const std::string& value) {
       (error == std::errc{} || error == std::errc::result_out_of_range)) {
     if (error == std::errc::result_out_of_range ||
         seconds >
-            static_cast<std::uint64_t>((Milliseconds::max)().count() / 1000)) {
-      return (Milliseconds::max)();
+            static_cast<std::uint64_t>(Milliseconds::max().count() / 1000)) {
+      return Milliseconds::max();
     }
     return Milliseconds{static_cast<Milliseconds::rep>(seconds * 1000)};
   }
@@ -122,29 +124,32 @@ internal::parseRetryAfter(const std::string& value) {
     return std::nullopt;
   }
   const auto secondsUntil =
-      (std::max)(0.0, std::difftime(date, std::time(nullptr)));
+      std::max(0.0, std::difftime(date, std::time(nullptr)));
   const auto maximumSeconds =
-      std::chrono::duration_cast<std::chrono::seconds>((Milliseconds::max)())
+      std::chrono::duration_cast<std::chrono::seconds>(Milliseconds::max())
           .count();
   if (secondsUntil >= static_cast<double>(maximumSeconds)) {
-    return (Milliseconds::max)();
+    return Milliseconds::max();
   }
   return std::chrono::duration_cast<Milliseconds>(
       std::chrono::duration<double>{secondsUntil});
 }
 
 internal::Hooks& internal::hooks() {
-  static Hooks value{.sleepUntil = [](auto deadline) {
-    std::this_thread::sleep_until(deadline);
-  }};
+  static Hooks value{
+      .sleepUntil =
+          [](auto deadline) { std::this_thread::sleep_until(deadline); },
+  };
   return value;
 }
 
-bool validEndpoint(const std::string& url) {
+bool validEndpoint(const std::string& url, bool allowQuery) {
+  constexpr auto flags = CURLU_DISALLOW_USER; // NOLINT(bugprone-signed-bitwise)
+                                              // -- libcurl flag macro
   const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(
       curl_url(), curl_url_cleanup);
   if (!parsed || curl_url_set(parsed.get(), CURLUPART_URL, url.c_str(),
-                              CURLU_DISALLOW_USER) != CURLUE_OK) {
+                              flags) != CURLUE_OK) {
     return false;
   }
   const auto part = [&](CURLUPart field) {
@@ -155,7 +160,7 @@ bool validEndpoint(const std::string& url) {
   };
   const auto scheme = part(CURLUPART_SCHEME);
   const auto host = part(CURLUPART_HOST);
-  return !host.empty() && part(CURLUPART_QUERY).empty() &&
+  return !host.empty() && (allowQuery || part(CURLUPART_QUERY).empty()) &&
          part(CURLUPART_FRAGMENT).empty() &&
          (scheme == "https" ||
           (scheme == "http" &&
@@ -163,11 +168,7 @@ bool validEndpoint(const std::string& url) {
 }
 
 Response send(const Request& request) {
-  // Presigned URLs originate from our validated storage configuration.
-  const auto endpoint = request.presigned
-                            ? request.url.substr(0, request.url.find('?'))
-                            : request.url;
-  if (!validEndpoint(endpoint)) {
+  if (!validEndpoint(request.url, true)) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   cpr::Session client;
@@ -176,18 +177,6 @@ Response send(const Request& request) {
     // Fresh sessions share only this thread's read connections, never cookies.
     thread_local const cpr::ConnectionPool CONNECTIONS;
     client.SetConnectionPool(CONNECTIONS);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_MAXCONNECTS,
-                         4L) != CURLE_OK) {
-      throw Failure{QDMI_ERROR_FATAL};
-    }
-  }
-  // Avoid process-wide signal handler races between concurrent requests.
-  // libcurl exposes this option through its variadic C API and requires a long.
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-  if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_NOSIGNAL, 1L) !=
-      CURLE_OK) {
-    throw Failure{QDMI_ERROR_FATAL};
   }
   client.SetUrl(cpr::Url{request.url});
   client.SetTimeout(cpr::Timeout{request.timeout});
@@ -195,16 +184,14 @@ Response send(const Request& request) {
   client.SetRedirect(cpr::Redirect{false});
   client.SetVerifySsl(cpr::VerifySsl{true});
   if (const auto bundle = internal::resolveCaBundle(); !bundle.empty()) {
-    // Set only CAINFO: CPR's SSL options also enable native-root fallback.
+    // Check CA selection errors, which CPR's SSL setter discards.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     if (curl_easy_setopt(client.GetCurlHolder()->handle, CURLOPT_CAINFO,
                          bundle.c_str()) != CURLE_OK) {
       throw Failure{QDMI_ERROR_FATAL};
     }
   }
-  cpr::Header headers;
-  headers.insert(request.headers.begin(), request.headers.end());
-  client.SetHeader(headers);
+  client.SetHeader(cpr::Header{request.headers.begin(), request.headers.end()});
   cpr::Response response;
   if (request.put) {
     client.SetBody(cpr::Body{request.body});
@@ -212,29 +199,30 @@ Response send(const Request& request) {
   } else if (request.form.empty() && !request.post) {
     response = client.Get();
   } else if (request.form.empty()) {
-    client.SetBody(cpr::Body{request.body});
+    client.SetBodyView(cpr::BodyView{request.body});
     response = client.Post();
   } else {
     cpr::Payload payload{};
     for (const auto& [name, value] : request.form) {
       payload.Add(cpr::Pair{name, value});
     }
-    client.SetPayload(payload);
+    client.SetPayload(std::move(payload));
     response = client.Post();
   }
-  return {.status = static_cast<std::int32_t>(response.status_code),
-          .body = std::move(response.text),
-          .timedOut = response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT,
-          .failed = response.error.code != cpr::ErrorCode::OK,
-          .transient =
-              response.error.code == cpr::ErrorCode::COULDNT_CONNECT ||
-              response.error.code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
-              response.error.code == cpr::ErrorCode::SEND_ERROR ||
-              response.error.code == cpr::ErrorCode::RECV_ERROR ||
-              response.error.code == cpr::ErrorCode::GOT_NOTHING ||
-              response.error.code == cpr::ErrorCode::PARTIAL_FILE,
-          .retryAfter =
-              internal::parseRetryAfter(response.header["Retry-After"])};
+  return {
+      .status = static_cast<std::int32_t>(response.status_code),
+      .body = std::move(response.text),
+      .timedOut = response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT,
+      .failed = response.error.code != cpr::ErrorCode::OK,
+      .transient =
+          response.error.code == cpr::ErrorCode::COULDNT_CONNECT ||
+          response.error.code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
+          response.error.code == cpr::ErrorCode::SEND_ERROR ||
+          response.error.code == cpr::ErrorCode::RECV_ERROR ||
+          response.error.code == cpr::ErrorCode::GOT_NOTHING ||
+          response.error.code == cpr::ErrorCode::PARTIAL_FILE,
+      .retryAfter = internal::parseRetryAfter(response.header["Retry-After"]),
+  };
 }
 
 void checkResponse(const Response& response) {

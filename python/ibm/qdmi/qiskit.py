@@ -19,34 +19,37 @@
 
 from __future__ import annotations
 
-import math
+import json
 from typing import TYPE_CHECKING, Any
 
 try:
+    from mqt.core.mlir import CompiledProgram
     from mqt.core.plugins.qiskit.backend import QDMIBackend
-    from mqt.core.plugins.qiskit.exceptions import CircuitValidationError, UnsupportedOperationError
-    from mqt.core.qdmi import Device, ProgramFormat
+    from mqt.core.plugins.qiskit.exceptions import CircuitValidationError
     from mqt.core.qdmi.builtin_driver import open_device
 except ImportError as error:
     msg = "Install 'ibm-qdmi[qiskit]' to use IBMBackend."
     raise ImportError(msg) from error
 
-from qiskit.circuit import Barrier, ControlFlowOp, QuantumCircuit
+from mqt.core.qdmi import CustomProperty
+from qiskit.circuit import QuantumCircuit
 
 from . import IBM_QDMI_DEVICE_ID
-from ._catalogue import session_parameters
-from .serializers import qiskit_to_qasm3
+from ._session import session_parameters
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, MutableSet, Sequence
+    from collections.abc import Iterable, Sequence
 
     from mqt.core.plugins.qiskit.backend import ParametersType
     from mqt.core.plugins.qiskit.job import QDMIJob
     from mqt.core.plugins.qiskit.provider import QDMIProvider
+    from mqt.core.qdmi import Device
     from qiskit.transpiler import Target
+    from qiskit_ibm_runtime.options_models.estimator import EstimatorOptions
     from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
+    from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
 
-    from .executor import Executor
+    from .executor import Executor, ExecutorEstimator, ExecutorSampler
 
 __all__ = ["IBMBackend"]
 
@@ -86,126 +89,73 @@ class IBMBackend(QDMIBackend):
         Raises:
             ValueError: An open device conflicts with connection overrides.
         """
-        overrides = (backend_name, api_key, instance_crn, base_url, auth_url, access_mode, storage_config)
-        if device is not None:
-            if any(value is not None for value in overrides):
-                msg = "An already-open device is exclusive with connection overrides."
-                raise ValueError(msg)
-            super().__init__(device=device, provider=provider, device_id=device_id)
-            return
-
-        resolved_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
-        device = open_device(
-            resolved_id,
-            **session_parameters(
-                backend_name=backend_name,
-                api_key=api_key,
-                instance_crn=instance_crn,
-                base_url=base_url,
-                auth_url=auth_url,
-                access_mode=access_mode,
-                storage_config=storage_config,
-            ),
-        )
-        super().__init__(device=device, provider=provider, device_id=resolved_id)
-
-    def _add_operation_to_target(self, target: Target, op: Device.Operation, seen_gate_names: MutableSet[str]) -> None:
-        """Keep unsupported or incomplete operation signatures out of the target."""
-        gate = self._map_operation_to_gate(op.name())
-        arity = op.qubits_num()
-        if gate is None or isinstance(gate, type) or arity not in {1, 2}:
-            return
-        if (arity == 1 and not op.sites()) or (arity == 2 and not op.site_pairs()):
-            return
-        if gate.num_qubits != arity or len(gate.params) != op.parameters_num():
-            return
-        super()._add_operation_to_target(target, op, seen_gate_names)
+        if device is None:
+            device_id = IBM_QDMI_DEVICE_ID if device_id is None else device_id
+            device = open_device(
+                device_id,
+                **session_parameters(
+                    device_id=device_id,
+                    backend_name=backend_name,
+                    api_key=api_key,
+                    instance_crn=instance_crn,
+                    base_url=base_url,
+                    auth_url=auth_url,
+                    access_mode=access_mode,
+                    storage_config=storage_config,
+                ),
+            )
+        elif any(
+            value is not None
+            for value in (backend_name, api_key, instance_crn, base_url, auth_url, access_mode, storage_config)
+        ):
+            msg = "An already-open device is exclusive with connection overrides."
+            raise ValueError(msg)
+        super().__init__(device=device, provider=provider, device_id=device_id)
 
     def _build_target(self) -> Target:
-        """Build the metadata target and add the barrier directive.
+        """Add IBM timing to the target built from the shared device snapshot.
 
         Returns:
-            The device target, with durations in seconds.
+            The target with the available IBM timing information.
         """
         target = super()._build_target()
-        target.add_instruction(Barrier, name="barrier")
+        raw = self.device.query_custom_property(CustomProperty.CUSTOM4, str)
+        if raw is None:
+            return target
+        try:
+            timing = json.loads(raw)
+        except ValueError:
+            return target
+        if not isinstance(timing, dict) or timing.get("schema") != "ibm.timing.v1":
+            return target
+        dt = timing.get("dt")
+        if not isinstance(dt, float) or not 0 < dt < float("inf"):
+            return target
+        keys = ("granularity", "min_length", "pulse_alignment", "acquire_alignment")
+        constraints = [timing.get(key, getattr(target, key)) for key in keys]
+        if not all(
+            isinstance(value, int) and not isinstance(value, bool) and 0 < value < 2**32 for value in constraints
+        ):
+            return target
+        target.dt = dt
+        target.granularity, target.min_length, target.pulse_alignment, target.acquire_alignment = constraints
         return target
 
-    def _preprocess_circuit(self, circuit: QuantumCircuit) -> QuantumCircuit:
-        """Fold bound RZZ angles and validate all instructions before submission.
+    @staticmethod
+    def _preprocess_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
+        """Require the measurements used to produce Sampler results.
 
         Returns:
-            An equivalent circuit up to global phase, preserving bit indices.
-        """
-        self._validate_ibm_circuit(circuit)
-        if all(
-            item.operation.name != "rzz" or 0 <= float(item.operation.params[0]) <= math.pi / 2 for item in circuit.data
-        ):
-            return circuit
-        folded = circuit.copy_empty_like()
-        for instruction in circuit.data:
-            if instruction.operation.name != "rzz":
-                folded.append(instruction)
-                continue
-            angle = math.remainder(float(instruction.operation.params[0]), 2 * math.pi)
-            wires = instruction.qubits
-            if abs(angle) > math.pi / 2:
-                # A pi shift contributes Z on each wire, up to global phase.
-                angle -= math.copysign(math.pi, angle)
-                folded.rz(math.pi, wires[0])
-                folded.rz(math.pi, wires[1])
-            if angle < 0:
-                folded.x(wires[0])
-            if angle != 0:
-                folded.rzz(abs(angle), *wires)
-            if angle < 0:
-                folded.x(wires[0])
-        self._validate_ibm_circuit(folded)
-        return folded
-
-    def _validate_ibm_circuit(self, circuit: QuantumCircuit) -> None:
-        """Validate original instructions and any corrections against the target.
+            The unchanged circuit.
 
         Raises:
             mqt.core.plugins.qiskit.exceptions.CircuitValidationError:
-                Measurements or finite parameters are missing.
-            UnsupportedOperationError: An instruction or site tuple is unsupported.
+                The circuit has no measurement.
         """
-        if circuit.num_qubits > self.num_qubits or not circuit.num_clbits:
-            msg = "A circuit must fit the physical device and contain classical measurements."
-            raise CircuitValidationError(msg)
-        measured = False
-        for instruction in circuit.data:
-            operation = instruction.operation
-            qargs = tuple(circuit.find_bit(bit).index for bit in instruction.qubits)
-            # Qiskit 2.1 ignores placement when parameters are supplied.
-            if (
-                isinstance(operation, ControlFlowOp)
-                or not self.target.instruction_supported(operation_name=operation.name, qargs=qargs)
-                or not self.target.instruction_supported(
-                    operation_name=operation.name, qargs=qargs, parameters=operation.params
-                )
-            ):
-                msg = "An instruction or physical site tuple is unsupported; transpile against this backend."
-                raise UnsupportedOperationError(msg)
-            if any(not math.isfinite(float(value)) for value in operation.params):
-                msg = "Gate parameters must be finite real numbers."
-                raise CircuitValidationError(msg)
-            measured |= operation.name == "measure"
-        if not measured:
+        if not any(instruction.operation.name == "measure" for instruction in circuit.data):
             msg = "At least one measurement is required."
             raise CircuitValidationError(msg)
-
-    def _serialize_circuit(
-        self, circuit: QuantumCircuit, supported_program_formats: Iterable[ProgramFormat]
-    ) -> tuple[str, ProgramFormat]:
-        """Serialize with a full physical register and the original classical order.
-
-        Returns:
-            IBM-compatible OpenQASM 3 and its QDMI format.
-        """
-        assert ProgramFormat.QASM3 in supported_program_formats
-        return qiskit_to_qasm3(circuit, self.num_qubits), ProgramFormat.QASM3
+        return circuit
 
     def executor(self, *, options: ExecutorOptions | None = None) -> Executor:
         """Create the optional Executor primitive using this QDMI session.
@@ -213,13 +163,33 @@ class IBMBackend(QDMIBackend):
         Returns:
             An Executor requiring the ``ibm-qdmi[executor]`` extra.
         """
-        from .executor import Executor  # ruff: ignore[import-outside-top-level]
+        from ibm.qdmi.executor import Executor
 
         return Executor(self, options=options)
 
+    def executor_sampler(self, *, options: SamplerOptions | dict[str, object] | None = None) -> ExecutorSampler:
+        """Create the IBM Runtime Sampler using this QDMI session.
+
+        Returns:
+            An Executor-backed Sampler requiring the ``ibm-qdmi[executor]`` extra.
+        """
+        from ibm.qdmi.executor import ExecutorSampler
+
+        return ExecutorSampler(self, options=options)
+
+    def executor_estimator(self, *, options: EstimatorOptions | dict[str, object] | None = None) -> ExecutorEstimator:
+        """Create the IBM Runtime Estimator using this QDMI session.
+
+        Returns:
+            An Executor-backed Estimator requiring the ``ibm-qdmi[executor]`` extra.
+        """
+        from ibm.qdmi.executor import ExecutorEstimator
+
+        return ExecutorEstimator(self, options=options)
+
     def run(
         self,
-        run_input: QuantumCircuit | Sequence[QuantumCircuit],
+        run_input: QuantumCircuit | CompiledProgram | Iterable[QuantumCircuit | CompiledProgram],
         parameter_values: Sequence[ParametersType] | None = None,
         **options: Any,  # ruff: ignore[any-type]
     ) -> QDMIJob:
@@ -235,4 +205,9 @@ class IBMBackend(QDMIBackend):
         if options.get("shots", self.options.shots) == 0:
             msg = "shots must be positive."
             raise CircuitValidationError(msg)
-        return super().run(run_input, parameter_values, **options)
+        programs = [run_input] if isinstance(run_input, (QuantumCircuit, CompiledProgram)) else list(run_input)
+        # IBM Sampler requires classical output storage.
+        if any(isinstance(program, CompiledProgram) and program.result_width == 0 for program in programs):
+            msg = "At least one measured output is required."
+            raise CircuitValidationError(msg)
+        return super().run(programs, parameter_values, **options)

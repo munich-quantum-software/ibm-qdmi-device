@@ -29,12 +29,10 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(QDMI_MINIMUM_VERSION
       1.4.0
       CACHE STRING "Minimum QDMI version")
-  set(QDMI_VERSION
-      1.4.0
-      CACHE STRING "QDMI version")
+  # Use QDMI develop for the exported CMake target version.
   set(QDMI_REV
-      "6db03d83ad602aaa9fe928b5c3fc5cce84b10061"
-      CACHE STRING "QDMI revision (v1.4.0)")
+      "d336c4ca6e972201f49b834da7d57dcb550f59f7"
+      CACHE STRING "QDMI identifier (tag, branch or commit hash)")
   set(QDMI_REPO_OWNER
       "Munich-Quantum-Software-Stack"
       CACHE STRING "QDMI repository owner")
@@ -44,37 +42,98 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   FetchContent_Declare(
     qdmi
     GIT_REPOSITORY https://github.com/${QDMI_REPO_OWNER}/qdmi.git
-    GIT_TAG ${QDMI_REV}
-    FIND_PACKAGE_ARGS ${QDMI_MINIMUM_VERSION})
+    GIT_TAG ${QDMI_REV})
   FetchContent_MakeAvailable(qdmi)
 
+  # renovate: datasource=github-releases depName=nlohmann/json
+  set(JSON_TAG v3.12.0)
+  string(REGEX REPLACE "^v" "" JSON_VERSION "${JSON_TAG}")
   FetchContent_Declare(
-    nlohmann_json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
-                      FIND_PACKAGE_ARGS 3.12.0)
+    nlohmann_json URL https://github.com/nlohmann/json/releases/download/${JSON_TAG}/json.tar.xz
+                      FIND_PACKAGE_ARGS ${JSON_VERSION})
   set(JSON_SystemInclude
       ON
       CACHE INTERNAL "Treat JSON headers as system headers")
   set(CPR_BUILD_TESTS
       OFF
       CACHE BOOL "Disable CPR tests" FORCE)
-  set(CPR_CURL_USE_LIBPSL
-      OFF
-      CACHE BOOL "Disable libpsl" FORCE)
-  set(CPR_USE_SYSTEM_CURL
-      OFF
-      CACHE BOOL "Use system curl for CPR")
-  set(BUILD_STATIC_CURL
-      ON
-      CACHE BOOL "Build static curl" FORCE)
-  set(BUILD_SHARED_LIBS
-      OFF
-      CACHE BOOL "Build static dependencies" FORCE)
+  if(APPLE)
+    if(NOT TARGET CURL::libcurl)
+      # Prefer the SDK curl over an optional Homebrew installation.
+      set(_curl_sdk "${CMAKE_OSX_SYSROOT}")
+      if(NOT _curl_sdk)
+        set(_curl_sdk macosx)
+      endif()
+      if(NOT IS_DIRECTORY "${_curl_sdk}")
+        execute_process(
+          COMMAND xcrun --sdk "${_curl_sdk}" --show-sdk-path
+          OUTPUT_VARIABLE _curl_sdk
+          OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+      endif()
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(
+        CURL::libcurl PROPERTIES IMPORTED_LOCATION "${_curl_sdk}/usr/lib/libcurl.tbd"
+                                 INTERFACE_INCLUDE_DIRECTORIES "${_curl_sdk}/usr/include")
+    endif()
+  else()
+    if(UNIX)
+      find_package(OpenSSL 3 REQUIRED)
+    endif()
+    set(BUILD_CURL_EXE OFF)
+    set(CURL_DISABLE_INSTALL ON)
+    foreach(
+      PROTOCOL
+      DICT
+      FILE
+      FTP
+      GOPHER
+      IMAP
+      IPFS
+      LDAP
+      LDAPS
+      MQTT
+      POP3
+      RTSP
+      SMTP
+      TELNET
+      TFTP
+      WEBSOCKETS)
+      set(CURL_DISABLE_${PROTOCOL} ON)
+    endforeach()
+    set(CURL_USE_OPENSSL ${UNIX})
+    set(CURL_USE_SCHANNEL ${WIN32})
+    set(CURL_USE_LIBSSH2 OFF)
+    set(USE_LIBIDN2 OFF)
+    set(CURL_USE_LIBPSL OFF)
+    set(CURL_ZLIB OFF)
+    FetchContent_Declare(
+      curl
+      URL https://github.com/curl/curl/releases/download/curl-8_23_0/curl-8.23.0.tar.xz
+      URL_HASH SHA256=8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5)
+  endif()
+  set(CPR_ENABLE_INSTALL OFF)
+  set(CPR_USE_EXISTING_CURL_TARGET ON)
+  set(CPR_FORCE_OPENSSL_BACKEND OFF)
+  set(CPR_CURL_NOSIGNAL ON)
+  set(BUILD_SHARED_LIBS OFF)
+  set(ZLIB_COMPAT OFF)
+  set(BUILD_TESTING OFF)
+  FetchContent_Declare(
+    zlib
+    URL https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz
+    URL_HASH SHA256=f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1)
+  # renovate: datasource=github-tags depName=libcpr/cpr
+  set(CPR_REV "3139b2682f0b1d6af8c7ae48cf400f9d9988deec" # tag=1.15.1
+  )
   FetchContent_Declare(
     cpr
     GIT_REPOSITORY https://github.com/libcpr/cpr.git
-    GIT_TAG 1.14.2
-    FIND_PACKAGE_ARGS 1.14.2)
-  FetchContent_MakeAvailable(nlohmann_json cpr)
+    GIT_TAG ${CPR_REV})
+  if(APPLE)
+    FetchContent_MakeAvailable(nlohmann_json zlib cpr)
+  else()
+    FetchContent_MakeAvailable(nlohmann_json zlib curl cpr)
+  endif()
   # Build only S3; the device uses its signer and retains its own HTTP transport.
   set(BUILD_ONLY
       "s3"
@@ -118,45 +177,18 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   endif()
   # Ship only the device's install components, not the private SDK's headers.
   set_property(DIRECTORY "${aws_sdk_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL YES)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
-     AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
-     AND TARGET cpr)
-    get_target_property(IBM_QDMI_CPR_IMPORTED cpr IMPORTED)
-    if(NOT IBM_QDMI_CPR_IMPORTED)
-      # CPR 1.14.2 treats clang-cl as Unix Clang, combining /Wall with -Werror. Keep its diagnostics
-      # visible without failing the dependency build.
-      target_compile_options(cpr PRIVATE -Wno-error)
-    endif()
-  endif()
 endif()
 
 if(BUILD_IBM_QDMI_TESTS)
-  set(gtest_force_shared_crt
-      ON
-      CACHE BOOL "Use the shared runtime" FORCE)
-  set(INSTALL_GTEST
-      OFF
-      CACHE BOOL "Do not install GoogleTest" FORCE)
   set(GTEST_VERSION
-      1.17.0
-      CACHE STRING "GoogleTest version")
+      1.18.0
+      CACHE STRING "Minimum installed GoogleTest version")
+  # renovate: datasource=github-tags depName=google/googletest
+  set(GTEST_REV
+      "063de7e9578f82b369302001269680b4b1553359" # tag=v1.18.0
+      CACHE STRING "GoogleTest source revision")
   FetchContent_Declare(
-    googletest URL https://github.com/google/googletest/archive/refs/tags/v${GTEST_VERSION}.tar.gz
-                   FIND_PACKAGE_ARGS ${GTEST_VERSION} NAMES GTest)
+    googletest URL https://github.com/google/googletest/archive/${GTEST_REV}.tar.gz
+                   EXCLUDE_FROM_ALL FIND_PACKAGE_ARGS ${GTEST_VERSION} NAMES GTest)
   FetchContent_MakeAvailable(googletest)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
-     AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"
-     AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 22)
-    # GoogleTest 1.17.0 uses /WX; Clang 22 diagnoses its char8_t printer. Apply this only to built
-    # dependency targets, including GoogleMock's copies of gtest-all.cc, without changing warnings
-    # for consumers.
-    foreach(IBM_QDMI_GTEST_TARGET IN ITEMS gtest gtest_main gmock gmock_main)
-      if(TARGET ${IBM_QDMI_GTEST_TARGET})
-        get_target_property(IBM_QDMI_GTEST_IMPORTED ${IBM_QDMI_GTEST_TARGET} IMPORTED)
-        if(NOT IBM_QDMI_GTEST_IMPORTED)
-          target_compile_options(${IBM_QDMI_GTEST_TARGET} PRIVATE -Wno-error=character-conversion)
-        endif()
-      endif()
-    endforeach()
-  endif()
 endif()

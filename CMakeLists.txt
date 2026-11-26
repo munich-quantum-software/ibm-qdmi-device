@@ -15,10 +15,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 3.24...4.4)
+cmake_minimum_required(VERSION 3.28...4.5)
 project(
   ibm-qdmi-device
-  VERSION 1.0.0
+  VERSION 1.1.1
   LANGUAGES C CXX
   DESCRIPTION "IBM QDMI Device")
 
@@ -43,7 +43,7 @@ set(QDMI_TARGET_NAME ibm-qdmi-device)
 option(BUILD_IBM_QDMI_TESTS "Build offline native tests" ${PROJECT_IS_TOP_LEVEL})
 option(USE_INSTALLED_IBM_QDMI_DEVICE "Build tests against an installed package" OFF)
 option(IBM_QDMI_ENABLE_COVERAGE "Enable native coverage reporting" OFF)
-option(BUILD_IBM_QDMI_DOCS "Configure the native API documentation" OFF)
+option(BUILD_IBM_QDMI_DOCS "Build API documentation" OFF)
 
 if(BUILD_IBM_QDMI_DOCS AND USE_INSTALLED_IBM_QDMI_DEVICE)
   message(FATAL_ERROR "Documentation requires a source build")
@@ -57,13 +57,16 @@ if(USE_INSTALLED_IBM_QDMI_DEVICE)
   find_package(ibm-qdmi-device ${PROJECT_VERSION} REQUIRED CONFIG)
 else()
   get_target_property(IBM_QDMI_QDMI_VERSION qdmi::qdmi VERSION)
-  if(NOT IBM_QDMI_QDMI_VERSION)
-    set(IBM_QDMI_QDMI_VERSION "${qdmi_VERSION}")
-  endif()
-  if(NOT IBM_QDMI_QDMI_VERSION)
-    message(FATAL_ERROR "Cannot determine the QDMI library version")
+  if(NOT IBM_QDMI_QDMI_VERSION OR IBM_QDMI_QDMI_VERSION VERSION_LESS QDMI_MINIMUM_VERSION)
+    message(
+      FATAL_ERROR
+        "QDMI ${QDMI_MINIMUM_VERSION} or newer is required. Found ${IBM_QDMI_QDMI_VERSION}.")
   endif()
   add_subdirectory(src)
+endif()
+
+if(BUILD_IBM_QDMI_DOCS)
+  add_subdirectory(docs)
 endif()
 
 if(BUILD_IBM_QDMI_TESTS)

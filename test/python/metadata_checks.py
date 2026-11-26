@@ -112,7 +112,7 @@ def handles(query: Query, category: str, *, optional: bool = False) -> list[int]
 
 
 def duration(query: Query) -> None:
-    """Check an optional unsigned picosecond value."""
+    """Check an optional unsigned femtosecond value."""
     raw = read(query, "duration", optional=True)
     if raw is not None:
         require(len(raw) == ctypes.sizeof(ctypes.c_uint64), "duration type")
@@ -129,7 +129,7 @@ def validate_snapshot(api: Native, session: ctypes.c_void_p, backend: str, expec
     require(text(partial(device, 0), "backend name") == backend, "backend identity")
     require(number(partial(device, 4), "qubit count") == expected_qubits, "qubit count")
     require(text(partial(device, 3), "QDMI version") == "1.4.0", "QDMI version")
-    require(text(partial(device, 12), "duration unit") == "ps", "duration unit")
+    require(text(partial(device, 12), "duration unit") == "fs", "duration unit")
     scale = read(partial(device, 13), "duration scale")
     if scale is None:
         msg = "duration scale"

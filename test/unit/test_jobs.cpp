@@ -17,25 +17,26 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/constants.h"
+
 #include "Auth.hpp"
 #include "Http.hpp"
 #include "Job.hpp"
 #include "Storage.hpp"
 
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
+
 #include <chrono>
 #include <cstddef>
-#include <gtest/gtest.h>
-#include <ibm-qdmi-device/constants.h>
-#include <ibm_qdmi/constants.h>
 #include <limits>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace {
-const std::string PROGRAM =
+constexpr auto* PROGRAM =
     "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; "
     "bit[2] z; bit a; x q[1]; z[0] = measure q[1]; a = measure q[0];";
 template <class Function> void fails(Function&& function, int expected) {
@@ -48,12 +49,33 @@ template <class Function> void fails(Function&& function, int expected) {
 }
 nlohmann::json results() {
   return {
-      {"results",
-       nlohmann::json::array(
-           {{{"data",
-              {{"a", {{"samples", {"0x1", "0x0", "0x1"}}, {"num_bits", 1}}},
-               {"z",
-                {{"samples", {"0x1", "0x0", "0x1"}}, {"num_bits", 2}}}}}}})}};
+      {
+          "results",
+          nlohmann::json::array({
+              {
+                  {
+                      "data",
+                      {
+                          {
+                              "a",
+                              {
+                                  {"samples", {"0x1", "0x0", "0x1"}},
+                                  {"num_bits", 1},
+                              },
+                          },
+                          {
+                              "z",
+                              {
+                                  {"samples", {"0x1", "0x0", "0x1"}},
+                                  {"num_bits", 2},
+                              },
+                          },
+                      },
+                  },
+              },
+          }),
+      },
+  };
 }
 struct Service {
   std::vector<std::string> requests;
@@ -66,35 +88,46 @@ struct Service {
   ibm::Response operator()(const ibm::Request& request) {
     requests.push_back(request.url);
     if (!request.form.empty()) {
-      return {.status = 200,
-              .body = R"({"access_token":"synthetic","expires_in":3600})"};
+      return {
+          .status = 200,
+          .body = R"({"access_token":"synthetic","expires_in":3600})",
+      };
     }
     if (request.url.ends_with("/cancel")) {
       return {.status = cancellationStatus, .body = ""};
     }
     if (request.post) {
       submitted = nlohmann::json::parse(request.body);
-      return {.status = submissionStatus,
-              .body = R"({"id":"synthetic-job","backend":"ibm_test"})",
-              .timedOut = loseSubmission};
+      return {
+          .status = submissionStatus,
+          .body = R"({"id":"synthetic-job","backend":"ibm_test"})",
+          .timedOut = loseSubmission,
+      };
     }
     if (request.url.ends_with("/results")) {
       return {.status = 200, .body = output.dump()};
     }
-    return {.status = 200,
-            .body = nlohmann::json{{"id", "synthetic-job"},
-                                   {"backend", "ibm_test"},
-                                   {"state", {{"status", status}}},
-                                   {"program", {{"id", "sampler"}}},
-                                   {"params", submitted.at("params")}}
-                        .dump()};
+    return {
+        .status = 200,
+        .body =
+            nlohmann::json{
+                {"id", "synthetic-job"},
+                {"backend", "ibm_test"},
+                {"state", {{"status", status}}},
+                {"program", {{"id", "sampler"}}},
+                {"params", submitted.at("params")},
+            }
+                .dump(),
+    };
   }
 };
 ibm::Configuration configuration() {
-  return {.apiKey = "synthetic-key",
-          .backend = "ibm_test",
-          .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
-          .baseUrl = "http://127.0.0.1:1"};
+  return {
+      .apiKey = "synthetic-key",
+      .backend = "ibm_test",
+      .crn = "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
+      .baseUrl = "http://127.0.0.1:1",
+  };
 }
 void configure(ibm::Job& job) {
   job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM});
@@ -104,7 +137,7 @@ void configure(ibm::Job& job) {
 
 TEST(Results, PreservesShotsAndClassicalBitOrder) {
   const auto decoded = ibm::decodeResults(results()["results"][0],
-                                          ibm::outputRegisters(PROGRAM, 2), 3);
+                                          ibm::outputRegisters(PROGRAM), 3);
   EXPECT_EQ(decoded.shots, "101,000,101");
   EXPECT_EQ(decoded.keys, "000,101");
   EXPECT_EQ(decoded.counts, (std::vector<std::size_t>{1, 2}));
@@ -158,6 +191,8 @@ TEST(QuantumSystem, StorageSubmissionRetrievalAndCredentialIsolation) {
   });
   ibm::Job job(auth, "ibm_test", 2);
   fails([&] { job.checkProgramSupport(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, 1); },
+        QDMI_ERROR_NOTSUPPORTED);
+  fails([&] { job.checkProgramSupport(QDMI_PROGRAM_FORMAT_QPY, 1); },
         QDMI_ERROR_NOTSUPPORTED);
   configure(job);
   job.submit();
@@ -221,6 +256,21 @@ TEST(QuantumSystem, SignsClientAndServiceEndpointsWithoutLeakingSecrets) {
               "http://127.0.0.1:9000/storage/synthetic/input_id.json?"));
   EXPECT_NE(ibm::storageUrl(config, "input_id.json", false, false),
             ibm::storageUrl(config, "input_id.json", true, false));
+}
+
+TEST(QuantumSystem, ExpiredStorageDeadlineSkipsSigning) {
+  auto config = configuration();
+  config.storage.emplace();
+  ibm::Auth auth(config, [](const ibm::Request&) {
+    ADD_FAILURE() << "Expired storage request reached transport";
+    return ibm::Response{};
+  });
+  fails(
+      [&] {
+        (void)auth.storageGet("input_id.json",
+                              std::chrono::steady_clock::time_point::min());
+      },
+      QDMI_ERROR_TIMEOUT);
 }
 
 TEST(QuantumSystem, StorageFailurePreventsSubmission) {
@@ -340,6 +390,27 @@ TEST(QuantumSystem, LostSubmissionCannotBeRetried) {
   fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
   EXPECT_EQ(submissions, 1);
 }
+
+TEST(Job, RejectsExcessiveRetrievedExecutionsBeforeDecodingQpy) {
+  Service service;
+  ibm::Auth auth(configuration(),
+                 [&](const auto& request) { return service(request); });
+  const nlohmann::json circuit = {
+      {"__type__", "QuantumCircuit"},
+      {"__value__", "invalid!"},
+  };
+  const auto pub = nlohmann::json::array({circuit, nullptr, 6'000'000});
+  service.submitted = {
+      {
+          "params",
+          {{"version", 2}, {"support_qiskit", false}, {"pubs", {pub, pub}}},
+      },
+  };
+  ibm::Job job(auth, "ibm_test", 2);
+  fails([&] { job.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
+  EXPECT_TRUE(job.programs.empty());
+  EXPECT_TRUE(job.id.empty());
+}
 TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   for (const auto* sample : {"0x4", "0xg", "0x", "10", "-1"}) {
     auto data = results();
@@ -347,7 +418,7 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
     fails(
         [&] {
           (void)ibm::decodeResults(data["results"][0],
-                                   ibm::outputRegisters(PROGRAM, 2), 3);
+                                   ibm::outputRegisters(PROGRAM), 3);
         },
         QDMI_ERROR_FATAL);
   }
@@ -356,13 +427,13 @@ TEST(Results, RejectsWrongWidthsCountsAndSamples) {
   fails(
       [&] {
         (void)ibm::decodeResults(data["results"][0],
-                                 ibm::outputRegisters(PROGRAM, 2), 3);
+                                 ibm::outputRegisters(PROGRAM), 3);
       },
       QDMI_ERROR_FATAL);
   fails(
       [&] {
         (void)ibm::decodeResults(results()["results"][0],
-                                 ibm::outputRegisters(PROGRAM, 2), 4);
+                                 ibm::outputRegisters(PROGRAM), 4);
       },
       QDMI_ERROR_FATAL);
 }
@@ -426,7 +497,7 @@ TEST(Job, SubmitsOnceCachesResultsAndRetrieves) {
   EXPECT_EQ(service.requests.size(), requestCount);
   ibm::Job retrieved(auth, "ibm_test", 2);
   retrieved.retrieve(job.id);
-  EXPECT_EQ(retrieved.programs, job.programs);
+  EXPECT_EQ(retrieved.programs, (std::vector<std::string>{PROGRAM}));
   EXPECT_EQ(retrieved.shots, job.shots);
   EXPECT_FALSE(retrieved.configurable());
   EXPECT_EQ(retrieved.results(0).shots, job.results(0).shots);
@@ -440,11 +511,13 @@ TEST(Job, ConfiguresDynamicalDecouplingWithoutChangingExecutionLimits) {
     ibm::Job job(auth, "ibm_test", 2);
     configure(job);
     job.maxExecutionTime = 42;
-    const nlohmann::json options{{"enable", true},
-                                 {"sequence_type", sequence},
-                                 {"extra_slack_distribution", "edges"},
-                                 {"scheduling_method", "asap"},
-                                 {"skip_reset_qubits", true}};
+    const nlohmann::json options{
+        {"enable", true},
+        {"sequence_type", sequence},
+        {"extra_slack_distribution", "edges"},
+        {"scheduling_method", "asap"},
+        {"skip_reset_qubits", true},
+    };
     job.setDynamicalDecoupling(options.dump());
     EXPECT_TRUE(service.requests.empty());
     job.submit();
@@ -467,13 +540,26 @@ TEST(Job, ValidatesAndReplacesDynamicalDecouplingAtomically) {
   job.setDynamicalDecoupling(
       R"({"enable":true,"sequence_type":"XY4","skip_reset_qubits":true})");
   job.setDynamicalDecoupling(R"({"enable":true})");
-  for (const auto* invalid :
-       {"", "{", "[]", "null", "true", "42", R"("XX")", R"({"unknown":true})",
-        R"({"enable":1})", R"({"enable":"true"})",
-        R"({"skip_reset_qubits":null})", R"({"sequence_type":"xx"})",
-        R"({"sequence_type":true})", R"({"extra_slack_distribution":"center"})",
-        R"({"extra_slack_distribution":[]})", R"({"scheduling_method":"ALAP"})",
-        R"({"scheduling_method":0})", R"({"enable":false,"invalid":true})"}) {
+  for (const auto* invalid : {
+           "",
+           "{",
+           "[]",
+           "null",
+           "true",
+           "42",
+           R"("XX")",
+           R"({"unknown":true})",
+           R"({"enable":1})",
+           R"({"enable":"true"})",
+           R"({"skip_reset_qubits":null})",
+           R"({"sequence_type":"xx"})",
+           R"({"sequence_type":true})",
+           R"({"extra_slack_distribution":"center"})",
+           R"({"extra_slack_distribution":[]})",
+           R"({"scheduling_method":"ALAP"})",
+           R"({"scheduling_method":0})",
+           R"({"enable":false,"invalid":true})",
+       }) {
     fails([&] { job.setDynamicalDecoupling(invalid); },
           QDMI_ERROR_INVALIDARGUMENT);
   }
@@ -543,7 +629,8 @@ TEST(Auth, DeadlineIncludesRefreshAndBackendRequest) {
             .status = 200,
             .body = request.form.empty()
                         ? "{}"
-                        : R"({"access_token":"synthetic","expires_in":3600})"};
+                        : R"({"access_token":"synthetic","expires_in":3600})",
+        };
       },
       [&] { return now; });
   (void)auth.get("/v1/jobs/synthetic", deadline);
@@ -561,8 +648,8 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   ibm::Auth auth(configuration(),
                  [&](const auto& request) { return service(request); });
   ibm::Job job(auth, "ibm_test", 2);
-  const std::string second =
-      "OPENQASM 3.0; qubit[2] q; bit b; b = measure q[0];";
+  const std::string second = "OPENQASM 3.0; gate x a { U(0,0,0) a; } "
+                             "qubit[2] q; bit b; x q[0]; b = measure q[0];";
   job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM, second});
   fails(
       [&] { job.setPrograms(QDMI_PROGRAM_FORMAT_QASM3, {PROGRAM, "invalid"}); },
@@ -570,6 +657,7 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   EXPECT_EQ(job.programs, (std::vector<std::string>{PROGRAM, second}));
   job.shots = 3;
   job.submit();
+  EXPECT_EQ(job.programs, (std::vector<std::string>{PROGRAM, second}));
   EXPECT_EQ(
       service.submitted["params"]["pubs"],
       nlohmann::json::array({nlohmann::json::array({PROGRAM, nullptr, 3}),
@@ -584,7 +672,7 @@ TEST(Job, MultipleProgramsAreAtomicOrderedAndRetrieved) {
   EXPECT_EQ(service.requests.size(), requests);
   ibm::Job restored(auth, "ibm_test", 2);
   restored.retrieve(job.id);
-  EXPECT_EQ(restored.programs, job.programs);
+  EXPECT_EQ(restored.programs, (std::vector<std::string>{PROGRAM, second}));
   EXPECT_EQ(restored.shots, 3);
   EXPECT_EQ(restored.results(1).shots, "0,1,0");
 }
@@ -599,7 +687,7 @@ TEST(Job, BatchResultsRejectWrongCardinality) {
   service.status = "Completed";
   fails([&] { (void)job.results(0); }, QDMI_ERROR_FATAL);
 }
-TEST(Job, RetrievalRejectsDifferentShotsInBatch) {
+TEST(Job, RetrievalRejectsInconsistentBatch) {
   Service service;
   ibm::Auth auth(configuration(),
                  [&](const auto& request) { return service(request); });
@@ -609,6 +697,9 @@ TEST(Job, RetrievalRejectsDifferentShotsInBatch) {
   service.submitted["params"]["pubs"].push_back(
       nlohmann::json::array({PROGRAM, nullptr, 4}));
   ibm::Job restored(auth, "ibm_test", 2);
+  fails([&] { restored.retrieve(job.id); }, QDMI_ERROR_NOTSUPPORTED);
+  service.submitted["params"]["pubs"][1] = nlohmann::json::array(
+      {{{"__type__", "QuantumCircuit"}, {"__value__", ""}}, nullptr, 3});
   fails([&] { restored.retrieve(job.id); }, QDMI_ERROR_NOTSUPPORTED);
 }
 

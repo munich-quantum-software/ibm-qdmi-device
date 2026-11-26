@@ -17,15 +17,17 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm_qdmi/constants.h"
+
 #include "Http.hpp"
 #include "Metadata.hpp"
 
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+#include "nlohmann/json_fwd.hpp"
+
 #include <fstream>
-#include <gtest/gtest.h>
-#include <ibm_qdmi/constants.h>
 #include <limits>
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
 #include <utility>
 #include <vector>
 
@@ -49,15 +51,15 @@ TEST(Metadata, ConvertsUnitsAndPreservesDirectedTuples) {
   const auto metadata =
       ibm::parseMetadata(data["configuration"], data["properties"]);
   ASSERT_EQ(metadata.sites.size(), 2);
-  EXPECT_EQ(metadata.sites[0].t1, 100500000);
-  EXPECT_EQ(metadata.sites[0].t2, 200000000);
+  EXPECT_EQ(metadata.sites[0].t1, 100'500'000'000ULL);
+  EXPECT_EQ(metadata.sites[0].t2, 200'000'000'000ULL);
   EXPECT_FALSE(metadata.sites[1].t1);
   EXPECT_EQ(metadata.coupling, (std::vector<ibm::Sites>{{0, 1}}));
   const auto& operation = metadata.operations[2];
   EXPECT_EQ(operation.arity, 2);
   EXPECT_EQ(operation.parameters, 0);
   EXPECT_EQ(operation.sites, (std::vector<ibm::Sites>{{0, 1}}));
-  EXPECT_EQ(operation.calibrations.at({0, 1}).duration, 35556);
+  EXPECT_EQ(operation.calibrations.at({0, 1}).duration, 35'555'500);
   EXPECT_DOUBLE_EQ(*operation.calibrations.at({0, 1}).fidelity, 0.98);
 }
 TEST(Metadata, QuantumSystemRecognizesOmittedFixedGateDefinitions) {
@@ -85,7 +87,10 @@ TEST(Metadata, MissingAndInvalidCalibrationIsNotZero) {
                      .t1);
   }
   data["properties"]["qubits"][0][0] = {
-      {"name", "T1"}, {"value", 1}, {"unit", "unknown"}};
+      {"name", "T1"},
+      {"value", 1},
+      {"unit", "unknown"},
+  };
   EXPECT_FALSE(ibm::parseMetadata(data["configuration"], data["properties"])
                    .sites[0]
                    .t1);
@@ -110,10 +115,13 @@ TEST(Metadata, RejectsInconsistentTopologyAndStatus) {
   EXPECT_FALSE(ibm::parseStatus({{"length_queue", 0}}).available);
 }
 
-TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
+TEST(Metadata, ExposesAdvertisedSingleQubitInstructions) {
   auto data = fixture();
-  data["configuration"]["supported_instructions"] = {"measure", "reset",
-                                                     "delay"};
+  data["configuration"]["supported_instructions"] = {
+      "measure",
+      "reset",
+      "delay",
+  };
   data["properties"]["qubits"][0].push_back(
       {{"name", "readout_length"}, {"value", 1.5}, {"unit", "us"}});
   data["properties"]["qubits"][0].push_back(
@@ -121,17 +129,22 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
   data["properties"]["qubits"][1].push_back(
       {{"name", "operational"}, {"value", false}});
   auto metadata = ibm::parseMetadata(data["configuration"], data["properties"]);
-  ASSERT_EQ(metadata.operations.size(), 5);
+  ASSERT_EQ(metadata.operations.size(), 6);
   const auto& measurement = metadata.operations[3];
   EXPECT_EQ(measurement.name, "measure");
   EXPECT_EQ(measurement.arity, 1);
   EXPECT_EQ(measurement.parameters, 0);
   EXPECT_EQ(measurement.sites, (std::vector<ibm::Sites>{{0}}));
   ASSERT_EQ(measurement.calibrations.size(), 1);
-  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1500000);
+  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1'500'000'000);
   EXPECT_DOUBLE_EQ(*measurement.calibrations.at({0}).fidelity, 0.97);
   EXPECT_EQ(metadata.operations[4].name, "reset");
   EXPECT_EQ(metadata.operations[4].sites, measurement.sites);
+  const auto& delay = metadata.operations[5];
+  EXPECT_EQ(delay.name, "delay");
+  EXPECT_EQ(delay.arity, 1);
+  EXPECT_EQ(delay.parameters, 1);
+  EXPECT_EQ(delay.sites, measurement.sites);
   metadata =
       ibm::parseMetadata(data["configuration"], nlohmann::json::object());
   EXPECT_EQ(metadata.operations[3].sites.size(), 2);
@@ -141,22 +154,39 @@ TEST(Metadata, ExposesAdvertisedMeasurementAndReset) {
                 .operations.size(),
             3);
 }
+
+TEST(Metadata, ExposesAdvertisedConditionalCapability) {
+  auto data = fixture();
+  data["configuration"]["supported_instructions"] = {"if_else"};
+  const auto metadata =
+      ibm::parseMetadata(data["configuration"], data["properties"]);
+  const auto& conditional = metadata.operations.back();
+  EXPECT_EQ(conditional.name, "if_else");
+  EXPECT_FALSE(conditional.arity.has_value());
+  EXPECT_FALSE(conditional.parameters.has_value());
+  EXPECT_TRUE(conditional.sites.empty());
+}
 TEST(Metadata, MergesRepeatedMeasurementCalibration) {
   auto data = fixture();
   data["configuration"]["supported_instructions"] = {"measure"};
   data["properties"]["qubits"][0].push_back(
       {{"name", "readout_length"}, {"value", 1.5}, {"unit", "us"}});
-  data["properties"]["gates"].push_back(
-      {{"gate", "measure"},
-       {"qubits", {0}},
-       {"parameters",
-        {{{"name", "gate_length"}, {"value", 2}, {"unit", "us"}},
-         {{"name", "gate_error"}, {"value", 0.03}}}}});
+  data["properties"]["gates"].push_back({
+      {"gate", "measure"},
+      {"qubits", {0}},
+      {
+          "parameters",
+          {
+              {{"name", "gate_length"}, {"value", 2}, {"unit", "us"}},
+              {{"name", "gate_error"}, {"value", 0.03}},
+          },
+      },
+  });
   const auto metadata =
       ibm::parseMetadata(data["configuration"], data["properties"]);
   const auto& measurement = metadata.operations[3];
   ASSERT_EQ(measurement.calibrations.size(), 1);
-  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1500000);
+  EXPECT_EQ(measurement.calibrations.at({0}).duration, 1'500'000'000);
   EXPECT_DOUBLE_EQ(*measurement.calibrations.at({0}).fidelity, 0.97);
 }
 
@@ -198,10 +228,13 @@ TEST(Metadata, RejectsRepeatedGateCalibration) {
   }
 }
 TEST(Metadata, InvalidErrorsPreserveEarlierCalibration) {
-  for (const auto& invalid :
-       {nlohmann::json{}, nlohmann::json("invalid"), nlohmann::json(-0.1),
-        nlohmann::json(1.1),
-        nlohmann::json(std::numeric_limits<double>::infinity())}) {
+  for (const auto& invalid : {
+           nlohmann::json{},
+           nlohmann::json("invalid"),
+           nlohmann::json(-0.1),
+           nlohmann::json(1.1),
+           nlohmann::json(std::numeric_limits<double>::infinity()),
+       }) {
     auto data = fixture();
     data["configuration"]["supported_instructions"] = {"measure"};
     data["properties"]["qubits"][0].push_back(

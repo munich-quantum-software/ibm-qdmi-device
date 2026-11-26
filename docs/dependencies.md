@@ -1,66 +1,68 @@
 # Dependencies
 
-This page distinguishes native dependencies, optional Python integrations, and
-development tools. The build configuration defines the supported versions;
-`uv.lock` records the resolved Python environment.
+Versions below follow
+[CMake](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/cmake/ExternalDependencies.cmake)
+and
+[pyproject.toml](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/pyproject.toml).
+`uv.lock` records the resolved Python environment. The `executor` and `mock`
+extras support Qiskit IBM Runtime `>=0.50,<0.53`.
 
-## Native dependencies
+## Runtime dependencies
 
-CMake's defaults are defined in
-[ExternalDependencies.cmake](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/cmake/ExternalDependencies.cmake).
-Compatible installed packages can satisfy its `find_package` checks; otherwise,
-CMake downloads the configured sources.
+CPR, zlib-ng, nlohmann/json, and the AWS SDK are compiled into the device
+library. curl is linked statically on Linux and Windows; macOS uses the system
+library. QDMI supplies interface headers, including the generated IBM
+declarations installed with the development package; no QDMI driver library is
+linked into the device.
 
-| Dependency      | Default version | Purpose                                           |
-| :-------------- | :-------------- | :------------------------------------------------ |
-| QDMI            | 1.4.0           | Interface headers and device declarations         |
-| nlohmann/json   | 3.12.0          | JSON parsing and serialization                    |
-| CPR             | 1.14.2          | HTTP requests through libcurl                     |
-| AWS SDK for C++ | 1.11.700        | S3 URL signing; only core/S3 components are built |
-| GoogleTest      | 1.17.0          | Native tests, when enabled                        |
+| Dependency        | Version                         | License                        | Purpose                        |
+| :---------------- | :------------------------------ | :----------------------------- | :----------------------------- |
+| [AWS SDK for C++] | 1.11.700                        | Apache-2.0                     | S3 endpoints and signing       |
+| [QDMI]            | 1.4.0                           | Apache-2.0 WITH LLVM-exception | Device interface and headers   |
+| [nlohmann/json]   | 3.12.0                          | MIT                            | JSON parsing and serialization |
+| [CPR]             | 1.15.1                          | MIT                            | C++ HTTP client                |
+| [curl]            | 8.23.0; system version on macOS | curl                           | HTTP transport                 |
+| [zlib-ng]         | 2.3.3                           | Zlib                           | QPY compression                |
+| [OpenSSL]         | ≥3; Linux                       | Apache-2.0                     | TLS                            |
 
-The signing SDK is initialized and shut down on the signing thread. Its CRT
-backend supports SDK initialization; S3 URLs use the SDK endpoint resolver and
-SigV4 presigner. Object transfers use the device HTTP transport.
+Linux wheels bundle OpenSSL; native builds use the installed OpenSSL development
+package. Windows uses Schannel and macOS uses system curl's TLS implementation.
+Updating a bundled library requires rebuilding the wheel.
 
-The default build uses static CPR and curl dependencies. Linux builds require
-OpenSSL development headers; macOS wheels use Apple's native TLS backend.
-GoogleTest is not installed with the device. See
-[installation](installation.md#building-from-source) for the runtime and
-development components and [development](development.md#python-checks) for wheel
-builds.
+## Optional Python integrations
 
-## Python package and integrations
+The base package requires Python 3.11.5 or newer and has no Python runtime
+dependencies. Extras install packages into the user's environment; these are not
+bundled in the IBM wheel.
 
-The base package bundles the native library and requires Python 3.11 or newer.
-It declares no mandatory Python runtime dependencies. Optional integrations
-install MQT Core in the Python environment; they are not bundled into this
-project's wheel.
+| Extra       | Dependencies                            | Purpose                                             |
+| :---------- | :-------------------------------------- | :-------------------------------------------------- |
+| `qiskit`    | [MQT Core] with Qiskit support          | Qiskit backend and shared QDMI job handling         |
+| `pennylane` | [MQT Core] with PennyLane support       | Finite-shot QNodes                                  |
+| `executor`  | `qiskit` extra and [Qiskit IBM Runtime] | Executor encoding                                   |
+| `mock`      | `executor` extra                        | Local simulation with official fake-device metadata |
 
-| Extra       | Requirement                                             | Purpose                                     |
-| :---------- | :------------------------------------------------------ | :------------------------------------------ |
-| `qiskit`    | `mqt-core[qiskit]~=4.1.1`                               | Qiskit backend and primitives               |
-| `executor`  | `mqt-core[qiskit]~=4.1.1`, `qiskit-ibm-runtime~=0.50.0` | Executor programs through QDMI              |
-| `pennylane` | `mqt-core[pennylane,qiskit]~=4.1.1`                     | PennyLane devices and circuit serialization |
+Qiskit and PennyLane can be installed independently. MQT Core's extras define
+their supported versions; [package metadata] records all dependency bounds. See
+[installation](installation.md#python-package) to select extras.
 
-Follow [Python installation](installation.md#python-package) to select extras.
-MQT Core defines their transitive Qiskit and PennyLane requirements.
+## Build dependencies
 
-## Build and development tools
+Native builds require a C++20 compiler, CMake 3.28 or newer, and Git. Linux
+builds also require OpenSSL development headers. Python packaging uses
+`scikit-build-core`; building the documentation uses Sphinx and Doxygen. The
+`build`, `test`, and `docs` dependency groups install tools for their respective
+tasks. See [source installation](installation.md#building-from-source) and
+[development](development.md) for commands.
 
-[pyproject.toml](https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/pyproject.toml)
-defines the build backend and dependency groups. These tools are not runtime
-requirements of the installed device.
+[AWS SDK for C++]: https://github.com/aws/aws-sdk-cpp
+[CPR]: https://github.com/libcpr/cpr
+[curl]: https://curl.se/
+[MQT Core]: https://mqt.readthedocs.io/projects/core/
+[nlohmann/json]: https://github.com/nlohmann/json
+[OpenSSL]: https://openssl-library.org/
+[QDMI]: https://github.com/Munich-Quantum-Software-Stack/qdmi
+[Qiskit IBM Runtime]: https://github.com/Qiskit/qiskit-ibm-runtime
+[zlib-ng]: https://github.com/zlib-ng/zlib-ng
 
-| Group      | Main tools                                                   | Purpose                                    |
-| :--------- | :----------------------------------------------------------- | :----------------------------------------- |
-| `build`    | scikit-build-core, build                                     | CMake integration and Python packaging     |
-| `test`     | pytest, coverage and parallel-test plugins, MQT Core, PyYAML | Offline package and adapter tests          |
-| `docs`     | Sphinx, Furo, MyST-NB, AutoAPI, Copybutton, Design           | Documentation and Python API generation    |
-| `examples` | Test dependencies and MQT Bench                              | Runnable simulation and framework examples |
-| `dev`      | Build, test, and example dependencies, Nox, Qiskit Nature    | Development and type checking              |
-
-Native builds also require a C++20 compiler, CMake 3.24 or newer, and Git.
-Documentation builds additionally require Doxygen on `PATH`; see
-[documentation development](development.md#documentation) for the pinned version
-and commands. Nox installs dependency groups for each session.
+[package metadata]: https://github.com/munich-quantum-software/ibm-qdmi-device/blob/main/pyproject.toml

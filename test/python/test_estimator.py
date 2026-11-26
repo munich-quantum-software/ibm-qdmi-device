@@ -30,11 +30,11 @@ from qiskit.quantum_info import SparsePauliOp
 from qiskit_service import open_backend
 
 if TYPE_CHECKING:
-    from qiskit_service import RuntimeProxy
+    from qiskit_service import Runtime
 
 
 @pytest.mark.parametrize("precision", [0, -0.1])
-def test_invalid_estimator_precision_submits_nothing(runtime: RuntimeProxy, precision: float) -> None:
+def test_invalid_estimator_precision_submits_nothing(runtime: Runtime, precision: float) -> None:
     """Invalid primitive precision cannot create a native job."""
     backend = open_backend(runtime)
     with pytest.raises(ValueError, match="precision"):
@@ -42,7 +42,7 @@ def test_invalid_estimator_precision_submits_nothing(runtime: RuntimeProxy, prec
     assert not runtime.snapshot()["submissions"]
 
 
-def test_estimator_precision_observables_and_layout(runtime: RuntimeProxy) -> None:
+def test_estimator_precision_observables_and_layout(runtime: Runtime) -> None:
     """The shared estimator maps observables and produces finite-shot expectations."""
     backend = open_backend(runtime)
     theta = Parameter("theta")

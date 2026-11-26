@@ -19,14 +19,13 @@
 
 from __future__ import annotations
 
-import math
 from collections import Counter
 
 import pytest
 from offline_service import CRN
 from qiskit import qasm3
 from qiskit.utils import should_run_in_parallel
-from qiskit_service import open_backend, remote_runtime
+from qiskit_service import open_backend, runtime_service
 from quantum_checks import valid_results, validate_execution
 
 from ibm.qdmi.qiskit import IBMBackend
@@ -53,7 +52,7 @@ def test_hardware_contract_offline(
     monkeypatch.setenv("QISKIT_PARALLEL", "TRUE")
     should_run_in_parallel.cache_clear()
     request.addfinalizer(should_run_in_parallel.cache_clear)
-    with remote_runtime() as runtime:
+    with runtime_service() as runtime:
         if failure in {"Queued", "Failed"}:
             runtime.set_state(failure, 0)
         elif failure == "submission":
@@ -128,7 +127,7 @@ def test_result_mismatch() -> None:
 
 def test_calibrated_layout() -> None:
     """Avoid a connected but noisy trivial layout without relaxing acceptance."""
-    with remote_runtime() as runtime:
+    with runtime_service() as runtime:
         runtime.set_properties({
             "qubits": [[{"name": "readout_error", "value": 0.4 if site < 2 else 0.001}] for site in range(5)],
             "gates": [
@@ -161,23 +160,3 @@ def test_program_order() -> None:
     counts = dict(Counter(memory))
     assert valid_results(memory, counts, 1)
     assert not valid_results(memory, counts, 0)
-
-
-def test_fractional_hardware_contract() -> None:
-    """The direct native hardware path folds transpiled RZZ angles before submission."""
-    with remote_runtime() as runtime:
-        config = runtime.snapshot()["configuration"]
-        gates = [gate for gate in config["gates"] if gate["name"] != "cx"]
-        gates.append({"name": "rzz", "parameters": ["theta"], "coupling_map": config["coupling_map"]})
-        runtime.set_configuration("gates", gates)
-        runtime.set_configuration("basis_gates", ["x", "sx", "rz", "rzz"])
-        assert validate_execution(lambda: open_backend(runtime), timeout=2) is None
-        submissions = runtime.snapshot()["submissions"]
-        assert len(submissions) == 1
-        for source, _, shots in submissions[0]["params"]["pubs"]:
-            assert shots == 64
-            angles = [
-                float(item.operation.params[0]) for item in qasm3.loads(source).data if item.operation.name == "rzz"
-            ]
-            assert angles
-            assert all(0 <= angle <= math.pi / 2 for angle in angles)

@@ -15,11 +15,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-"""Resolve IBM catalogue entries and shared session overrides."""
+"""IBM session settings shared by the Python adapters."""
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
+
+from . import IBM_QDMI_DEVICE_ID
 
 if TYPE_CHECKING:
     from mqt.core.typing import QDMISessionParameters
@@ -27,11 +30,12 @@ if TYPE_CHECKING:
 
 def session_parameters(
     *,
-    backend_name: str | None,
-    api_key: str | None,
-    instance_crn: str | None,
-    base_url: str | None,
-    auth_url: str | None,
+    device_id: str = IBM_QDMI_DEVICE_ID,
+    backend_name: str | None = None,
+    api_key: str | None = None,
+    instance_crn: str | None = None,
+    base_url: str | None = None,
+    auth_url: str | None = None,
     access_mode: str | None = None,
     storage_config: str | None = None,
 ) -> QDMISessionParameters:
@@ -51,4 +55,13 @@ def session_parameters(
         parameters["custom4"] = access_mode
     if storage_config is not None:
         parameters["custom5"] = storage_config
+
+    selected = backend_name
+    if selected is None and device_id == IBM_QDMI_DEVICE_ID:
+        selected = os.getenv("IBM_QUANTUM_BACKEND")
+    remote = any(value is not None for key, value in parameters.items() if key != "custom1")
+    if selected is not None and selected.startswith("fake_") and not remote:
+        from .mock import connection  # ruff: ignore[import-outside-top-level]
+
+        return connection(selected)
     return parameters
