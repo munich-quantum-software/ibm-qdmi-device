@@ -134,6 +134,10 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   else()
     FetchContent_MakeAvailable(nlohmann_json zlib curl cpr)
   endif()
+  # The legacy AWS build ignores normal variables for option() defaults.
+  set(BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "Link vendored AWS libraries statically" FORCE)
   # Build only S3; the device uses its signer and retains its own HTTP transport.
   set(BUILD_ONLY
       "s3"
@@ -159,12 +163,16 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(AWS_SDK_WARNINGS_ARE_ERRORS
       OFF
       CACHE BOOL "Keep vendor warnings visible" FORCE)
+  find_package(Git REQUIRED)
+  # Pass long-path support to Git processes for nested submodules as well.
   FetchContent_Declare(
     aws_sdk
     GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
     GIT_TAG 1.11.700 # c9374f0f1f12b6817cb46bb38f298bef6738ada3
     GIT_SHALLOW TRUE
-    GIT_CONFIG core.longpaths=true)
+    GIT_CONFIG core.longpaths=true
+    GIT_SUBMODULES ""
+    PATCH_COMMAND "${GIT_EXECUTABLE}" -c core.longpaths=true submodule update --init --recursive)
   FetchContent_MakeAvailable(aws_sdk)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
     # The SDK's clang-cl AVX512 flags omit crc32 needed by this fallback.

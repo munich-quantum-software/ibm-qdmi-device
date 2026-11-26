@@ -194,7 +194,7 @@ Response send(const Request& request) {
   client.SetHeader(cpr::Header{request.headers.begin(), request.headers.end()});
   cpr::Response response;
   if (request.put) {
-    client.SetBody(cpr::Body{request.body});
+    client.SetBodyView(cpr::BodyView{request.body});
     response = client.Put();
   } else if (request.form.empty() && !request.post) {
     response = client.Get();

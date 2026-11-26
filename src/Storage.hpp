@@ -19,9 +19,11 @@
 
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace ibm {
 struct StorageConfiguration {
@@ -40,5 +42,12 @@ std::string
 storageUrl(const StorageConfiguration& configuration, const std::string& key,
            bool put, bool service = false,
            std::optional<std::chrono::milliseconds> timeout = std::nullopt);
-std::string newJobId();
+struct StorageSubmission {
+  std::string id;
+  std::string inputPut;
+  std::array<std::pair<const char*, std::string>, 3> descriptors;
+};
+StorageSubmission
+prepareStorageSubmission(const StorageConfiguration& configuration,
+                         std::chrono::milliseconds timeout);
 } // namespace ibm

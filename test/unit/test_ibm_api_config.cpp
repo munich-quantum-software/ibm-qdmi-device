@@ -216,6 +216,40 @@ TEST(Configuration, EnvironmentDefaultsAndExplicitEmptyValues) {
                 QDMI_ERROR_INVALIDARGUMENT);
 }
 
+TEST_F(ConfigurationFileTest, QuantumSystemIgnoresCloudEnvironment) {
+  const ScopedEnvVar backend{"IBM_QUANTUM_BACKEND", "cloud_backend"};
+  const ScopedEnvVar crn{
+      "IBM_QUANTUM_INSTANCE_CRN",
+      "crn:v1:bluemix:public:quantum-computing:us-east:a:instance::",
+  };
+  write(R"({"endpoint":"http://127.0.0.1:9000","bucket":"synthetic",
+            "region":"us-east-1","access_key":"synthetic-access",
+            "secret_key":"synthetic-secret"})");
+  auto system = configuration();
+  system.accessMode = "quantum-system";
+  system.baseUrl = "http://127.0.0.1:8290";
+  system.authUrl = "http://127.0.0.1:8290/identity/token";
+  system.storageFile = path.string();
+  system.crn = "local-system";
+  EXPECT_EQ(ibm::resolve(system).apiKey, "synthetic-key");
+
+  auto missing = system;
+  missing.apiKey.clear();
+  missing.apiKeyConfigured = false;
+  expectFailure([&] { (void)ibm::resolve(missing); },
+                QDMI_ERROR_PERMISSIONDENIED);
+  missing = system;
+  missing.crn.clear();
+  missing.crnConfigured = false;
+  expectFailure([&] { (void)ibm::resolve(missing); },
+                QDMI_ERROR_INVALIDARGUMENT);
+  missing = system;
+  missing.backend.clear();
+  missing.backendConfigured = false;
+  expectFailure([&] { (void)ibm::resolve(missing); },
+                QDMI_ERROR_INVALIDARGUMENT);
+}
+
 TEST_F(ConfigurationFileTest, FilePrecedesEnvironmentAndAcceptsLineEndings) {
   for (const auto* ending : {"", "\n", "\r\n"}) {
     const std::string keyText = "synthetic-\xc3\xa4-key";
@@ -302,11 +336,13 @@ TEST(QuantumSystem, ExplicitStorageIgnoresAmbientAwsSelection) {
   const ScopedEnvVar arn{"AWS_S3_USE_ARN_REGION", "true"};
   const ScopedEnvVar key{"AWS_ACCESS_KEY_ID", "wrong-access"};
   const ScopedEnvVar secret{"AWS_SECRET_ACCESS_KEY", "wrong-secret"};
-  const ibm::StorageConfiguration config{.endpoint = "http://127.0.0.1:9000",
-                                         .bucket = "synthetic",
-                                         .region = "us-east-1",
-                                         .accessKey = "synthetic-access",
-                                         .secretKey = "synthetic-secret"};
+  const ibm::StorageConfiguration config{
+      .endpoint = "http://127.0.0.1:9000",
+      .bucket = "synthetic",
+      .region = "us-east-1",
+      .accessKey = "synthetic-access",
+      .secretKey = "synthetic-secret",
+  };
   const auto url = ibm::storageUrl(config, "input_id.json", false, false);
   EXPECT_TRUE(
       url.starts_with("http://127.0.0.1:9000/synthetic/input_id.json?"));

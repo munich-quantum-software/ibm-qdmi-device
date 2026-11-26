@@ -67,9 +67,8 @@ public:
   [[nodiscard]] bool quantumSystem() const;
   std::string storageGet(const std::string& key,
                          Deadline deadline = Deadline::max());
-  void storagePut(const std::string& key, const std::string& body);
-  [[nodiscard]] std::string serviceStorageUrl(const std::string& key,
-                                              bool put) const;
+  void storagePut(std::string url, std::string body);
+  [[nodiscard]] StorageSubmission prepareStorageSubmission() const;
   /// GET retries transient failures twice and refreshes once after 401.
   /// Authentication, retries, and backoff share one timeout. POST is sent once.
   Response request(const std::string& resource, bool post = false,

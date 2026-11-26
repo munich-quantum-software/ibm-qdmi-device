@@ -37,7 +37,6 @@
 #include <limits>
 #include <map>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -296,39 +295,48 @@ void Job::submit() {
   require(configurable() && format.has_value() && !programs.empty(),
           QDMI_ERROR_BADSTATE);
   const bool executor = format == IBM_QDMI_PROGRAM_FORMAT_EXECUTOR;
-  nlohmann::json payload{
-      {"program_id", executor ? "executor" : "sampler"},
-      {"backend", backend},
-      {"cost", maxExecutionTime},
-  };
-  payload["params"] =
+  auto params =
       executor ? nlohmann::json::parse(programs.front()) : samplerParams();
   const bool system = auth->quantumSystem();
-  auto body = system ? payload.at("params").dump() : payload.dump();
+  auto body = system ? params.dump()
+                     : nlohmann::json{
+                           {"program_id", executor ? "executor" : "sampler"},
+                           {"backend", backend},
+                           {"cost", maxExecutionTime},
+                           {"params", std::move(params)},
+                       }.dump();
   // Once submission starts, even a lost response must never permit a duplicate.
   attempted = true;
   status = QDMI_JOB_STATUS_FAILED;
   if (system) {
-    id = newJobId();
+    StorageSubmission prepared = auth->prepareStorageSubmission();
+    id = std::move(prepared.id);
     nlohmann::json storage;
-    for (const auto* kind : {"input", "results", "logs"}) {
+    for (auto& [kind, url] : prepared.descriptors) {
       storage[kind] = {
           {"type", "s3_compatible"},
-          {"presigned_url",
-           auth->serviceStorageUrl(std::string(kind) + "_" + id + ".json",
-                                   std::string_view(kind) != "input")}};
+          {"presigned_url", std::move(url)},
+      };
     }
-    auth->storagePut("input_" + id + ".json", body);
-    body = nlohmann::json{{"id", id},
-                          {"backend", backend},
-                          {"program_id", "sampler"},
-                          {"timeout_secs", maxExecutionTime},
-                          {"storage", std::move(storage)}}
-               .dump();
+    auth->storagePut(std::move(prepared.inputPut), std::move(body));
+    body =
+        nlohmann::json{
+            {"id", id},
+            {"backend", backend},
+            {"program_id", "sampler"},
+            {"timeout_secs", maxExecutionTime},
+            {"storage", std::move(storage)},
+        }
+            .dump();
   }
   const auto response = auth->request("/v1/jobs", true, body);
   if (system) {
     if (response.failed || response.timedOut || response.status != 204) {
+      if (response.failed || response.timedOut) {
+        // The service may have accepted the known job ID before the reply was
+        // lost.
+        status = QDMI_JOB_STATUS_SUBMITTED;
+      }
       checkResponse(response);
       throw Failure{QDMI_ERROR_FATAL};
     }
@@ -455,7 +463,7 @@ const Results& Job::results(std::size_t index) {
     const auto response =
         auth->quantumSystem()
             ? Response{.status = 200,
-                       .body = auth->storageGet("results_" + id + ".json")}
+                       .body = auth->storageGet("results_" + id + ".json"),}
             : auth->request("/v1/jobs/" + id + "/results");
     require(response.failed || response.timedOut || response.status != 204,
             QDMI_ERROR_BADSTATE);

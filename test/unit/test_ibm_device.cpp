@@ -383,9 +383,11 @@ TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
        std::vector<std::pair<std::string, QDMI_Device_Status>>{
            {"online", QDMI_DEVICE_STATUS_IDLE},
            {"offline", QDMI_DEVICE_STATUS_OFFLINE}}) {
-    http.queue(
-        "/backends/ibm_test",
-        {.status = 200, .body = nlohmann::json{{"status", state}}.dump()});
+    http.queue("/backends/ibm_test",
+               {
+                   .status = 200,
+                   .body = nlohmann::json{{"status", state}}.dump(),
+               });
     QDMI_Device_Status actual{};
     EXPECT_EQ(IBM_QDMI_device_session_query_device_property(
                   session, QDMI_DEVICE_PROPERTY_STATUS, sizeof(actual), &actual,

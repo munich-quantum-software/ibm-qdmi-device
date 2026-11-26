@@ -17,6 +17,7 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
+#include "ibm-qdmi-device/constants.h"
 #include "ibm_qdmi/constants.h"
 
 #include "Auth.hpp"
@@ -145,12 +146,13 @@ TEST(Results, PreservesShotsAndClassicalBitOrder) {
 TEST(QuantumSystem, StorageSubmissionRetrievalAndCredentialIsolation) {
   auto config = configuration();
   config.accessMode = "quantum-system";
-  config.storage =
-      ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
-                                .bucket = "synthetic",
-                                .region = "us-east-1",
-                                .accessKey = "synthetic-access",
-                                .secretKey = "synthetic-secret"};
+  config.storage = ibm::StorageConfiguration{
+      .endpoint = "http://127.0.0.1:9000",
+      .bucket = "synthetic",
+      .region = "us-east-1",
+      .accessKey = "synthetic-access",
+      .secretKey = "synthetic-secret",
+  };
   nlohmann::json input;
   nlohmann::json submitted;
   int submissions = 0;
@@ -276,12 +278,13 @@ TEST(QuantumSystem, ExpiredStorageDeadlineSkipsSigning) {
 TEST(QuantumSystem, StorageFailurePreventsSubmission) {
   auto config = configuration();
   config.accessMode = "quantum-system";
-  config.storage =
-      ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
-                                .bucket = "synthetic",
-                                .region = "us-east-1",
-                                .accessKey = "synthetic-access",
-                                .secretKey = "synthetic-secret"};
+  config.storage = ibm::StorageConfiguration{
+      .endpoint = "http://127.0.0.1:9000",
+      .bucket = "synthetic",
+      .region = "us-east-1",
+      .accessKey = "synthetic-access",
+      .secretKey = "synthetic-secret",
+  };
   int requests = 0;
   ibm::Auth auth(config, [&](const ibm::Request& request) {
     ++requests;
@@ -319,12 +322,13 @@ TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
   for (const bool completed : {false, true}) {
     auto config = configuration();
     config.accessMode = "quantum-system";
-    config.storage =
-        ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
-                                  .bucket = "synthetic",
-                                  .region = "us-east-1",
-                                  .accessKey = "synthetic-access",
-                                  .secretKey = "synthetic-secret"};
+    config.storage = ibm::StorageConfiguration{
+        .endpoint = "http://127.0.0.1:9000",
+        .bucket = "synthetic",
+        .region = "us-east-1",
+        .accessKey = "synthetic-access",
+        .secretKey = "synthetic-secret",
+    };
     std::string id;
     ibm::Auth auth(config, [&](const ibm::Request& request) {
       if (!request.form.empty()) {
@@ -362,16 +366,19 @@ TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
   }
 }
 
-TEST(QuantumSystem, LostSubmissionCannotBeRetried) {
+TEST(QuantumSystem, LostSubmissionRemainsCheckableWithoutRetry) {
   auto config = configuration();
   config.accessMode = "quantum-system";
-  config.storage =
-      ibm::StorageConfiguration{.endpoint = "http://127.0.0.1:9000",
-                                .bucket = "synthetic",
-                                .region = "us-east-1",
-                                .accessKey = "synthetic-access",
-                                .secretKey = "synthetic-secret"};
+  config.storage = ibm::StorageConfiguration{
+      .endpoint = "http://127.0.0.1:9000",
+      .bucket = "synthetic",
+      .region = "us-east-1",
+      .accessKey = "synthetic-access",
+      .secretKey = "synthetic-secret",
+  };
   int submissions = 0;
+  int cancellations = 0;
+  std::string id;
   ibm::Auth auth(config, [&](const ibm::Request& request) {
     if (!request.form.empty()) {
       return ibm::Response{
@@ -381,13 +388,33 @@ TEST(QuantumSystem, LostSubmissionCannotBeRetried) {
     if (request.presigned) {
       return ibm::Response{.status = 200};
     }
-    ++submissions;
-    return ibm::Response{.timedOut = true};
+    if (request.url.ends_with("/cancel")) {
+      ++cancellations;
+      return ibm::Response{.status = 204};
+    }
+    if (request.post) {
+      ++submissions;
+      id = nlohmann::json::parse(request.body).at("id").get<std::string>();
+      return ibm::Response{.timedOut = true};
+    }
+    return ibm::Response{
+        .status = 200,
+        .body = nlohmann::json{{"id", id},
+                               {"backend", "ibm_test"},
+                               {"status", "Running"}}
+                    .dump(),
+    };
   });
   ibm::Job job(auth, "ibm_test", 2);
   configure(job);
   fails([&] { job.submit(); }, QDMI_ERROR_TIMEOUT);
   fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
+  EXPECT_FALSE(id.empty());
+  EXPECT_EQ(job.id, id);
+  EXPECT_EQ(job.check(), QDMI_JOB_STATUS_RUNNING);
+  job.cancel();
+  EXPECT_EQ(job.check(), QDMI_JOB_STATUS_CANCELED);
+  EXPECT_EQ(cancellations, 1);
   EXPECT_EQ(submissions, 1);
 }
 

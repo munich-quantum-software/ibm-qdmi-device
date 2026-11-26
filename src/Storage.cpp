@@ -48,6 +48,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace ibm {
 namespace {
@@ -104,7 +105,8 @@ StorageConfiguration readStorageConfiguration(const std::string& path) {
       .accessKey = field(data, "access_key"),
       .secretKey = field(data, "secret_key"),
       .sessionToken = field(data, "session_token", true),
-      .serviceEndpoint = field(data, "service_endpoint", true)};
+      .serviceEndpoint = field(data, "service_endpoint", true),
+  };
   while (config.endpoint.ends_with('/')) {
     config.endpoint.pop_back();
   }
@@ -130,17 +132,19 @@ StorageConfiguration readStorageConfiguration(const std::string& path) {
   }));
   return config;
 }
-std::string storageUrl(const StorageConfiguration& configuration,
-                       const std::string& key, bool put, bool service,
-                       std::optional<std::chrono::milliseconds> timeout) {
-  // SDK shutdown must run on its initializing thread, outside DLL teardown.
+namespace {
+std::unique_lock<std::timed_mutex>
+lockSigning(std::optional<std::chrono::milliseconds> timeout) {
   std::unique_lock lock(signingMutex(), std::defer_lock);
   if (!timeout) {
     lock.lock();
   } else if (!lock.try_lock_for(*timeout)) {
     throw Failure{QDMI_ERROR_TIMEOUT, IBM_QDMI_DIAGNOSTIC_TIMEOUT};
   }
-  const Runtime runtime;
+  return lock;
+}
+std::string signUrl(const StorageConfiguration& configuration,
+                    const std::string& key, bool put, bool service) {
   Aws::Client::ClientConfiguration config(
       Aws::Client::ClientConfigurationInitValues{.shouldDisableIMDS = true});
   config.region = configuration.region;
@@ -189,10 +193,33 @@ std::string storageUrl(const StorageConfiguration& configuration,
   const auto result = request.GetURIString();
   return {result.data(), result.size()};
 }
-std::string newJobId() {
-  const std::scoped_lock lock(signingMutex());
+} // namespace
+
+std::string storageUrl(const StorageConfiguration& configuration,
+                       const std::string& key, bool put, bool service,
+                       std::optional<std::chrono::milliseconds> timeout) {
+  const auto lock = lockSigning(timeout);
   const Runtime runtime;
-  const Aws::String id = Aws::Utils::UUID::RandomUUID();
-  return {id.data(), id.size()};
+  return signUrl(configuration, key, put, service);
+}
+StorageSubmission
+prepareStorageSubmission(const StorageConfiguration& configuration,
+                         std::chrono::milliseconds timeout) {
+  // Shutdown must run on the initializing thread, outside DLL teardown.
+  const auto lock = lockSigning(timeout);
+  const Runtime runtime;
+  const Aws::String uuid = Aws::Utils::UUID::RandomUUID();
+  std::string id{uuid.data(), uuid.size()};
+  const auto suffix = id + ".json";
+  const auto input = "input_" + suffix;
+  return {
+      .id = std::move(id),
+      .inputPut = signUrl(configuration, input, true, false),
+      .descriptors = {{
+          {"input", signUrl(configuration, input, false, true)},
+          {"results", signUrl(configuration, "results_" + suffix, true, true)},
+          {"logs", signUrl(configuration, "logs_" + suffix, true, true)},
+      }},
+  };
 }
 } // namespace ibm

@@ -190,7 +190,6 @@ before-all = "yum install -y openssl3-devel"
 environment = { MACOSX_DEPLOYMENT_TARGET = "13.3" }
 
 [tool.cibuildwheel.windows]
-before-all = "git config --global core.longpaths true"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg ibm"
 
 [[tool.cibuildwheel.overrides]]

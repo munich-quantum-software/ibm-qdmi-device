@@ -27,10 +27,10 @@ files.
 Set `IBM_QDMI_DEVICE_SESSION_PARAMETER_ACCESS_MODE` to `quantum-system`. Provide
 `BASEURL`, `AUTHURL` (including `/identity/token`), a backend name, an IAM API
 key, and the service identifier through the existing parameters. The service
-identifier need not have the cloud CRN structure. Omitted credentials still use
-`IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN`; set explicit values for
-the selected service. Set `IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG` to
-a private UTF-8 JSON file with these fields:
+identifier can use the service's format. Quantum System sessions require an
+explicit backend name, service identifier, and API key or key file. Set
+`IBM_QDMI_DEVICE_SESSION_PARAMETER_STORAGE_CONFIG` to a private UTF-8 JSON file
+with these fields:
 
 | Field                      | Meaning                                              |
 | -------------------------- | ---------------------------------------------------- |
@@ -49,9 +49,10 @@ Production endpoints require HTTPS; HTTP is restricted to loopback testing.
 The device uploads Sampler parameters, submits storage descriptors, and reads
 results through S3. Objects use `input_<job-id>.json`, `results_<job-id>.json`,
 and `logs_<job-id>.json`. Retrieval expects this naming convention. Presigned
-URLs last 24 hours; temporary credentials may expire sooner. Storage must remain
-available through execution and retrieval. Configure bucket lifecycle rules for
-retention; freeing a QDMI handle deletes neither jobs nor objects.
+URLs last 24 hours. Temporary credentials may expire sooner. Keep the URLs and
+credentials valid throughout queueing and execution. Storage must remain
+available through retrieval. Configure bucket lifecycle rules for retention;
+freeing a QDMI handle deletes neither jobs nor objects.
 
 Quantum System mode supports OpenQASM 3 Sampler jobs. Executor is unsupported
 and rejected before storage access. Backend status uses the service's backend
@@ -94,10 +95,10 @@ initialization leaves the session configurable and safe to free.
 
 | Parameter                                           | Value                                                                                                             |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `QDMI_DEVICE_SESSION_PARAMETER_TOKEN`               | IBM Cloud API key, not an IAM bearer token; otherwise use an explicit key file, then `IBM_QUANTUM_API_KEY`.       |
+| `QDMI_DEVICE_SESSION_PARAMETER_TOKEN`               | IBM IAM API key. Cloud sessions can fall back to a key file or `IBM_QUANTUM_API_KEY`.                             |
 | `QDMI_DEVICE_SESSION_PARAMETER_AUTHFILE`            | Optional UTF-8 path to a file containing only the API key.                                                        |
-| `IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND`         | Backend name; defaults to `IBM_QUANTUM_BACKEND`; aliases session `CUSTOM1`.                                       |
-| `IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN`    | Instance CRN; defaults to `IBM_QUANTUM_INSTANCE_CRN`; aliases session `CUSTOM2`.                                  |
+| `IBM_QDMI_DEVICE_SESSION_PARAMETER_BACKEND`         | Backend name; defaults to `IBM_QUANTUM_BACKEND` for cloud sessions; aliases session `CUSTOM1`.                    |
+| `IBM_QDMI_DEVICE_SESSION_PARAMETER_INSTANCE_CRN`    | Instance CRN; defaults to `IBM_QUANTUM_INSTANCE_CRN` for cloud sessions; aliases session `CUSTOM2`.               |
 | `IBM_QDMI_DEVICE_SESSION_PARAMETER_REQUEST_TIMEOUT` | Positive decimal string of milliseconds from 1 through 2,147,483,647; default `30000`; aliases session `CUSTOM3`. |
 | `QDMI_DEVICE_SESSION_PARAMETER_BASEURL`             | Optional API root ending in `/api`, without `/v1`. Defaults from the CRN region.                                  |
 | `QDMI_DEVICE_SESSION_PARAMETER_AUTHURL`             | Optional full IAM token endpoint; defaults to `https://iam.cloud.ibm.com/identity/token`.                         |
@@ -113,7 +114,7 @@ explicit empty value, which fails validation. Defaults are read during session
 initialization. A failed attempt does not freeze them; an initialized session
 retains its configuration when the environment changes.
 
-Credential precedence is explicit token, explicit key file, then
+In cloud mode, credential precedence is explicit token, explicit key file, then
 `IBM_QUANTUM_API_KEY`. A selected invalid or unreadable file never falls back to
 environment credentials. Files contain one raw UTF-8 key, optionally followed by
 LF or CRLF. Empty content, embedded newlines, and null bytes are rejected; other
@@ -323,8 +324,9 @@ circuit list and classified measurements. Twirling is disabled; dynamical
 decoupling is disabled by default and can be configured
 [per job](#dynamical-decoupling). Submission is never automatically retried,
 including after an authentication failure or a lost response. A failed
-submission freezes that handle. An ambiguous response may mean IBM accepted the
-job; inspect the platform before creating a replacement.
+submission freezes the handle for resubmission. After a lost Quantum System
+response, check or cancel the known job ID through the same handle. Resolve an
+ambiguous cloud submission in the IBM platform before creating a replacement.
 
 Job ID, format, shots, and program count
 (`QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM`) are queryable.
