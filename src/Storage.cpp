@@ -22,6 +22,7 @@
 #include "Http.hpp"
 
 #include <algorithm>
+#include <array>
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
@@ -215,11 +216,14 @@ prepareStorageSubmission(const StorageConfiguration& configuration,
   return {
       .id = std::move(id),
       .inputPut = signUrl(configuration, input, true, false),
-      .descriptors = {{
-          {"input", signUrl(configuration, input, false, true)},
-          {"results", signUrl(configuration, "results_" + suffix, true, true)},
-          {"logs", signUrl(configuration, "logs_" + suffix, true, true)},
-      }},
+      .descriptors =
+          std::array{
+              std::pair{"input", signUrl(configuration, input, false, true)},
+              std::pair{"results", signUrl(configuration, "results_" + suffix,
+                                           true, true)},
+              std::pair{"logs",
+                        signUrl(configuration, "logs_" + suffix, true, true)},
+          },
   };
 }
 } // namespace ibm

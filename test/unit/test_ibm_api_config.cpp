@@ -243,7 +243,7 @@ TEST_F(ConfigurationFileTest, QuantumSystemIgnoresCloudEnvironment) {
   missing.crnConfigured = false;
   expectFailure([&] { (void)ibm::resolve(missing); },
                 QDMI_ERROR_INVALIDARGUMENT);
-  missing = system;
+  missing = std::move(system);
   missing.backend.clear();
   missing.backendConfigured = false;
   expectFailure([&] { (void)ibm::resolve(missing); },

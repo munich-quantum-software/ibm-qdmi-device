@@ -324,9 +324,10 @@ circuit list and classified measurements. Twirling is disabled; dynamical
 decoupling is disabled by default and can be configured
 [per job](#dynamical-decoupling). Submission is never automatically retried,
 including after an authentication failure or a lost response. A failed
-submission freezes the handle for resubmission. After a lost Quantum System
-response, check or cancel the known job ID through the same handle. Resolve an
-ambiguous cloud submission in the IBM platform before creating a replacement.
+submission freezes the handle for resubmission. If the Quantum System request
+may have reached the service and its response was lost, check or cancel the
+known job ID through the same handle. Resolve an ambiguous cloud submission in
+the IBM platform before creating a replacement.
 
 Job ID, format, shots, and program count
 (`QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM`) are queryable.

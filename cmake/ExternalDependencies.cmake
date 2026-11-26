@@ -138,6 +138,10 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
   set(BUILD_SHARED_LIBS
       OFF
       CACHE BOOL "Link vendored AWS libraries statically" FORCE)
+  if(UNIX AND NOT APPLE)
+    # Match curl and the AWS CRT crypto backend's system libcrypto.
+    set(S2N_USE_CRYPTO_SHARED_LIBS ON)
+  endif()
   # Build only S3; the device uses its signer and retains its own HTTP transport.
   set(BUILD_ONLY
       "s3"

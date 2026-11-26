@@ -167,16 +167,18 @@ TEST(QuantumSystem, StorageSubmissionRetrievalAndCredentialIsolation) {
         input = nlohmann::json::parse(request.body);
         return ibm::Response{.status = 200};
       }
-      return ibm::Response{.status = 200,
-                           .body =
-                               request.url.find("/input_") != std::string::npos
-                                   ? input.dump()
-                                   : results().dump()};
+      return ibm::Response{
+          .status = 200,
+          .body = request.url.find("/input_") != std::string::npos
+                      ? input.dump()
+                      : results().dump(),
+      };
     }
     if (!request.form.empty()) {
       return ibm::Response{
           .status = 200,
-          .body = R"({"access_token":"synthetic","expires_in":3600})"};
+          .body = R"({"access_token":"synthetic","expires_in":3600})",
+      };
     }
     EXPECT_TRUE(request.headers.contains("Authorization"));
     if (request.post) {
@@ -184,12 +186,17 @@ TEST(QuantumSystem, StorageSubmissionRetrievalAndCredentialIsolation) {
       submitted = nlohmann::json::parse(request.body);
       return ibm::Response{.status = 204};
     }
-    return ibm::Response{.status = 200,
-                         .body = nlohmann::json{{"id", submitted.at("id")},
-                                                {"backend", "ibm_test"},
-                                                {"program_id", "sampler"},
-                                                {"status", "Completed"}}
-                                     .dump()};
+    return ibm::Response{
+        .status = 200,
+        .body =
+            nlohmann::json{
+                {"id", submitted.at("id")},
+                {"backend", "ibm_test"},
+                {"program_id", "sampler"},
+                {"status", "Completed"},
+            }
+                .dump(),
+    };
   });
   ibm::Job job(auth, "ibm_test", 2);
   fails([&] { job.checkProgramSupport(IBM_QDMI_PROGRAM_FORMAT_EXECUTOR, 1); },
@@ -213,14 +220,15 @@ TEST(QuantumSystem, StorageSubmissionRetrievalAndCredentialIsolation) {
 }
 
 TEST(QuantumSystem, SignsClientAndServiceEndpointsWithoutLeakingSecrets) {
-  const ibm::StorageConfiguration config{.endpoint = "http://127.0.0.1:9000",
-                                         .bucket = "synthetic",
-                                         .region = "us-east-1",
-                                         .accessKey = "synthetic-access",
-                                         .secretKey = "synthetic-secret",
-                                         .sessionToken = "synthetic-token",
-                                         .serviceEndpoint =
-                                             "http://localhost:9000"};
+  const ibm::StorageConfiguration config{
+      .endpoint = "http://127.0.0.1:9000",
+      .bucket = "synthetic",
+      .region = "us-east-1",
+      .accessKey = "synthetic-access",
+      .secretKey = "synthetic-secret",
+      .sessionToken = "synthetic-token",
+      .serviceEndpoint = "http://localhost:9000",
+  };
   for (const bool put : {false, true}) {
     const auto client = ibm::storageUrl(config, "input_id.json", put, false);
     const auto service = ibm::storageUrl(config, "input_id.json", put, true);
@@ -297,6 +305,7 @@ TEST(QuantumSystem, StorageFailurePreventsSubmission) {
   fails([&] { job.submit(); }, QDMI_ERROR_PERMISSIONDENIED);
   fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
   EXPECT_EQ(requests, 1);
+  EXPECT_TRUE(job.id.empty());
 }
 
 TEST(QuantumSystem, RejectsExecutorRetrievalBeforeStorageAccess) {
@@ -307,12 +316,14 @@ TEST(QuantumSystem, RejectsExecutorRetrievalBeforeStorageAccess) {
     if (!request.form.empty()) {
       return ibm::Response{
           .status = 200,
-          .body = R"({"access_token":"synthetic","expires_in":3600})"};
+          .body = R"({"access_token":"synthetic","expires_in":3600})",
+      };
     }
     return ibm::Response{
         .status = 200,
         .body =
-            R"({"id":"synthetic-job","backend":"ibm_test","program_id":"executor"})"};
+            R"({"id":"synthetic-job","backend":"ibm_test","program_id":"executor"})",
+    };
   });
   ibm::Job job(auth, "ibm_test", 2);
   fails([&] { job.retrieve("synthetic-job"); }, QDMI_ERROR_NOTSUPPORTED);
@@ -334,7 +345,8 @@ TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
       if (!request.form.empty()) {
         return ibm::Response{
             .status = 200,
-            .body = R"({"access_token":"synthetic","expires_in":3600})"};
+            .body = R"({"access_token":"synthetic","expires_in":3600})",
+        };
       }
       if (request.presigned) {
         return ibm::Response{.status = 200};
@@ -346,11 +358,16 @@ TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
         id = nlohmann::json::parse(request.body).at("id").get<std::string>();
         return ibm::Response{.status = 204};
       }
-      return ibm::Response{.status = 200,
-                           .body = nlohmann::json{{"id", id},
-                                                  {"backend", "ibm_test"},
-                                                  {"status", "Completed"}}
-                                       .dump()};
+      return ibm::Response{
+          .status = 200,
+          .body =
+              nlohmann::json{
+                  {"id", id},
+                  {"backend", "ibm_test"},
+                  {"status", "Completed"},
+              }
+                  .dump(),
+      };
     });
     ibm::Job job(auth, "ibm_test", 2);
     configure(job);
@@ -366,56 +383,72 @@ TEST(QuantumSystem, CancellationAndCompletionRaceUseTopLevelStatus) {
   }
 }
 
-TEST(QuantumSystem, LostSubmissionRemainsCheckableWithoutRetry) {
-  auto config = configuration();
-  config.accessMode = "quantum-system";
-  config.storage = ibm::StorageConfiguration{
-      .endpoint = "http://127.0.0.1:9000",
-      .bucket = "synthetic",
-      .region = "us-east-1",
-      .accessKey = "synthetic-access",
-      .secretKey = "synthetic-secret",
-  };
-  int submissions = 0;
-  int cancellations = 0;
-  std::string id;
-  ibm::Auth auth(config, [&](const ibm::Request& request) {
-    if (!request.form.empty()) {
+TEST(QuantumSystem, OnlyAmbiguousSubmissionRemainsCheckableWithoutRetry) {
+  for (const bool requestMayHaveReachedService : {true, false}) {
+    auto config = configuration();
+    config.accessMode = "quantum-system";
+    config.storage = ibm::StorageConfiguration{
+        .endpoint = "http://127.0.0.1:9000",
+        .bucket = "synthetic",
+        .region = "us-east-1",
+        .accessKey = "synthetic-access",
+        .secretKey = "synthetic-secret",
+    };
+    int submissions = 0;
+    int cancellations = 0;
+    std::string id;
+    ibm::Auth auth(config, [&](const ibm::Request& request) {
+      if (!request.form.empty()) {
+        return ibm::Response{
+            .status = 200,
+            .body = R"({"access_token":"synthetic","expires_in":3600})",
+        };
+      }
+      if (request.presigned) {
+        return ibm::Response{.status = 200};
+      }
+      if (request.url.ends_with("/cancel")) {
+        ++cancellations;
+        return ibm::Response{.status = 204};
+      }
+      if (request.post) {
+        ++submissions;
+        id = nlohmann::json::parse(request.body).at("id").get<std::string>();
+        return requestMayHaveReachedService
+                   ? ibm::Response{.timedOut = true}
+                   : ibm::Response{.failed = true, .failedBeforeSending = true};
+      }
       return ibm::Response{
           .status = 200,
-          .body = R"({"access_token":"synthetic","expires_in":3600})"};
+          .body =
+              nlohmann::json{
+                  {"id", id},
+                  {"backend", "ibm_test"},
+                  {"status", "Running"},
+              }
+                  .dump(),
+      };
+    });
+    ibm::Job job(auth, "ibm_test", 2);
+    configure(job);
+    fails([&] { job.submit(); },
+          requestMayHaveReachedService ? QDMI_ERROR_TIMEOUT : QDMI_ERROR_FATAL);
+    fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
+    EXPECT_FALSE(id.empty());
+    EXPECT_EQ(submissions, 1);
+    if (requestMayHaveReachedService) {
+      EXPECT_EQ(job.id, id);
+      EXPECT_EQ(job.check(), QDMI_JOB_STATUS_RUNNING);
+      job.cancel();
+      EXPECT_EQ(job.check(), QDMI_JOB_STATUS_CANCELED);
+      EXPECT_EQ(cancellations, 1);
+    } else {
+      EXPECT_TRUE(job.id.empty());
+      EXPECT_EQ(job.check(), QDMI_JOB_STATUS_FAILED);
+      fails([&] { job.cancel(); }, QDMI_ERROR_BADSTATE);
+      EXPECT_EQ(cancellations, 0);
     }
-    if (request.presigned) {
-      return ibm::Response{.status = 200};
-    }
-    if (request.url.ends_with("/cancel")) {
-      ++cancellations;
-      return ibm::Response{.status = 204};
-    }
-    if (request.post) {
-      ++submissions;
-      id = nlohmann::json::parse(request.body).at("id").get<std::string>();
-      return ibm::Response{.timedOut = true};
-    }
-    return ibm::Response{
-        .status = 200,
-        .body = nlohmann::json{{"id", id},
-                               {"backend", "ibm_test"},
-                               {"status", "Running"}}
-                    .dump(),
-    };
-  });
-  ibm::Job job(auth, "ibm_test", 2);
-  configure(job);
-  fails([&] { job.submit(); }, QDMI_ERROR_TIMEOUT);
-  fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
-  EXPECT_FALSE(id.empty());
-  EXPECT_EQ(job.id, id);
-  EXPECT_EQ(job.check(), QDMI_JOB_STATUS_RUNNING);
-  job.cancel();
-  EXPECT_EQ(job.check(), QDMI_JOB_STATUS_CANCELED);
-  EXPECT_EQ(cancellations, 1);
-  EXPECT_EQ(submissions, 1);
+  }
 }
 
 TEST(Job, RejectsExcessiveRetrievedExecutionsBeforeDecodingQpy) {

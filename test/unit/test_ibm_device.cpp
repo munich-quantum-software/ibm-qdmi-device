@@ -382,7 +382,8 @@ TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
   for (const auto& [state, expected] :
        std::vector<std::pair<std::string, QDMI_Device_Status>>{
            {"online", QDMI_DEVICE_STATUS_IDLE},
-           {"offline", QDMI_DEVICE_STATUS_OFFLINE}}) {
+           {"offline", QDMI_DEVICE_STATUS_OFFLINE},
+       }) {
     http.queue("/backends/ibm_test",
                {
                    .status = 200,

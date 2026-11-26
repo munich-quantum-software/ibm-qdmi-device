@@ -47,6 +47,7 @@ struct Response {
   bool timedOut = false;
   bool failed = false;
   bool transient = false;
+  bool failedBeforeSending = false;
   std::optional<std::chrono::milliseconds> retryAfter = std::nullopt;
 };
 using Transport = std::function<Response(const Request&)>;

@@ -310,7 +310,6 @@ void Job::submit() {
   status = QDMI_JOB_STATUS_FAILED;
   if (system) {
     StorageSubmission prepared = auth->prepareStorageSubmission();
-    id = std::move(prepared.id);
     nlohmann::json storage;
     for (auto& [kind, url] : prepared.descriptors) {
       storage[kind] = {
@@ -321,21 +320,24 @@ void Job::submit() {
     auth->storagePut(std::move(prepared.inputPut), std::move(body));
     body =
         nlohmann::json{
-            {"id", id},
+            {"id", prepared.id},
             {"backend", backend},
             {"program_id", "sampler"},
             {"timeout_secs", maxExecutionTime},
             {"storage", std::move(storage)},
         }
             .dump();
+    id = std::move(prepared.id);
   }
   const auto response = auth->request("/v1/jobs", true, body);
   if (system) {
     if (response.failed || response.timedOut || response.status != 204) {
-      if (response.failed || response.timedOut) {
-        // The service may have accepted the known job ID before the reply was
-        // lost.
+      if ((response.failed || response.timedOut) &&
+          !response.failedBeforeSending) {
+        // The service may have accepted the job before the reply was lost.
         status = QDMI_JOB_STATUS_SUBMITTED;
+      } else {
+        id.clear();
       }
       checkResponse(response);
       throw Failure{QDMI_ERROR_FATAL};
