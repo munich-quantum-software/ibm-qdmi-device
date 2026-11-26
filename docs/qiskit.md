@@ -16,6 +16,10 @@ access.
 
 ## Select a backend
 
+Choose one of the connections below for the execution example.
+
+### Quantum System
+
 For an on-premises Quantum System API service, provide the protocol and storage
 configuration explicitly:
 
@@ -37,10 +41,9 @@ backend = IBMBackend(
 These environment names configure this example; endpoint and storage values are
 passed as explicit session settings. `IBMDevice` accepts the same arguments. See
 [Quantum System configuration](api.md#quantum-system-api) for the private
-storage file and supported features. Ordinary cloud construction stays
-unchanged.
+storage file and supported features.
 
-Use this backend in the execution example below.
+### IBM Cloud
 
 Supply `IBM_QUANTUM_API_KEY` and `IBM_QUANTUM_INSTANCE_CRN` through the process
 environment or a secret manager. Keep their values out of source code.
@@ -64,7 +67,9 @@ adapts an already-open device and rejects connection overrides. `device_id` and
 `provider` can supply identity metadata for that device; registered devices also
 support the inherited `IBMBackend.from_device_id()` factory.
 
-For local development, install the optional mock support:
+### Local Runtime mock
+
+Install the optional mock support for local development.
 
 ```console
 uv pip install 'ibm-qdmi[mock]'

@@ -163,7 +163,8 @@ if(NOT USE_INSTALLED_IBM_QDMI_DEVICE)
     aws_sdk
     GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
     GIT_TAG 1.11.700 # c9374f0f1f12b6817cb46bb38f298bef6738ada3
-    GIT_SHALLOW TRUE)
+    GIT_SHALLOW TRUE
+    GIT_CONFIG core.longpaths=true)
   FetchContent_MakeAvailable(aws_sdk)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
     # The SDK's clang-cl AVX512 flags omit crc32 needed by this fallback.

@@ -400,7 +400,8 @@ TEST_F(DeviceTest, CloudAndQuantumSystemCapabilitiesCoexist) {
   EXPECT_EQ(handles<QDMI_Program_Format>(
                 QDMI_DEVICE_PROPERTY_SUPPORTEDPROGRAMFORMATS),
             (std::vector<QDMI_Program_Format>{
-                QDMI_PROGRAM_FORMAT_QASM3, IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
+                QDMI_PROGRAM_FORMAT_QASM3, QDMI_PROGRAM_FORMAT_QPY,
+                IBM_QDMI_PROGRAM_FORMAT_EXECUTOR}));
 }
 
 TEST_F(DeviceTest, ForeignHandlesAndCalibrationSnapshots) {
