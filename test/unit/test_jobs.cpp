@@ -283,29 +283,38 @@ TEST(QuantumSystem, ExpiredStorageDeadlineSkipsSigning) {
       QDMI_ERROR_TIMEOUT);
 }
 
-TEST(QuantumSystem, StorageFailurePreventsSubmission) {
-  auto config = configuration();
-  config.accessMode = "quantum-system";
-  config.storage = ibm::StorageConfiguration{
-      .endpoint = "http://127.0.0.1:9000",
-      .bucket = "synthetic",
-      .region = "us-east-1",
-      .accessKey = "synthetic-access",
-      .secretKey = "synthetic-secret",
-  };
-  int requests = 0;
-  ibm::Auth auth(config, [&](const ibm::Request& request) {
-    ++requests;
-    EXPECT_TRUE(request.presigned);
-    EXPECT_TRUE(request.put);
-    return ibm::Response{.status = 403};
-  });
-  ibm::Job job(auth, "ibm_test", 2);
-  configure(job);
-  fails([&] { job.submit(); }, QDMI_ERROR_PERMISSIONDENIED);
-  fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
-  EXPECT_EQ(requests, 1);
-  EXPECT_TRUE(job.id.empty());
+TEST(QuantumSystem, PreSubmissionFailureLeavesNoId) {
+  for (const bool uploadSucceeds : {false, true}) {
+    auto config = configuration();
+    config.accessMode = "quantum-system";
+    config.storage = ibm::StorageConfiguration{
+        .endpoint = "http://127.0.0.1:9000",
+        .bucket = "synthetic",
+        .region = "us-east-1",
+        .accessKey = "synthetic-access",
+        .secretKey = "synthetic-secret",
+    };
+    int uploads = 0;
+    int tokenRequests = 0;
+    ibm::Auth auth(config, [&](const ibm::Request& request) {
+      if (request.presigned) {
+        ++uploads;
+        EXPECT_TRUE(request.put);
+        return ibm::Response{.status = uploadSucceeds ? 200 : 403};
+      }
+      ++tokenRequests;
+      EXPECT_FALSE(request.form.empty());
+      return ibm::Response{.status = 400};
+    });
+    ibm::Job job(auth, "ibm_test", 2);
+    configure(job);
+    fails([&] { job.submit(); }, QDMI_ERROR_PERMISSIONDENIED);
+    fails([&] { job.submit(); }, QDMI_ERROR_BADSTATE);
+    EXPECT_EQ(uploads, 1);
+    EXPECT_EQ(tokenRequests, uploadSucceeds ? 1 : 0);
+    EXPECT_TRUE(job.id.empty());
+    EXPECT_EQ(job.check(), QDMI_JOB_STATUS_FAILED);
+  }
 }
 
 TEST(QuantumSystem, RejectsExecutorRetrievalBeforeStorageAccess) {

@@ -308,6 +308,7 @@ void Job::submit() {
   // Once submission starts, even a lost response must never permit a duplicate.
   attempted = true;
   status = QDMI_JOB_STATUS_FAILED;
+  std::string submissionId;
   if (system) {
     StorageSubmission prepared = auth->prepareStorageSubmission();
     nlohmann::json storage;
@@ -327,7 +328,7 @@ void Job::submit() {
             {"storage", std::move(storage)},
         }
             .dump();
-    id = std::move(prepared.id);
+    submissionId = std::move(prepared.id);
   }
   const auto response = auth->request("/v1/jobs", true, body);
   if (system) {
@@ -335,13 +336,13 @@ void Job::submit() {
       if ((response.failed || response.timedOut) &&
           !response.failedBeforeSending) {
         // The service may have accepted the job before the reply was lost.
+        id = std::move(submissionId);
         status = QDMI_JOB_STATUS_SUBMITTED;
-      } else {
-        id.clear();
       }
       checkResponse(response);
       throw Failure{QDMI_ERROR_FATAL};
     }
+    id = std::move(submissionId);
     status = QDMI_JOB_STATUS_SUBMITTED;
     return;
   }

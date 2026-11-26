@@ -326,8 +326,9 @@ decoupling is disabled by default and can be configured
 including after an authentication failure or a lost response. A failed
 submission freezes the handle for resubmission. If the Quantum System request
 may have reached the service and its response was lost, check or cancel the
-known job ID through the same handle. Resolve an ambiguous cloud submission in
-the IBM platform before creating a replacement.
+known job ID through the same handle. An HTTP error leaves the Quantum System
+handle failed. Resolve ambiguous submissions in the IBM platform before creating
+a replacement.
 
 Job ID, format, shots, and program count
 (`QDMI_DEVICE_JOB_PROPERTY_PROGRAMSNUM`) are queryable.
