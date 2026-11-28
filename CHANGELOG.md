@@ -12,6 +12,9 @@ releases may include breaking changes.
 
 ### Added
 
+- ✨ Add native Quantum System API access with S3 storage beside cloud access,
+  with offline simulator execution and retrieval checks. ([#81])
+  ([**@marcelwa**])
 - ✨ Expose native delays and femtosecond calibration through QDMI. The Qiskit
   target supplies timing for Executor Sampler and Estimator dynamical
   decoupling. Submit scheduled circuits with literal delays through
@@ -179,6 +182,7 @@ _This is the initial release of the IBM QDMI Device._
 [#94]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/94
 [#92]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/92
 [#82]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/82
+[#81]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/81
 [#80]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/80
 [#72]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/72
 [#71]: https://github.com/munich-quantum-software/ibm-qdmi-device/pull/71

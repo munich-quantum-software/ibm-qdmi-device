@@ -16,7 +16,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/munich-quantum-software/ibm-qdmi-device/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/munich-quantum-software/ibm-qdmi-device/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/munich-quantum-software/ibm-qdmi-device?style=flat-square&logo=codecov)](https://codecov.io/gh/munich-quantum-software/ibm-qdmi-device)
 
-**IBM QDMI Device** connects IBM Quantum Platform to the
+**IBM QDMI Device** connects IBM Quantum Platform and on-premises Quantum System
+API services to the
 [Quantum Device Management Interface (QDMI)](https://github.com/Munich-Quantum-Software-Stack/QDMI),
 a vendor-neutral C API for quantum hardware. The C++20 library handles API-key
 authentication, calibration queries, and the job lifecycle. It submits OpenQASM

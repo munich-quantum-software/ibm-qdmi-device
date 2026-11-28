@@ -36,6 +36,8 @@ def session_parameters(
     instance_crn: str | None = None,
     base_url: str | None = None,
     auth_url: str | None = None,
+    access_mode: str | None = None,
+    storage_config: str | None = None,
 ) -> QDMISessionParameters:
     """Map explicit connection overrides to QDMI session parameters.
 
@@ -49,6 +51,10 @@ def session_parameters(
         "base_url": base_url,
         "auth_url": auth_url,
     }
+    if access_mode is not None:
+        parameters["custom4"] = access_mode
+    if storage_config is not None:
+        parameters["custom5"] = storage_config
 
     selected = backend_name
     if selected is None and device_id == IBM_QDMI_DEVICE_ID:

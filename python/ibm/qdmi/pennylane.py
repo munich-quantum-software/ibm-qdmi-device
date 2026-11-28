@@ -53,6 +53,8 @@ class IBMDevice(QDMIDevice):
         instance_crn: Instance CRN; defaults to ``IBM_QUANTUM_INSTANCE_CRN``.
         base_url: Trusted API endpoint override, principally for loopback tests.
         auth_url: Trusted IAM endpoint override, principally for loopback tests.
+        access_mode: cloud (default) or quantum-system.
+        storage_config: Path to the Quantum System S3 configuration file.
         job_parameters: Native QDMI custom job parameters.
     """
 
@@ -69,6 +71,8 @@ class IBMDevice(QDMIDevice):
         instance_crn: str | None = None,
         base_url: str | None = None,
         auth_url: str | None = None,
+        access_mode: str | None = None,
+        storage_config: str | None = None,
         job_parameters: QDMIJobParameters | None = None,
     ) -> None:
         """Open the selected IBM session.
@@ -77,7 +81,19 @@ class IBMDevice(QDMIDevice):
             PennyLaneConfigurationError: An open device conflicts with connection overrides.
         """
         if device is not None:
-            if any(value is not None for value in (device_id, backend_name, api_key, instance_crn, base_url, auth_url)):
+            if any(
+                value is not None
+                for value in (
+                    device_id,
+                    backend_name,
+                    api_key,
+                    instance_crn,
+                    base_url,
+                    auth_url,
+                    access_mode,
+                    storage_config,
+                )
+            ):
                 msg = "An already-open device is exclusive with connection overrides."
                 raise PennyLaneConfigurationError(msg)
             super().__init__(
@@ -94,6 +110,8 @@ class IBMDevice(QDMIDevice):
                 instance_crn=instance_crn,
                 base_url=base_url,
                 auth_url=auth_url,
+                access_mode=access_mode,
+                storage_config=storage_config,
             )
             super().__init__(
                 selected_id,

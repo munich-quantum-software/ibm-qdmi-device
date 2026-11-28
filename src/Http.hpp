@@ -38,6 +38,8 @@ struct Request {
   bool post = false;
   std::string body;
   std::chrono::milliseconds timeout{30000};
+  bool put = false;
+  bool presigned = false;
 };
 struct Response {
   std::int32_t status = 0;
@@ -45,7 +47,8 @@ struct Response {
   bool timedOut = false;
   bool failed = false;
   bool transient = false;
-  std::optional<std::chrono::milliseconds> retryAfter;
+  bool failedBeforeSending = false;
+  std::optional<std::chrono::milliseconds> retryAfter = std::nullopt;
 };
 using Transport = std::function<Response(const Request&)>;
 /// Validate an HTTPS endpoint, or an HTTP loopback endpoint for offline tests.

@@ -172,7 +172,7 @@ Response send(const Request& request) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   cpr::Session client;
-  if (request.form.empty() && !request.post) {
+  if (request.form.empty() && !request.post && !request.put) {
     // Connection sharing across concurrent threads is unsupported by libcurl.
     // Fresh sessions share only this thread's read connections, never cookies.
     thread_local const cpr::ConnectionPool CONNECTIONS;
@@ -193,7 +193,10 @@ Response send(const Request& request) {
   }
   client.SetHeader(cpr::Header{request.headers.begin(), request.headers.end()});
   cpr::Response response;
-  if (request.form.empty() && !request.post) {
+  if (request.put) {
+    client.SetBodyView(cpr::BodyView{request.body});
+    response = client.Put();
+  } else if (request.form.empty() && !request.post) {
     response = client.Get();
   } else if (request.form.empty()) {
     client.SetBodyView(cpr::BodyView{request.body});
@@ -206,18 +209,21 @@ Response send(const Request& request) {
     client.SetPayload(std::move(payload));
     response = client.Post();
   }
+  const auto code = response.error.code;
   return {
       .status = static_cast<std::int32_t>(response.status_code),
       .body = std::move(response.text),
-      .timedOut = response.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT,
-      .failed = response.error.code != cpr::ErrorCode::OK,
-      .transient =
-          response.error.code == cpr::ErrorCode::COULDNT_CONNECT ||
-          response.error.code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
-          response.error.code == cpr::ErrorCode::SEND_ERROR ||
-          response.error.code == cpr::ErrorCode::RECV_ERROR ||
-          response.error.code == cpr::ErrorCode::GOT_NOTHING ||
-          response.error.code == cpr::ErrorCode::PARTIAL_FILE,
+      .timedOut = code == cpr::ErrorCode::OPERATION_TIMEDOUT,
+      .failed = code != cpr::ErrorCode::OK,
+      .transient = code == cpr::ErrorCode::COULDNT_CONNECT ||
+                   code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
+                   code == cpr::ErrorCode::SEND_ERROR ||
+                   code == cpr::ErrorCode::RECV_ERROR ||
+                   code == cpr::ErrorCode::GOT_NOTHING ||
+                   code == cpr::ErrorCode::PARTIAL_FILE,
+      .failedBeforeSending = code == cpr::ErrorCode::COULDNT_CONNECT ||
+                             code == cpr::ErrorCode::COULDNT_RESOLVE_HOST ||
+                             code == cpr::ErrorCode::COULDNT_RESOLVE_PROXY,
       .retryAfter = internal::parseRetryAfter(response.header["Retry-After"]),
   };
 }

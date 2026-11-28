@@ -22,6 +22,7 @@ jobs:
         .github/workflows/cpp-*.yml
         .github/workflows/live-tests.yml
       additional-python-files: |
+        .github/workflows/quantum-system-simulator.yml
         .github/workflows/live-tests.yml
         test/fixtures/**
 
@@ -205,6 +206,11 @@ jobs:
       IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
       IBM_QUANTUM_INSTANCE_CRN: ${{ secrets.IBM_QUANTUM_INSTANCE_CRN }}
 
+  simulator:
+    name: Quantum System simulator
+    needs: build-wheel
+    uses: $/.github/workflows/quantum-system-simulator.yml
+
   required-checks-pass:
     name: 🚦 Check
     needs:
@@ -221,6 +227,7 @@ jobs:
       - cpp-install-tests
       - build-sdist
       - build-wheel
+      - simulator
       - live-tests
     if: always()
     runs-on: ubuntu-slim
@@ -252,7 +259,7 @@ jobs:
             ${{
               !fromJSON(needs.change-detection.outputs.run-python-tests)
               && !fromJSON(needs.change-detection.outputs.run-cd)
-              && 'build-sdist,build-wheel,' || ''
+              && 'build-sdist,build-wheel,simulator,' || ''
             }}
             ${{
               (

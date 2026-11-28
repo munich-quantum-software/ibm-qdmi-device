@@ -78,6 +78,36 @@ Pytest selection and registered markers live in `pyproject.toml`:
 
 The `live` and `quantum` markers require their opt-in flags even when selected.
 
+### Quantum System simulator checks
+
+The simulator CI job installs the Linux wheel from CI and starts pinned
+[Simulated Quantum Resource](https://github.com/qrmi-community/simulated_quantum_resource)
+and Moto 5.2.3 on loopback. It validates IAM, metadata, a batch of circuits,
+shot/register ordering, and retrieval from a fresh session through S3. Synthetic
+credentials are confined to the fixture and the local bucket. The simulator uses
+noiseless execution; backend metadata remains real fake-provider metadata. A
+failing simulator job fails the `🚦 Check` gate.
+
+To reproduce, check out simulator revision
+`0d547e7d329b8bd3315392e9117f116dc1661ddd` under `build/qsa-sim`. Install its
+requirements and `moto[server]==5.2.3` in a separate Python 3.12 environment.
+Start Moto on `127.0.0.1:9000` and create bucket `qdmi-e2e` using access key
+`synthetic-access`, secret key `synthetic-secret`, and region `us-east-1`. Start
+`python -m qsa_sim.app ../../test/fixtures/simulator.yaml` from the simulator
+checkout. Run the native ABI and framework tests in separate processes.
+
+```console
+uvx nox -s integration_tests -- -m 'simulator and integration' --simulator-url http://127.0.0.1:8290
+uvx nox -s tests-3.14 -- -m 'simulator and not integration' -n 0 --simulator-url http://127.0.0.1:8290
+```
+
+Stop both services afterward. An explicitly selected unavailable service fails;
+ordinary test runs skip simulator checks. Use `--simulator-s3-url` to change the
+loopback storage endpoint. Existing fixtures still cover cloud behavior and
+deterministic failures. These tests neither contact IBM nor submit QPU jobs.
+
+### Source distribution checks
+
 Build a wheel from the source distribution:
 
 ```console

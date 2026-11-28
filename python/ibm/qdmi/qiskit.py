@@ -66,6 +66,8 @@ class IBMBackend(QDMIBackend):
         instance_crn: Instance CRN; defaults to ``IBM_QUANTUM_INSTANCE_CRN``.
         base_url: Trusted API endpoint override, principally for loopback tests.
         auth_url: Trusted IAM endpoint override, principally for loopback tests.
+        access_mode: cloud (default) or quantum-system.
+        storage_config: Path to the Quantum System S3 configuration file.
     """
 
     def __init__(
@@ -79,6 +81,8 @@ class IBMBackend(QDMIBackend):
         instance_crn: str | None = None,
         base_url: str | None = None,
         auth_url: str | None = None,
+        access_mode: str | None = None,
+        storage_config: str | None = None,
     ) -> None:
         """Open a fresh session or adapt the supplied device.
 
@@ -96,9 +100,14 @@ class IBMBackend(QDMIBackend):
                     instance_crn=instance_crn,
                     base_url=base_url,
                     auth_url=auth_url,
+                    access_mode=access_mode,
+                    storage_config=storage_config,
                 ),
             )
-        elif any(value is not None for value in (backend_name, api_key, instance_crn, base_url, auth_url)):
+        elif any(
+            value is not None
+            for value in (backend_name, api_key, instance_crn, base_url, auth_url, access_mode, storage_config)
+        ):
             msg = "An already-open device is exclusive with connection overrides."
             raise ValueError(msg)
         super().__init__(device=device, provider=provider, device_id=device_id)

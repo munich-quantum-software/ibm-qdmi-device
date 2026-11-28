@@ -27,7 +27,8 @@ add_library(
   Job.cpp
   Metadata.cpp
   Program.cpp
-  Qpy.cpp)
+  Qpy.cpp
+  Storage.cpp)
 add_library(ibm::qdmi_device_internals ALIAS ibm-qdmi-core)
 target_compile_features(ibm-qdmi-core PUBLIC cxx_std_20)
 target_include_directories(
@@ -40,7 +41,7 @@ target_compile_definitions(
   INTERFACE $<$<PLATFORM_ID:Windows>:IBM_QDMI_STATIC_DEFINE>)
 target_link_libraries(
   ibm-qdmi-core
-  PUBLIC cpr::cpr nlohmann_json::nlohmann_json zlib-ng::zlib
+  PUBLIC cpr::cpr nlohmann_json::nlohmann_json zlib-ng::zlib aws-cpp-sdk-s3 aws-cpp-sdk-core
   PRIVATE qdmi::qdmi_project_warnings)
 set_target_properties(ibm-qdmi-core PROPERTIES CXX_VISIBILITY_PRESET hidden
                                                VISIBILITY_INLINES_HIDDEN ON)

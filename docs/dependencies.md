@@ -9,19 +9,21 @@ extras support Qiskit IBM Runtime `>=0.50,<0.53`.
 
 ## Runtime dependencies
 
-CPR, zlib-ng, and nlohmann/json are compiled into the device library. curl is
-linked statically on Linux and Windows; macOS uses the system library. QDMI
-supplies interface headers, including the generated IBM declarations installed
-with the development package; no QDMI driver library is linked into the device.
+CPR, zlib-ng, nlohmann/json, and the AWS SDK are compiled into the device
+library. curl is linked statically on Linux and Windows; macOS uses the system
+library. QDMI supplies interface headers, including the generated IBM
+declarations installed with the development package; no QDMI driver library is
+linked into the device.
 
-| Dependency      | Version                         | License                        | Purpose                        |
-| :-------------- | :------------------------------ | :----------------------------- | :----------------------------- |
-| [QDMI]          | 1.4.0                           | Apache-2.0 WITH LLVM-exception | Device interface and headers   |
-| [nlohmann/json] | 3.12.0                          | MIT                            | JSON parsing and serialization |
-| [CPR]           | 1.15.1                          | MIT                            | C++ HTTP client                |
-| [curl]          | 8.23.0; system version on macOS | curl                           | HTTP transport                 |
-| [zlib-ng]       | 2.3.3                           | Zlib                           | QPY compression                |
-| [OpenSSL]       | ≥3; Linux                       | Apache-2.0                     | TLS                            |
+| Dependency        | Version                         | License                        | Purpose                        |
+| :---------------- | :------------------------------ | :----------------------------- | :----------------------------- |
+| [AWS SDK for C++] | 1.11.700                        | Apache-2.0                     | S3 endpoints and signing       |
+| [QDMI]            | 1.4.0                           | Apache-2.0 WITH LLVM-exception | Device interface and headers   |
+| [nlohmann/json]   | 3.12.0                          | MIT                            | JSON parsing and serialization |
+| [CPR]             | 1.15.1                          | MIT                            | C++ HTTP client                |
+| [curl]            | 8.23.0; system version on macOS | curl                           | HTTP transport                 |
+| [zlib-ng]         | 2.3.3                           | Zlib                           | QPY compression                |
+| [OpenSSL]         | ≥3; Linux                       | Apache-2.0                     | TLS                            |
 
 Linux wheels bundle OpenSSL; native builds use the installed OpenSSL development
 package. Windows uses Schannel and macOS uses system curl's TLS implementation.
@@ -53,6 +55,7 @@ builds also require OpenSSL development headers. Python packaging uses
 tasks. See [source installation](installation.md#building-from-source) and
 [development](development.md) for commands.
 
+[AWS SDK for C++]: https://github.com/aws/aws-sdk-cpp
 [CPR]: https://github.com/libcpr/cpr
 [curl]: https://curl.se/
 [MQT Core]: https://mqt.readthedocs.io/projects/core/

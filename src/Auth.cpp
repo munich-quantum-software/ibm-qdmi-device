@@ -22,6 +22,7 @@
 #include "ibm_qdmi/constants.h"
 
 #include "Http.hpp"
+#include "Storage.hpp"
 
 #include "nlohmann/json.hpp"
 #include "nlohmann/json_fwd.hpp"
@@ -47,6 +48,7 @@
 #include <vector>
 
 #ifdef _MSC_VER
+#include <cerrno>
 // MSVC declares _dupenv_s in its C extension header.
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers)
 #endif
@@ -116,15 +118,32 @@ std::chrono::milliseconds parseRequestTimeout(std::string_view value) {
 }
 
 Configuration resolve(Configuration configuration) {
-  if (!configuration.apiKeyConfigured && configuration.apiKey.empty()) {
-    configuration.apiKey = configuration.authFile
-                               ? readApiKey(*configuration.authFile)
-                               : environment("IBM_QUANTUM_API_KEY");
+  const bool system = configuration.accessMode == "quantum-system";
+  if ((!system && configuration.accessMode != "cloud") ||
+      (!system && configuration.storageFile)) {
+    throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
-  if (!configuration.backendConfigured && configuration.backend.empty()) {
+  if (system) {
+    if (configuration.baseUrl.empty() || !configuration.storageFile ||
+        (!configuration.authUrlConfigured &&
+         configuration.authUrl == "https://iam.cloud.ibm.com/identity/token")) {
+      throw Failure{QDMI_ERROR_INVALIDARGUMENT};
+    }
+    configuration.storage =
+        readStorageConfiguration(*configuration.storageFile);
+  }
+  if (!configuration.apiKeyConfigured && configuration.apiKey.empty()) {
+    if (configuration.authFile) {
+      configuration.apiKey = readApiKey(*configuration.authFile);
+    } else if (!system) {
+      configuration.apiKey = environment("IBM_QUANTUM_API_KEY");
+    }
+  }
+  if (!system && !configuration.backendConfigured &&
+      configuration.backend.empty()) {
     configuration.backend = environment("IBM_QUANTUM_BACKEND");
   }
-  if (!configuration.crnConfigured && configuration.crn.empty()) {
+  if (!system && !configuration.crnConfigured && configuration.crn.empty()) {
     configuration.crn = environment("IBM_QUANTUM_INSTANCE_CRN");
   }
   if (configuration.apiKey.empty()) {
@@ -135,7 +154,9 @@ Configuration resolve(Configuration configuration) {
                            [](unsigned char value) {
                              return std::isalnum(value) != 0 || value == '_';
                            }) ||
-      configuration.crn.find_first_of("\r\n") != std::string::npos) {
+      std::ranges::any_of(configuration.crn, [](unsigned char ch) {
+        return ch < 32 || ch == 127;
+      })) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   std::vector<std::string> parts;
@@ -146,8 +167,9 @@ Configuration resolve(Configuration configuration) {
     start = end + 1;
   }
   parts.push_back(configuration.crn.substr(start));
-  if (parts.size() != 10 || parts[0] != "crn" || parts[1] != "v1" ||
-      parts[4] != "quantum-computing" || parts[6].empty() || parts[7].empty()) {
+  if (!system && (parts.size() != 10 || parts[0] != "crn" || parts[1] != "v1" ||
+                  parts[4] != "quantum-computing" || parts[6].empty() ||
+                  parts[7].empty())) {
     throw Failure{QDMI_ERROR_INVALIDARGUMENT};
   }
   if (configuration.baseUrl.empty()) {
@@ -174,6 +196,49 @@ Auth::Auth(Configuration configurationValue, Transport transportValue,
     : configuration(std::move(configurationValue)),
       transport(std::move(transportValue)), clock(std::move(clockValue)),
       sleepUntil(std::move(sleepUntilValue)) {}
+
+bool Auth::quantumSystem() const {
+  return configuration.accessMode == "quantum-system";
+}
+StorageSubmission Auth::prepareStorageSubmission() const {
+  if (!configuration.storage) {
+    throw Failure{QDMI_ERROR_BADSTATE};
+  }
+  const auto deadline = clock() + configuration.requestTimeout;
+  auto result = ibm::prepareStorageSubmission(*configuration.storage,
+                                              remaining(deadline));
+  (void)remaining(deadline);
+  return result;
+}
+std::string Auth::storageGet(const std::string& key, Deadline deadline) {
+  if (!configuration.storage) {
+    throw Failure{QDMI_ERROR_BADSTATE};
+  }
+  deadline = std::min(deadline, clock() + configuration.requestTimeout);
+  auto response = transport({
+      .url = storageUrl(*configuration.storage, key, false, false,
+                        remaining(deadline)),
+      .headers = {},
+      .form = {},
+      .body = {},
+      .timeout = remaining(deadline),
+      .presigned = true,
+  });
+  checkResponse(response);
+  return std::move(response.body);
+}
+void Auth::storagePut(std::string url, std::string body) {
+  const auto response = transport({
+      .url = std::move(url),
+      .headers = {{"Content-Type", "application/json"}},
+      .form = {},
+      .body = std::move(body),
+      .timeout = configuration.requestTimeout,
+      .put = true,
+      .presigned = true,
+  });
+  checkResponse(response);
+}
 
 std::chrono::milliseconds Auth::remaining(Deadline deadline) const {
   const auto now = clock();
